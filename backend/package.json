@@ -1,0 +1,45 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate": "tsx ../database/migrations/runner.ts up",
+    "db:rollback": "tsx ../database/migrations/runner.ts down",
+    "db:seed": "tsx ../database/seeds/seeder.ts"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^10.0.2",
+    "pino": "^9.1.0",
+    "pino-pretty": "^11.1.0",
+    "uuid": "^9.0.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/mssql": "^9.1.5",
+    "@types/node": "^20.12.12",
+    "@types/uuid": "^9.0.8",
+    "supertest": "^7.0.0",
+    "tsx": "^4.10.1",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+
+}

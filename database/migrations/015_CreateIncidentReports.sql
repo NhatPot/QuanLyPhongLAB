@@ -1,0 +1,33 @@
+-- UP
+CREATE TABLE IncidentReports (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    Code NVARCHAR(50) NOT NULL UNIQUE,
+    ReporterId UNIQUEIDENTIFIER NOT NULL,
+    ComputerId UNIQUEIDENTIFIER NULL,
+    EquipmentId UNIQUEIDENTIFIER NULL,
+    BookingRequestId UNIQUEIDENTIFIER NULL,
+    Title NVARCHAR(255) NOT NULL,
+    Description NVARCHAR(MAX) NOT NULL,
+    Severity NVARCHAR(50) NOT NULL DEFAULT 'LOW',
+    Status NVARCHAR(50) NOT NULL DEFAULT 'OPEN',
+    ImageUrl NVARCHAR(MAX) NULL,
+    AssignedTo UNIQUEIDENTIFIER NULL,
+    ResolvedAt DATETIME2 NULL,
+    ClosedAt DATETIME2 NULL,
+    ResultNote NVARCHAR(MAX) NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT FK_IncidentReports_Reporter FOREIGN KEY (ReporterId) REFERENCES Users(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_IncidentReports_Computer FOREIGN KEY (ComputerId) REFERENCES Computers(Id) ON DELETE SET NULL,
+    CONSTRAINT FK_IncidentReports_Equipment FOREIGN KEY (EquipmentId) REFERENCES Equipments(Id) ON DELETE SET NULL,
+    CONSTRAINT FK_IncidentReports_Booking FOREIGN KEY (BookingRequestId) REFERENCES BookingRequests(Id) ON DELETE SET NULL,
+    CONSTRAINT FK_IncidentReports_AssignedTo FOREIGN KEY (AssignedTo) REFERENCES Users(Id) ON DELETE SET NULL,
+    CONSTRAINT CK_IncidentReports_Severity CHECK (Severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    CONSTRAINT CK_IncidentReports_Status CHECK (Status IN ('OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'))
+);
+
+CREATE INDEX IX_IncidentReports_Status_Severity ON IncidentReports(Status, Severity);
+
+-- DOWN
+DROP INDEX IF EXISTS IncidentReports.IX_IncidentReports_Status_Severity;
+DROP TABLE IF EXISTS IncidentReports;

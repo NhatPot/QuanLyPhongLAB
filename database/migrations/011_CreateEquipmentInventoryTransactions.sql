@@ -1,0 +1,23 @@
+-- UP
+CREATE TABLE EquipmentInventoryTransactions (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    EquipmentId UNIQUEIDENTIFIER NOT NULL,
+    TransactionType NVARCHAR(50) NOT NULL,
+    DeltaTotal INT NOT NULL DEFAULT 0,
+    DeltaAvailable INT NOT NULL DEFAULT 0,
+    DeltaReserved INT NOT NULL DEFAULT 0,
+    DeltaBorrowed INT NOT NULL DEFAULT 0,
+    DeltaBroken INT NOT NULL DEFAULT 0,
+    DeltaMaintenance INT NOT NULL DEFAULT 0,
+    DeltaLost INT NOT NULL DEFAULT 0,
+    ReferenceType NVARCHAR(50) NULL,
+    ReferenceId UNIQUEIDENTIFIER NULL,
+    PerformedBy UNIQUEIDENTIFIER NULL,
+    Note NVARCHAR(MAX) NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT FK_EqInvTx_Equipments FOREIGN KEY (EquipmentId) REFERENCES Equipments(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_EqInvTx_PerformedBy FOREIGN KEY (PerformedBy) REFERENCES Users(Id) ON DELETE SET NULL
+);
+
+-- DOWN
+DROP TABLE IF EXISTS EquipmentInventoryTransactions;

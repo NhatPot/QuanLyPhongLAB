@@ -1,0 +1,18 @@
+-- UP
+CREATE TABLE AuthSessions (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    UserId UNIQUEIDENTIFIER NOT NULL,
+    RefreshTokenHash NVARCHAR(255) NOT NULL,
+    ExpiresAt DATETIME2 NOT NULL,
+    RevokedAt DATETIME2 NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    IpAddress NVARCHAR(100) NULL,
+    UserAgent NVARCHAR(500) NULL,
+    CONSTRAINT FK_AuthSessions_Users FOREIGN KEY (UserId) REFERENCES Users(Id) ON DELETE CASCADE
+);
+
+CREATE INDEX IX_AuthSessions_UserId_ExpiresAt ON AuthSessions(UserId, ExpiresAt);
+
+-- DOWN
+DROP INDEX IF EXISTS AuthSessions.IX_AuthSessions_UserId_ExpiresAt;
+DROP TABLE IF EXISTS AuthSessions;

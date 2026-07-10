@@ -1,0 +1,27 @@
+-- UP
+CREATE TABLE Users (
+    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    FullName NVARCHAR(255) NOT NULL,
+    Email NVARCHAR(255) NOT NULL UNIQUE,
+    EmailNormalized NVARCHAR(255) NOT NULL UNIQUE,
+    Username NVARCHAR(100) NOT NULL UNIQUE,
+    UsernameNormalized NVARCHAR(100) NOT NULL UNIQUE,
+    Phone NVARCHAR(50) NULL,
+    PasswordHash NVARCHAR(MAX) NOT NULL,
+    Department NVARCHAR(255) NULL,
+    Status NVARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+    MustChangePassword BIT NOT NULL DEFAULT 1,
+    LastLoginAt DATETIME2 NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    DeletedAt DATETIME2 NULL,
+    CONSTRAINT CK_Users_Status CHECK (Status IN ('ACTIVE', 'LOCKED', 'INACTIVE'))
+);
+
+CREATE INDEX IX_Users_EmailNormalized ON Users(EmailNormalized);
+CREATE INDEX IX_Users_UsernameNormalized ON Users(UsernameNormalized);
+
+-- DOWN
+DROP INDEX IF EXISTS Users.IX_Users_EmailNormalized;
+DROP INDEX IF EXISTS Users.IX_Users_UsernameNormalized;
+DROP TABLE IF EXISTS Users;
