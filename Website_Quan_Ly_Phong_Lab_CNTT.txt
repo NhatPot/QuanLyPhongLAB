@@ -1,0 +1,494 @@
+ĐẶC TẢ WEBSITE QUẢN LÝ 1 PHÒNG LAB NGÀNH CÔNG NGHỆ THÔNG TIN
+Theo Clean Architecture và sử dụng SQL Server
+
+1. Mục tiêu hệ thống
+Xây dựng website quản lý một phòng lab duy nhất của ngành Công nghệ thông tin. Hệ thống cho phép quản lý việc đăng ký sử dụng phòng lab, đăng ký số lượng máy tính, mượn thiết bị ngành, theo dõi ngày mượn/ngày trả, duyệt yêu cầu, check-in/check-out, báo cáo sự cố, quản lý thiết bị, quản lý máy tính và thống kê tình hình sử dụng phòng lab.
+Hệ thống sử dụng SQL Server làm cơ sở dữ liệu chính.
+Do chỉ quản lý 1 phòng lab duy nhất, hệ thống không cần chức năng quản lý nhiều phòng. Tất cả lịch đăng ký, máy tính, thiết bị, sự cố, bảo trì và dashboard đều xoay quanh một phòng lab cố định.
+
+2. Phạm vi hệ thống
+Hệ thống quản lý các nhóm dữ liệu chính:
+1. Thông tin phòng lab duy nhất2. Máy tính trong phòng lab3. Thiết bị ngành CNTT trong phòng lab4. Người dùng và phân quyền5. Đăng ký sử dụng phòng lab6. Đăng ký số lượng máy tính7. Đăng ký mượn thiết bị8. Duyệt yêu cầu9. Check-in/check-out10. Lịch trực phòng11. Bảo trì12. Báo cáo sự cố13. Dashboard thống kê14. Nhật ký thao tác hệ thống
+
+3. Đặc điểm quan trọng của hệ thống
+3.1 Chỉ quản lý một phòng lab duy nhất
+Vì chỉ có một phòng lab, hệ thống sẽ không cần các chức năng như:
+- Tạo nhiều phòng lab- Chọn phòng lab khi đăng ký- So sánh lịch giữa nhiều phòng- Thống kê theo nhiều phòng- Phân quyền theo từng phòng
+Thay vào đó, hệ thống chỉ cần một phần cấu hình thông tin phòng lab duy nhất.
+Ví dụ:
+Tên phòng: Phòng Lab Công nghệ thông tinMã phòng: IT-LABVị trí: Khoa Công nghệ thông tinSức chứa: 40 ngườiSố máy tính: 35 máyThiết bị: Router, Switch, Access Point, IoT Kit, Arduino, Raspberry Pi, Server MiniTrạng thái: Đang hoạt động
+3.2 Sử dụng SQL Server
+Cơ sở dữ liệu dùng Microsoft SQL Server.
+Các yêu cầu khi thiết kế database:
+- Dùng bảng quan hệ rõ ràng- Có khóa chính, khóa ngoại- Có trạng thái cho các nghiệp vụ quan trọng- Có CreatedAt, UpdatedAt cho các bảng chính- Có AuditLog để lưu lịch sử thao tác- Có transaction khi duyệt, mượn, trả, cập nhật số lượng thiết bị- Có index cho các bảng lịch đăng ký, thiết bị, máy tính, người dùng
+
+4. Nhóm người dùng trong hệ thống
+4.1 Admin
+Admin có quyền cao nhất.
+Chức năng chính:
+- Quản lý tài khoản- Phân quyền người dùng- Cấu hình thông tin phòng lab- Quản lý máy tính- Quản lý thiết bị ngành- Duyệt hoặc từ chối yêu cầu đăng ký- Quản lý lịch trực phòng- Quản lý bảo trì- Xem dashboard tổng- Xuất báo cáo- Xem lịch sử thao tác
+
+4.2 Giáo viên
+Giáo viên là người thường đăng ký phòng lab cho mục đích giảng dạy, thực hành, nghiên cứu hoặc hướng dẫn sinh viên.
+Chức năng chính:
+- Đăng ký sử dụng phòng lab- Đăng ký số lượng máy tính cần dùng- Đăng ký mượn thiết bị ngành- Xem lịch sử dụng phòng lab- Theo dõi trạng thái yêu cầu- Hủy yêu cầu khi chưa được duyệt- Báo lỗi máy tính hoặc thiết bị- Xem lịch sử đăng ký của mình
+
+4.3 Cộng tác viên
+Cộng tác viên hỗ trợ vận hành phòng lab.
+Chức năng chính:
+- Xem lịch đăng ký- Hỗ trợ kiểm tra yêu cầu- Xác nhận bàn giao thiết bị- Cập nhật tình trạng máy tính- Cập nhật tình trạng thiết bị- Ghi nhận sự cố- Hỗ trợ check-in/check-out
+
+4.4 Ban trực phòng
+Ban trực phòng là nhóm trực tiếp quản lý phòng lab theo ca.
+Chức năng chính:
+- Xem lịch sử dụng hôm nay- Xác nhận người dùng đến nhận phòng- Check-in phiên sử dụng- Check-out khi trả phòng- Kiểm tra số lượng máy tính sử dụng- Kiểm tra thiết bị lúc mượn/trả- Ghi chú tình trạng phòng sau khi sử dụng- Báo cáo sự cố- Bàn giao ca trực
+
+4.5 Sinh viên hoặc người đăng ký sử dụng
+Tùy quy định của khoa, sinh viên có thể được đăng ký trực tiếp hoặc chỉ được sử dụng thông qua giáo viên.
+Chức năng chính:
+- Xem lịch trống của phòng lab- Gửi yêu cầu sử dụng nếu được cấp quyền- Theo dõi trạng thái yêu cầu- Báo lỗi thiết bị hoặc máy tính- Xem lịch sử sử dụng của mình
+
+5. Quản lý thông tin phòng lab duy nhất
+Do chỉ có một phòng lab, hệ thống cần một bảng hoặc một cấu hình cố định để lưu thông tin phòng.
+Thông tin cần quản lý:
+- Mã phòng lab- Tên phòng lab- Vị trí- Sức chứa tối đa- Tổng số máy tính- Số máy đang hoạt động- Số máy đang hỏng- Số máy đang bảo trì- Danh sách thiết bị trong phòng- Người phụ trách chính- Trạng thái phòng- Nội quy sử dụng phòng- Ghi chú
+Trạng thái phòng lab:
+ACTIVE       - Đang hoạt độngMAINTENANCE  - Đang bảo trìLOCKED       - Tạm khóaINACTIVE     - Ngừng sử dụng
+Điều kiện:
+- Nếu phòng đang bảo trì thì không cho đăng ký mới.- Nếu phòng bị khóa thì chỉ admin mới được tạo lịch.- Nếu phòng ngừng hoạt động thì không cho sử dụng.- Sức chứa phòng là giới hạn tối đa cho mỗi lượt đăng ký.
+
+6. Quản lý máy tính trong phòng lab
+Mỗi máy tính cần được quản lý riêng.
+Thông tin máy tính:
+- Mã máy- Tên máy- CPU- RAM- Ổ cứng- GPU- Hệ điều hành- Phần mềm đã cài- Địa chỉ IP- Địa chỉ MAC- Vị trí trong phòng- Tình trạng- Ngày bảo trì gần nhất- Ghi chú lỗi
+Trạng thái máy tính:
+ACTIVE       - Hoạt độngIN_USE       - Đang sử dụngBROKEN       - Bị hỏngMAINTENANCE  - Đang bảo trìLOCKED       - Tạm khóa
+Điều kiện quản lý máy tính:
+- Máy đang hỏng không được tính vào số máy khả dụng.- Máy đang bảo trì không được tính vào số máy khả dụng.- Máy bị khóa không được cho đăng ký.- Khi đăng ký số lượng máy tính, hệ thống phải kiểm tra số máy khả dụng trong khung giờ đó.- Không cho đăng ký vượt quá số máy còn dùng được.
+Công thức tính số máy khả dụng:
+Số máy khả dụng = Tổng số máy hoạt động - Số máy đã được đặt trong cùng khung giờ
+Trong đó tổng số máy hoạt động không bao gồm:
+- Máy hỏng- Máy bảo trì- Máy bị khóa
+
+7. Quản lý thiết bị ngành CNTT
+Phòng lab ngành CNTT có thể có các thiết bị sau:
+- Router- Switch- Access Point- Server Mini- Raspberry Pi- Arduino Kit- IoT Kit- Camera AI- Thiết bị mạng- Bộ thực hành điện tử- Laptop lab- Bộ robot học tập- Cảm biến- Thiết bị lưu trữ- Thiết bị trình chiếu- Thiết bị an ninh mạng
+Thông tin thiết bị:
+- Mã thiết bị- Tên thiết bị- Loại thiết bị- Số lượng tổng- Số lượng khả dụng- Số lượng đang mượn- Số lượng hỏng- Vị trí lưu trữ- Người phụ trách- Trạng thái- Ngày nhập- Giá trị thiết bị- Hình ảnh- Ghi chú
+Trạng thái thiết bị:
+ACTIVE       - Có thể sử dụngBORROWED     - Đang được mượnBROKEN       - Bị hỏngMAINTENANCE  - Đang bảo trìLOCKED       - Tạm khóaLOST         - Bị mất
+Điều kiện mượn thiết bị:
+- Không cho mượn vượt quá số lượng khả dụng.- Thiết bị hỏng không được mượn.- Thiết bị đang bảo trì không được mượn.- Thiết bị bị khóa không được mượn.- Thiết bị giá trị cao có thể yêu cầu admin duyệt riêng.- Khi trả thiết bị, ban trực phải kiểm tra tình trạng.- Nếu thiết bị hỏng, thiếu hoặc mất, hệ thống phải tạo biên bản sự cố.
+
+8. Chức năng đăng ký sử dụng phòng lab
+Vì chỉ có một phòng lab, form đăng ký không cần chọn phòng. Hệ thống tự hiểu mọi yêu cầu đều áp dụng cho phòng lab duy nhất.
+8.1 Các loại đăng ký
+Hệ thống nên có các loại đăng ký sau:
+1. Đăng ký sử dụng cả phòng lab2. Đăng ký sử dụng số lượng máy tính3. Đăng ký mượn thiết bị4. Đăng ký lịch thực hành định kỳ
+
+8.2 Đăng ký sử dụng cả phòng lab
+Dùng khi giáo viên, cộng tác viên hoặc người có quyền cần sử dụng toàn bộ phòng lab.
+Thông tin cần nhập:
+- Người đăng ký- Vai trò người đăng ký- Mục đích sử dụng- Ngày sử dụng- Giờ bắt đầu- Giờ kết thúc- Số lượng người tham gia- Có cần sử dụng máy tính không- Số lượng máy tính cần dùng- Có cần mượn thiết bị không- Danh sách thiết bị cần mượn- Lý do sử dụng- Ghi chú- File đính kèm nếu có
+Ví dụ lý do sử dụng:
+- Giảng dạy thực hành- Thi cuối kỳ- Làm đồ án- Nghiên cứu khoa học- Tổ chức workshop- Huấn luyện đội tuyển- Thực hành mạng máy tính- Thực hành IoT- Thực hành an toàn thông tin
+
+8.3 Đăng ký số lượng máy tính
+Dùng khi người dùng chỉ cần một số lượng máy tính, không nhất thiết dùng toàn bộ phòng.
+Thông tin cần nhập:
+- Người đăng ký- Ngày sử dụng- Giờ bắt đầu- Giờ kết thúc- Số lượng máy tính cần dùng- Số lượng người tham gia- Mục đích sử dụng- Ghi chú
+Điều kiện:
+- Không vượt quá số máy khả dụng.- Không được đăng ký vào thời gian phòng đã được đặt nguyên phòng.- Nếu phòng đang bảo trì thì không cho đăng ký.
+
+8.4 Đăng ký mượn thiết bị
+Dùng khi người dùng cần mượn thiết bị để sử dụng trong hoặc ngoài phòng lab.
+Thông tin cần nhập:
+- Người mượn- Thiết bị cần mượn- Số lượng- Ngày mượn- Ngày trả dự kiến- Lý do mượn- Địa điểm sử dụng- Người chịu trách nhiệm- Ghi chú
+Khi bàn giao cần lưu:
+- Người bàn giao- Tình trạng thiết bị lúc bàn giao- Số lượng bàn giao thực tế- Hình ảnh nếu cần- Thời gian bàn giao
+Khi trả cần lưu:
+- Người nhận lại- Thời gian trả thực tế- Tình trạng thiết bị lúc trả- Số lượng trả thực tế- Ghi chú hư hỏng nếu có
+
+8.5 Đăng ký lịch thực hành định kỳ
+Dùng cho lịch học cố định theo tuần.
+Thông tin cần nhập:
+- Môn học- Lớp học- Giáo viên phụ trách- Thứ trong tuần- Giờ bắt đầu- Giờ kết thúc- Ngày bắt đầu- Ngày kết thúc- Số lượng sinh viên- Số lượng máy tính cần dùng- Thiết bị cần dùng định kỳ- Ghi chú
+Điều kiện:
+- Hệ thống phải tự tạo nhiều lịch con theo từng tuần.- Nếu có ngày bị trùng lịch, hệ thống phải cảnh báo.- Admin có quyền bỏ qua hoặc điều chỉnh từng buổi.
+
+9. Quy trình đăng ký và duyệt
+9.1 Quy trình chuẩn
+Người dùng tạo yêu cầu→ Hệ thống kiểm tra thời gian, sức chứa, số máy, thiết bị→ Yêu cầu chuyển sang trạng thái Chờ duyệt→ Admin hoặc người có quyền duyệt kiểm tra→ Duyệt hoặc từ chối→ Đến ngày sử dụng, ban trực check-in→ Người dùng sử dụng phòng/máy/thiết bị→ Khi kết thúc, ban trực check-out→ Cập nhật tình trạng phòng, máy, thiết bị→ Hoàn tất hoặc tạo báo cáo sự cố
+
+9.2 Trạng thái yêu cầu
+DRAFT        - Bản nhápPENDING      - Chờ duyệtAPPROVED     - Đã duyệtREJECTED     - Bị từ chốiCANCELLED    - Đã hủyCHECKED_IN   - Đã nhận phòng/thiết bịCHECKED_OUT  - Đã trả phòng/thiết bịCOMPLETED    - Hoàn tấtOVERDUE      - Quá hạn trảINCIDENT     - Có sự cố
+
+10. Điều kiện kiểm tra khi đăng ký
+Hệ thống phải kiểm tra các điều kiện sau trước khi cho tạo yêu cầu:
+- Phòng lab có đang hoạt động không.- Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.- Ngày trả không được trước ngày mượn.- Số người không được vượt quá sức chứa phòng.- Số máy tính yêu cầu không được vượt quá số máy khả dụng.- Thiết bị yêu cầu không được vượt quá số lượng khả dụng.- Không được trùng lịch với yêu cầu đã được duyệt.- Không được đăng ký vào thời gian phòng đang bảo trì.- Người đăng ký phải có quyền tạo loại yêu cầu đó.- Không được sửa yêu cầu sau khi đã check-in, trừ admin.
+Điều kiện kiểm tra trùng lịch:
+newStart < existingEnd AND newEnd > existingStart
+Nếu điều kiện trên đúng thì lịch bị chồng lấn.
+
+11. Dashboard hệ thống
+Dashboard cần thể hiện tình trạng sử dụng của một phòng lab duy nhất.
+11.1 Dashboard tổng quan cho Admin
+Các chỉ số cần có:
+- Trạng thái hiện tại của phòng lab- Tổng số máy tính- Số máy đang hoạt động- Số máy đang hỏng- Số máy đang bảo trì- Số máy đang được sử dụng hôm nay- Tổng số thiết bị- Số thiết bị khả dụng- Số thiết bị đang mượn- Số thiết bị hỏng- Số yêu cầu chờ duyệt- Số yêu cầu đã duyệt hôm nay- Số yêu cầu đang sử dụng- Số yêu cầu hoàn tất trong ngày- Số yêu cầu quá hạn trả- Số sự cố chưa xử lý
+
+11.2 Biểu đồ nên có
+- Biểu đồ lượt đăng ký theo ngày- Biểu đồ lượt đăng ký theo tháng- Biểu đồ tỷ lệ sử dụng phòng lab- Biểu đồ số máy hoạt động/hỏng/bảo trì- Biểu đồ thiết bị được mượn nhiều nhất- Biểu đồ lý do sử dụng phòng lab- Biểu đồ lượt sử dụng theo giáo viên- Biểu đồ sự cố theo loại thiết bị- Biểu đồ tình trạng xử lý sự cố
+
+11.3 Dashboard cho ban trực
+Ban trực cần thấy nhanh:
+- Lịch sử dụng hôm nay- Ai sẽ nhận phòng- Ai đang sử dụng phòng- Thiết bị nào cần bàn giao- Yêu cầu nào sắp đến giờ check-in- Yêu cầu nào quá giờ trả- Danh sách máy hỏng- Danh sách thiết bị hỏng- Danh sách sự cố cần xử lý
+
+12. Quản lý check-in/check-out
+12.1 Check-in
+Khi người dùng đến nhận phòng hoặc nhận thiết bị, ban trực thực hiện check-in.
+Thông tin cần lưu:
+- Mã yêu cầu- Người check-in- Người xác nhận- Thời gian check-in- Số lượng người thực tế- Số lượng máy tính sử dụng thực tế- Thiết bị bàn giao- Tình trạng phòng ban đầu- Tình trạng thiết bị ban đầu- Ghi chú
+Điều kiện check-in:
+- Yêu cầu phải ở trạng thái APPROVED.- Không cho check-in yêu cầu đã bị hủy.- Không cho check-in yêu cầu đã bị từ chối.- Chỉ admin, cộng tác viên hoặc ban trực mới được xác nhận check-in.
+
+12.2 Check-out
+Khi người dùng trả phòng hoặc trả thiết bị, ban trực thực hiện check-out.
+Thông tin cần lưu:
+- Thời gian trả thực tế- Tình trạng phòng sau khi sử dụng- Tình trạng máy tính sau khi sử dụng- Tình trạng thiết bị sau khi trả- Số lượng thiết bị trả thực tế- Ghi chú- Có phát sinh sự cố hay không
+Điều kiện check-out:
+- Nếu mọi thứ bình thường, yêu cầu chuyển sang COMPLETED.- Nếu trả trễ, hệ thống đánh dấu OVERDUE.- Nếu có hư hỏng hoặc mất thiết bị, hệ thống tạo IncidentReport.
+
+13. Quản lý lịch trực phòng
+Hệ thống cần quản lý người trực phòng lab theo ca.
+Thông tin lịch trực:
+- Người trực- Ngày trực- Ca trực- Giờ bắt đầu- Giờ kết thúc- Nhiệm vụ- Trạng thái ca trực- Ghi chú bàn giao
+Trạng thái ca trực:
+SCHEDULED   - Đã xếp lịchON_DUTY     - Đang trựcCOMPLETED   - Hoàn tấtABSENT      - Vắng mặtREPLACED    - Đã thay người
+
+14. Quản lý bảo trì
+Hệ thống cần có chức năng bảo trì cho:
+- Phòng lab- Máy tính- Thiết bị ngành
+Thông tin bảo trì:
+- Đối tượng bảo trì- Loại đối tượng: phòng/máy tính/thiết bị- Lý do bảo trì- Ngày bắt đầu- Ngày kết thúc dự kiến- Người phụ trách- Trạng thái bảo trì- Kết quả bảo trì- Chi phí nếu có- Ghi chú
+Trạng thái bảo trì:
+SCHEDULED    - Đã lên lịchIN_PROGRESS  - Đang thực hiệnCOMPLETED    - Đã hoàn tấtCANCELLED    - Đã hủy
+Điều kiện:
+- Nếu phòng đang bảo trì thì không cho đăng ký sử dụng.- Nếu máy đang bảo trì thì không tính vào số máy khả dụng.- Nếu thiết bị đang bảo trì thì không cho mượn.
+
+15. Quản lý sự cố
+Các sự cố có thể phát sinh:
+- Máy tính không bật- Màn hình lỗi- Bàn phím/chuột hỏng- Mất mạng- Phần mềm bị lỗi- Thiết bị mạng không hoạt động- Thiết bị IoT hỏng- Mất thiết bị- Thiếu phụ kiện- Phòng không sạch- Máy chiếu lỗi- Thiết bị trả không đúng tình trạng ban đầu
+Thông tin sự cố:
+- Mã sự cố- Người báo cáo- Máy tính liên quan nếu có- Thiết bị liên quan nếu có- Yêu cầu đăng ký liên quan nếu có- Tiêu đề sự cố- Mô tả chi tiết- Mức độ nghiêm trọng- Hình ảnh minh chứng- Người xử lý- Trạng thái xử lý- Kết quả xử lý- Thời gian tạo- Thời gian hoàn tất
+Mức độ sự cố:
+LOW       - ThấpMEDIUM    - Trung bìnhHIGH      - CaoCRITICAL  - Nghiêm trọng
+Trạng thái sự cố:
+OPEN         - Mới tạoASSIGNED     - Đã phân côngIN_PROGRESS  - Đang xử lýRESOLVED     - Đã xử lýCLOSED       - Đã đóng
+
+16. Phân quyền chức năng
+Chức năng
+Admin
+Giáo viên
+Cộng tác viên
+Ban trực
+Sinh viên
+Xem lịch phòng lab
+Có
+Có
+Có
+Có
+Có
+Đăng ký sử dụng phòng
+Có
+Có
+Có
+Có
+Tùy quyền
+Đăng ký máy tính
+Có
+Có
+Có
+Có
+Tùy quyền
+Mượn thiết bị
+Có
+Có
+Có
+Có
+Tùy quyền
+Duyệt yêu cầu
+Có
+Không
+Tùy quyền
+Tùy quyền
+Không
+Từ chối yêu cầu
+Có
+Không
+Tùy quyền
+Tùy quyền
+Không
+Check-in/check-out
+Có
+Không
+Có
+Có
+Không
+Cấu hình phòng lab
+Có
+Không
+Không
+Không
+Không
+Quản lý máy tính
+Có
+Không
+Tùy quyền
+Tùy quyền
+Không
+Quản lý thiết bị
+Có
+Không
+Tùy quyền
+Tùy quyền
+Không
+Báo sự cố
+Có
+Có
+Có
+Có
+Có
+Quản lý bảo trì
+Có
+Không
+Tùy quyền
+Tùy quyền
+Không
+Xem dashboard tổng
+Có
+Tùy quyền
+Tùy quyền
+Tùy quyền
+Không
+Xuất báo cáo
+Có
+Tùy quyền
+Tùy quyền
+Không
+Không
+Xem audit log
+Có
+Không
+Không
+Không
+Không
+
+17. Thiết kế database SQL Server
+17.1 Bảng Users
+CREATE TABLE Users (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    FullName NVARCHAR(255) NOT NULL,    Email NVARCHAR(255) NOT NULL UNIQUE,    Phone NVARCHAR(50) NULL,    Username NVARCHAR(100) NOT NULL UNIQUE,    PasswordHash NVARCHAR(MAX) NOT NULL,    RoleCode NVARCHAR(50) NOT NULL,    Department NVARCHAR(255) NULL,    Status NVARCHAR(50) NOT NULL DEFAULT 'ACTIVE',    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),    UpdatedAt DATETIME2 NULL);
+
+17.2 Bảng Roles
+CREATE TABLE Roles (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    Code NVARCHAR(50) NOT NULL UNIQUE,    Name NVARCHAR(255) NOT NULL,    Description NVARCHAR(500) NULL);
+Role mặc định:
+ADMINTEACHERCOLLABORATORLAB_STAFFSTUDENTMANAGER
+
+17.3 Bảng LabProfile
+Vì chỉ quản lý một phòng lab, dùng bảng LabProfile để lưu thông tin phòng duy nhất.
+CREATE TABLE LabProfile (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    LabCode NVARCHAR(50) NOT NULL UNIQUE,    LabName NVARCHAR(255) NOT NULL,    Location NVARCHAR(255) NULL,    Capacity INT NOT NULL,    Description NVARCHAR(MAX) NULL,    Rules NVARCHAR(MAX) NULL,    ManagerId UNIQUEIDENTIFIER NULL,    Status NVARCHAR(50) NOT NULL DEFAULT 'ACTIVE',    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),    UpdatedAt DATETIME2 NULL,    CONSTRAINT FK_LabProfile_Manager        FOREIGN KEY (ManagerId) REFERENCES Users(Id));
+Ghi chú: hệ thống chỉ nên có một bản ghi duy nhất trong bảng này.
+
+17.4 Bảng Computers
+CREATE TABLE Computers (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    Code NVARCHAR(50) NOT NULL UNIQUE,    Name NVARCHAR(255) NOT NULL,    Cpu NVARCHAR(255) NULL,    Ram NVARCHAR(100) NULL,    Storage NVARCHAR(255) NULL,    Gpu NVARCHAR(255) NULL,    OperatingSystem NVARCHAR(255) NULL,    InstalledSoftware NVARCHAR(MAX) NULL,    IpAddress NVARCHAR(50) NULL,    MacAddress NVARCHAR(50) NULL,    Position NVARCHAR(100) NULL,    Status NVARCHAR(50) NOT NULL DEFAULT 'ACTIVE',    Note NVARCHAR(MAX) NULL,    LastMaintenanceDate DATETIME2 NULL,    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),    UpdatedAt DATETIME2 NULL);
+
+17.5 Bảng EquipmentCategories
+CREATE TABLE EquipmentCategories (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    Code NVARCHAR(50) NOT NULL UNIQUE,    Name NVARCHAR(255) NOT NULL,    Description NVARCHAR(500) NULL);
+
+17.6 Bảng Equipments
+CREATE TABLE Equipments (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    Code NVARCHAR(50) NOT NULL UNIQUE,    Name NVARCHAR(255) NOT NULL,    CategoryId UNIQUEIDENTIFIER NULL,    TotalQuantity INT NOT NULL DEFAULT 0,    AvailableQuantity INT NOT NULL DEFAULT 0,    BorrowedQuantity INT NOT NULL DEFAULT 0,    BrokenQuantity INT NOT NULL DEFAULT 0,    Location NVARCHAR(255) NULL,    ManagerId UNIQUEIDENTIFIER NULL,    Status NVARCHAR(50) NOT NULL DEFAULT 'ACTIVE',    ImageUrl NVARCHAR(MAX) NULL,    Note NVARCHAR(MAX) NULL,    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),    UpdatedAt DATETIME2 NULL,    CONSTRAINT FK_Equipments_Category        FOREIGN KEY (CategoryId) REFERENCES EquipmentCategories(Id),    CONSTRAINT FK_Equipments_Manager        FOREIGN KEY (ManagerId) REFERENCES Users(Id));
+
+17.7 Bảng BookingRequests
+CREATE TABLE BookingRequests (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    RequestCode NVARCHAR(50) NOT NULL UNIQUE,    RequesterId UNIQUEIDENTIFIER NOT NULL,    BookingType NVARCHAR(50) NOT NULL,    Purpose NVARCHAR(500) NOT NULL,    StartTime DATETIME2 NOT NULL,    EndTime DATETIME2 NOT NULL,    ExpectedReturnTime DATETIME2 NULL,    ActualReturnTime DATETIME2 NULL,    NumberOfPeople INT NOT NULL DEFAULT 1,    NumberOfComputers INT NOT NULL DEFAULT 0,    Status NVARCHAR(50) NOT NULL DEFAULT 'PENDING',    ApprovedBy UNIQUEIDENTIFIER NULL,    ApprovedAt DATETIME2 NULL,    RejectedReason NVARCHAR(MAX) NULL,    Note NVARCHAR(MAX) NULL,    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),    UpdatedAt DATETIME2 NULL,    CONSTRAINT FK_BookingRequests_Requester        FOREIGN KEY (RequesterId) REFERENCES Users(Id),    CONSTRAINT FK_BookingRequests_ApprovedBy        FOREIGN KEY (ApprovedBy) REFERENCES Users(Id),    CONSTRAINT CK_BookingRequests_Time        CHECK (StartTime < EndTime));
+BookingType:
+FULL_LAB        - Đăng ký cả phòng labCOMPUTERS_ONLY  - Đăng ký số lượng máy tínhEQUIPMENT_ONLY  - Mượn thiết bịRECURRING_CLASS - Lịch thực hành định kỳ
+
+17.8 Bảng BookingEquipmentItems
+CREATE TABLE BookingEquipmentItems (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    BookingRequestId UNIQUEIDENTIFIER NOT NULL,    EquipmentId UNIQUEIDENTIFIER NOT NULL,    Quantity INT NOT NULL,    HandoverCondition NVARCHAR(MAX) NULL,    ReturnCondition NVARCHAR(MAX) NULL,    Note NVARCHAR(MAX) NULL,    CONSTRAINT FK_BookingEquipmentItems_Booking        FOREIGN KEY (BookingRequestId) REFERENCES BookingRequests(Id),    CONSTRAINT FK_BookingEquipmentItems_Equipment        FOREIGN KEY (EquipmentId) REFERENCES Equipments(Id),    CONSTRAINT CK_BookingEquipmentItems_Quantity        CHECK (Quantity > 0));
+
+17.9 Bảng CheckInOutLogs
+CREATE TABLE CheckInOutLogs (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    BookingRequestId UNIQUEIDENTIFIER NOT NULL,    CheckInTime DATETIME2 NULL,    CheckOutTime DATETIME2 NULL,    CheckedInBy UNIQUEIDENTIFIER NULL,    CheckedOutBy UNIQUEIDENTIFIER NULL,    InitialCondition NVARCHAR(MAX) NULL,    ReturnCondition NVARCHAR(MAX) NULL,    ActualPeopleCount INT NULL,    ActualComputerCount INT NULL,    Note NVARCHAR(MAX) NULL,    CONSTRAINT FK_CheckInOutLogs_Booking        FOREIGN KEY (BookingRequestId) REFERENCES BookingRequests(Id),    CONSTRAINT FK_CheckInOutLogs_CheckedInBy        FOREIGN KEY (CheckedInBy) REFERENCES Users(Id),    CONSTRAINT FK_CheckInOutLogs_CheckedOutBy        FOREIGN KEY (CheckedOutBy) REFERENCES Users(Id));
+
+17.10 Bảng IncidentReports
+CREATE TABLE IncidentReports (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    Code NVARCHAR(50) NOT NULL UNIQUE,    ReporterId UNIQUEIDENTIFIER NOT NULL,    ComputerId UNIQUEIDENTIFIER NULL,    EquipmentId UNIQUEIDENTIFIER NULL,    BookingRequestId UNIQUEIDENTIFIER NULL,    Title NVARCHAR(255) NOT NULL,    Description NVARCHAR(MAX) NOT NULL,    Severity NVARCHAR(50) NOT NULL DEFAULT 'LOW',    Status NVARCHAR(50) NOT NULL DEFAULT 'OPEN',    ImageUrl NVARCHAR(MAX) NULL,    AssignedTo UNIQUEIDENTIFIER NULL,    ResolvedAt DATETIME2 NULL,    ResultNote NVARCHAR(MAX) NULL,    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),    UpdatedAt DATETIME2 NULL,    CONSTRAINT FK_IncidentReports_Reporter        FOREIGN KEY (ReporterId) REFERENCES Users(Id),    CONSTRAINT FK_IncidentReports_Computer        FOREIGN KEY (ComputerId) REFERENCES Computers(Id),    CONSTRAINT FK_IncidentReports_Equipment        FOREIGN KEY (EquipmentId) REFERENCES Equipments(Id),    CONSTRAINT FK_IncidentReports_Booking        FOREIGN KEY (BookingRequestId) REFERENCES BookingRequests(Id),    CONSTRAINT FK_IncidentReports_AssignedTo        FOREIGN KEY (AssignedTo) REFERENCES Users(Id));
+
+17.11 Bảng MaintenanceSchedules
+CREATE TABLE MaintenanceSchedules (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    TargetType NVARCHAR(50) NOT NULL,    TargetId UNIQUEIDENTIFIER NULL,    Title NVARCHAR(255) NOT NULL,    Description NVARCHAR(MAX) NULL,    StartTime DATETIME2 NOT NULL,    EndTime DATETIME2 NULL,    Status NVARCHAR(50) NOT NULL DEFAULT 'SCHEDULED',    TechnicianId UNIQUEIDENTIFIER NULL,    ResultNote NVARCHAR(MAX) NULL,    Cost DECIMAL(18,2) NULL,    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),    UpdatedAt DATETIME2 NULL,    CONSTRAINT FK_MaintenanceSchedules_Technician        FOREIGN KEY (TechnicianId) REFERENCES Users(Id));
+TargetType:
+LABCOMPUTEREQUIPMENT
+
+17.12 Bảng LabDutySchedules
+CREATE TABLE LabDutySchedules (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    UserId UNIQUEIDENTIFIER NOT NULL,    DutyDate DATE NOT NULL,    StartTime TIME NOT NULL,    EndTime TIME NOT NULL,    Status NVARCHAR(50) NOT NULL DEFAULT 'SCHEDULED',    TaskNote NVARCHAR(MAX) NULL,    HandoverNote NVARCHAR(MAX) NULL,    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),    UpdatedAt DATETIME2 NULL,    CONSTRAINT FK_LabDutySchedules_User        FOREIGN KEY (UserId) REFERENCES Users(Id));
+
+17.13 Bảng AuditLogs
+CREATE TABLE AuditLogs (    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),    UserId UNIQUEIDENTIFIER NULL,    Action NVARCHAR(255) NOT NULL,    EntityName NVARCHAR(255) NOT NULL,    EntityId UNIQUEIDENTIFIER NULL,    OldValue NVARCHAR(MAX) NULL,    NewValue NVARCHAR(MAX) NULL,    IpAddress NVARCHAR(100) NULL,    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),    CONSTRAINT FK_AuditLogs_User        FOREIGN KEY (UserId) REFERENCES Users(Id));
+
+18. Index SQL Server nên có
+Để tăng tốc truy vấn lịch và dashboard, nên tạo index:
+CREATE INDEX IX_BookingRequests_StartTime_EndTimeON BookingRequests(StartTime, EndTime);CREATE INDEX IX_BookingRequests_StatusON BookingRequests(Status);CREATE INDEX IX_BookingRequests_RequesterIdON BookingRequests(RequesterId);CREATE INDEX IX_Computers_StatusON Computers(Status);CREATE INDEX IX_Equipments_StatusON Equipments(Status);CREATE INDEX IX_IncidentReports_StatusON IncidentReports(Status);CREATE INDEX IX_MaintenanceSchedules_StartTime_EndTimeON MaintenanceSchedules(StartTime, EndTime);
+
+19. Clean Architecture đề xuất
+Hệ thống được thiết kế theo Clean Architecture gồm 4 lớp chính:
+1. Domain Layer2. Application Layer3. Infrastructure Layer4. Presentation Layer
+Quy tắc phụ thuộc:
+Presentation → Application → DomainInfrastructure → Application/DomainDomain không phụ thuộc vào database, framework hoặc giao diện
+SQL Server chỉ nằm ở tầng Infrastructure.
+
+20. Cấu trúc thư mục backend đề xuất
+Ví dụ với Node.js + TypeScript + SQL Server:
+src/├── domain/│   ├── entities/│   │   ├── User.ts│   │   ├── LabProfile.ts│   │   ├── Computer.ts│   │   ├── Equipment.ts│   │   ├── BookingRequest.ts│   │   ├── IncidentReport.ts│   │   └── MaintenanceSchedule.ts│   ││   ├── value-objects/│   │   ├── BookingStatus.ts│   │   ├── BookingType.ts│   │   ├── EquipmentStatus.ts│   │   ├── ComputerStatus.ts│   │   ├── LabStatus.ts│   │   └── TimeRange.ts│   ││   ├── repositories/│   │   ├── IUserRepository.ts│   │   ├── ILabProfileRepository.ts│   │   ├── IComputerRepository.ts│   │   ├── IEquipmentRepository.ts│   │   ├── IBookingRepository.ts│   │   ├── IIncidentRepository.ts│   │   └── IMaintenanceRepository.ts│   ││   └── services/│       ├── BookingPolicyService.ts│       ├── AvailabilityChecker.ts│       └── EquipmentBorrowingPolicy.ts│├── application/│   ├── use-cases/│   │   ├── auth/│   │   │   ├── LoginUseCase.ts│   │   │   └── ChangePasswordUseCase.ts│   │   ││   │   ├── lab-profile/│   │   │   ├── GetLabProfileUseCase.ts│   │   │   └── UpdateLabProfileUseCase.ts│   │   ││   │   ├── computer/│   │   │   ├── CreateComputerUseCase.ts│   │   │   ├── UpdateComputerUseCase.ts│   │   │   ├── DeleteComputerUseCase.ts│   │   │   └── UpdateComputerStatusUseCase.ts│   │   ││   │   ├── equipment/│   │   │   ├── CreateEquipmentUseCase.ts│   │   │   ├── UpdateEquipmentUseCase.ts│   │   │   ├── DeleteEquipmentUseCase.ts│   │   │   └── UpdateEquipmentStatusUseCase.ts│   │   ││   │   ├── booking/│   │   │   ├── CreateBookingUseCase.ts│   │   │   ├── ApproveBookingUseCase.ts│   │   │   ├── RejectBookingUseCase.ts│   │   │   ├── CancelBookingUseCase.ts│   │   │   ├── CheckInBookingUseCase.ts│   │   │   └── CheckOutBookingUseCase.ts│   │   ││   │   ├── incident/│   │   │   ├── CreateIncidentUseCase.ts│   │   │   ├── AssignIncidentUseCase.ts│   │   │   └── ResolveIncidentUseCase.ts│   │   ││   │   ├── maintenance/│   │   ├── duty-schedule/│   │   └── dashboard/│   ││   ├── dto/│   └── ports/│       ├── IEmailService.ts│       ├── IFileStorageService.ts│       └── INotificationService.ts│├── infrastructure/│   ├── database/│   │   ├── sqlserver/│   │   │   ├── connection.ts│   │   │   ├── migrations/│   │   │   └── repositories/│   │   │       ├── SqlUserRepository.ts│   │   │       ├── SqlLabProfileRepository.ts│   │   │       ├── SqlComputerRepository.ts│   │   │       ├── SqlEquipmentRepository.ts│   │   │       ├── SqlBookingRepository.ts│   │   │       ├── SqlIncidentRepository.ts│   │   │       └── SqlMaintenanceRepository.ts│   ││   ├── auth/│   ├── email/│   ├── storage/│   └── logger/│├── presentation/│   ├── controllers/│   │   ├── AuthController.ts│   │   ├── LabProfileController.ts│   │   ├── ComputerController.ts│   │   ├── EquipmentController.ts│   │   ├── BookingController.ts│   │   ├── IncidentController.ts│   │   ├── MaintenanceController.ts│   │   ├── DutyScheduleController.ts│   │   └── DashboardController.ts│   ││   ├── middlewares/│   │   ├── authMiddleware.ts│   │   ├── roleMiddleware.ts│   │   └── validationMiddleware.ts│   ││   └── routes/│├── shared/│   ├── errors/│   ├── constants/│   ├── utils/│   └── validators/│└── main.ts
+
+21. Các use case quan trọng
+21.1 CreateBookingUseCase
+Nhiệm vụ:
+- Nhận yêu cầu đăng ký.- Kiểm tra người dùng có quyền đăng ký không.- Lấy thông tin phòng lab duy nhất.- Kiểm tra phòng có đang hoạt động không.- Kiểm tra thời gian hợp lệ.- Kiểm tra trùng lịch.- Kiểm tra sức chứa.- Kiểm tra số máy khả dụng.- Kiểm tra thiết bị khả dụng.- Tạo yêu cầu với trạng thái PENDING.- Ghi AuditLog.
+
+21.2 ApproveBookingUseCase
+Nhiệm vụ:
+- Kiểm tra người duyệt có quyền không.- Kiểm tra yêu cầu có tồn tại không.- Kiểm tra yêu cầu đang ở trạng thái PENDING.- Kiểm tra lại lịch tại thời điểm duyệt.- Kiểm tra lại số máy và thiết bị.- Nếu hợp lệ, cập nhật trạng thái APPROVED.- Nếu có thiết bị, giữ số lượng thiết bị tương ứng.- Gửi thông báo cho người đăng ký.- Ghi AuditLog.
+
+21.3 RejectBookingUseCase
+Nhiệm vụ:
+- Kiểm tra quyền từ chối.- Nhập lý do từ chối.- Chuyển trạng thái sang REJECTED.- Gửi thông báo cho người đăng ký.- Ghi AuditLog.
+
+21.4 CheckInBookingUseCase
+Nhiệm vụ:
+- Kiểm tra yêu cầu đã được duyệt chưa.- Kiểm tra đúng thời gian sử dụng.- Ghi nhận người xác nhận check-in.- Ghi nhận số người thực tế.- Ghi nhận số máy sử dụng thực tế.- Ghi nhận tình trạng phòng lúc nhận.- Ghi nhận thiết bị bàn giao.- Chuyển trạng thái sang CHECKED_IN.- Ghi AuditLog.
+
+21.5 CheckOutBookingUseCase
+Nhiệm vụ:
+- Ghi nhận thời gian trả thực tế.- Ghi nhận tình trạng phòng sau sử dụng.- Ghi nhận tình trạng máy tính sau sử dụng.- Ghi nhận tình trạng thiết bị sau khi trả.- Nếu bình thường, chuyển trạng thái COMPLETED.- Nếu trả trễ, đánh dấu OVERDUE.- Nếu có lỗi, tạo IncidentReport.- Cập nhật lại số lượng thiết bị khả dụng.- Ghi AuditLog.
+
+21.6 GetDashboardOverviewUseCase
+Nhiệm vụ:
+- Đếm tổng số máy tính.- Đếm số máy hoạt động.- Đếm số máy hỏng.- Đếm số thiết bị khả dụng.- Đếm thiết bị đang mượn.- Đếm yêu cầu chờ duyệt.- Đếm yêu cầu đang sử dụng.- Đếm yêu cầu quá hạn.- Đếm sự cố chưa xử lý.- Trả dữ liệu cho dashboard.
+
+22. API đề xuất
+22.1 Auth
+POST /api/auth/loginPOST /api/auth/logoutGET  /api/auth/mePOST /api/auth/change-password
+
+22.2 User
+GET    /api/usersGET    /api/users/:idPOST   /api/usersPUT    /api/users/:idDELETE /api/users/:idPATCH  /api/users/:id/status
+
+22.3 Lab Profile
+Vì chỉ có một phòng lab, API chỉ cần lấy và cập nhật thông tin phòng.
+GET /api/lab-profilePUT /api/lab-profilePATCH /api/lab-profile/statusGET /api/lab-profile/availability
+
+22.4 Computer
+GET    /api/computersGET    /api/computers/:idPOST   /api/computersPUT    /api/computers/:idDELETE /api/computers/:idPATCH  /api/computers/:id/statusGET    /api/computers/availability
+
+22.5 Equipment
+GET    /api/equipmentsGET    /api/equipments/:idPOST   /api/equipmentsPUT    /api/equipments/:idDELETE /api/equipments/:idPATCH  /api/equipments/:id/statusGET    /api/equipments/availability
+
+22.6 Booking
+GET    /api/bookingsGET    /api/bookings/:idPOST   /api/bookingsPUT    /api/bookings/:idDELETE /api/bookings/:idPOST   /api/bookings/:id/approvePOST   /api/bookings/:id/rejectPOST   /api/bookings/:id/cancelPOST   /api/bookings/:id/check-inPOST   /api/bookings/:id/check-outGET    /api/bookings/calendarGET    /api/bookings/my-bookings
+
+22.7 Incident
+GET  /api/incidentsGET  /api/incidents/:idPOST /api/incidentsPUT  /api/incidents/:idPOST /api/incidents/:id/assignPOST /api/incidents/:id/resolvePOST /api/incidents/:id/close
+
+22.8 Maintenance
+GET    /api/maintenancesGET    /api/maintenances/:idPOST   /api/maintenancesPUT    /api/maintenances/:idDELETE /api/maintenances/:idPOST   /api/maintenances/:id/startPOST   /api/maintenances/:id/complete
+
+22.9 Duty Schedule
+GET    /api/duty-schedulesGET    /api/duty-schedules/:idPOST   /api/duty-schedulesPUT    /api/duty-schedules/:idDELETE /api/duty-schedules/:id
+
+22.10 Dashboard
+GET /api/dashboard/overviewGET /api/dashboard/booking-statisticsGET /api/dashboard/computer-statusGET /api/dashboard/equipment-statusGET /api/dashboard/equipment-usageGET /api/dashboard/incidentsGET /api/dashboard/today-schedule
+
+23. Giao diện frontend cần có
+23.1 Trang đăng nhập
+- Đăng nhập bằng email hoặc username- Nhập mật khẩu- Ghi nhớ đăng nhập nếu cần- Điều hướng theo role sau đăng nhập
+
+23.2 Dashboard
+Dashboard hiển thị:
+- Trạng thái phòng lab hiện tại- Số yêu cầu chờ duyệt- Số yêu cầu hôm nay- Số máy khả dụng- Số máy hỏng- Số thiết bị khả dụng- Số thiết bị đang mượn- Số sự cố chưa xử lý- Lịch sử dụng hôm nay
+
+23.3 Trang lịch phòng lab
+Hiển thị lịch dưới dạng calendar:
+- Xem theo ngày- Xem theo tuần- Xem theo tháng- Màu sắc theo trạng thái yêu cầu
+Màu trạng thái đề xuất:
+PENDING      - VàngAPPROVED     - Xanh dươngCHECKED_IN   - Xanh láCOMPLETED    - XámREJECTED     - ĐỏCANCELLED    - Đen/xámMAINTENANCE  - Cam
+
+23.4 Trang tạo yêu cầu đăng ký
+Form gồm:
+- Loại đăng ký- Ngày sử dụng- Giờ bắt đầu- Giờ kết thúc- Số lượng người- Số lượng máy tính- Danh sách thiết bị cần mượn- Lý do sử dụng- Ghi chú- Nút gửi yêu cầu
+Không cần chọn phòng, vì hệ thống chỉ quản lý một phòng lab duy nhất.
+
+23.5 Trang duyệt yêu cầu
+Dành cho admin hoặc người có quyền duyệt.
+Chức năng:
+- Xem chi tiết yêu cầu- Xem người đăng ký- Xem thời gian đăng ký- Xem số máy yêu cầu- Xem thiết bị yêu cầu- Kiểm tra lịch trùng- Duyệt- Từ chối kèm lý do
+
+23.6 Trang quản lý máy tính
+Chức năng:
+- Danh sách máy tính- Thêm máy tính- Sửa thông tin máy- Xóa máy- Cập nhật trạng thái máy- Xem lịch sử bảo trì- Xem lịch sử sự cố
+
+23.7 Trang quản lý thiết bị
+Chức năng:
+- Danh sách thiết bị- Thêm thiết bị- Sửa thiết bị- Xóa thiết bị- Cập nhật số lượng- Cập nhật trạng thái- Xem lịch sử mượn/trả- Xem lịch sử sự cố
+
+23.8 Trang check-in/check-out
+Chức năng:
+- Danh sách yêu cầu hôm nay- Xác nhận check-in- Ghi nhận tình trạng lúc nhận- Xác nhận check-out- Ghi nhận tình trạng lúc trả- Tạo sự cố nếu có lỗi
+
+23.9 Trang sự cố
+Chức năng:
+- Tạo báo cáo sự cố- Xem danh sách sự cố- Lọc theo trạng thái- Lọc theo mức độ- Gán người xử lý- Cập nhật tiến độ xử lý- Đóng sự cố
+
+24. Quy tắc nghiệp vụ quan trọng
+Rule 1: Chỉ có một phòng lab
+Toàn bộ yêu cầu đăng ký mặc định gắn với phòng lab duy nhất.
+Rule 2: Không được trùng lịch
+Một khung giờ không được có hai yêu cầu đã duyệt gây xung đột.
+Rule 3: Không vượt sức chứa phòng
+Số lượng người đăng ký không được vượt quá sức chứa phòng lab.
+Rule 4: Không vượt số máy khả dụng
+Số máy tính đăng ký không được vượt quá số máy còn khả dụng trong khung giờ đó.
+Rule 5: Không mượn thiết bị vượt số lượng khả dụng
+Số lượng thiết bị yêu cầu không được vượt quá số lượng có thể mượn.
+Rule 6: Thiết bị hỏng không được mượn
+Thiết bị ở trạng thái BROKEN, MAINTENANCE, LOCKED hoặc LOST không được mượn.
+Rule 7: Phòng đang bảo trì thì không cho đăng ký
+Nếu phòng lab ở trạng thái MAINTENANCE, hệ thống không cho tạo yêu cầu mới trong thời gian đó.
+Rule 8: Sau khi duyệt, người dùng thường không được tự sửa
+Yêu cầu đã duyệt chỉ admin hoặc người có quyền mới được chỉnh sửa/hủy.
+Rule 9: Trả trễ phải cảnh báo
+Nếu quá thời gian trả dự kiến mà chưa check-out, hệ thống đánh dấu OVERDUE.
+Rule 10: Có sự cố thì phải tạo biên bản
+Nếu máy tính, thiết bị hoặc phòng có vấn đề sau sử dụng, hệ thống phải tạo IncidentReport.
+Rule 11: Thao tác quan trọng phải ghi log
+Các thao tác cần ghi AuditLog:
+- Tạo yêu cầu- Duyệt yêu cầu- Từ chối yêu cầu- Hủy yêu cầu- Check-in- Check-out- Thêm/sửa/xóa máy tính- Thêm/sửa/xóa thiết bị- Cập nhật trạng thái phòng- Phân quyền người dùng- Xóa dữ liệu
+
+25. Giao dịch SQL Server cần dùng transaction
+Các nghiệp vụ cần dùng transaction:
+- Duyệt yêu cầu có mượn thiết bị- Check-in- Check-out- Cập nhật số lượng thiết bị- Tạo sự cố khi trả thiết bị lỗi- Hủy yêu cầu đã giữ thiết bị
+Ví dụ khi duyệt yêu cầu mượn thiết bị:
+BEGIN TRANSACTION1. Kiểm tra yêu cầu còn PENDING không2. Kiểm tra thiết bị còn đủ số lượng không3. Trừ AvailableQuantity4. Tăng BorrowedQuantity5. Cập nhật BookingRequest thành APPROVED6. Ghi AuditLogCOMMIT
+Nếu có lỗi:
+ROLLBACK
+
+26. Phiên bản MVP nên làm trước
+Phiên bản đầu tiên nên làm các chức năng sau:
+1. Đăng nhập và phân quyền2. Cấu hình thông tin phòng lab duy nhất3. Quản lý máy tính4. Quản lý thiết bị5. Đăng ký sử dụng phòng lab6. Đăng ký số lượng máy tính7. Đăng ký mượn thiết bị8. Duyệt/từ chối yêu cầu9. Lịch phòng lab dạng calendar10. Check-in/check-out11. Dashboard cơ bản12. Báo cáo sự cố13. SQL Server database
+Các chức năng nâng cao làm sau:
+1. QR check-in2. Gửi email thông báo3. Xuất Excel/PDF4. Lịch trực phòng nâng cao5. Báo cáo thống kê nâng cao6. Tích hợp tài khoản trường7. Quản lý bảo trì nâng cao8. Tích hợp mã QR cho thiết bị
+
+27. Kết luận đặc tả
+Website quản lý phòng lab CNTT trong phạm vi này là hệ thống quản lý một phòng lab duy nhất, tập trung vào:
+- Quản lý thông tin phòng lab- Quản lý máy tính- Quản lý thiết bị ngành- Quản lý đăng ký sử dụng- Quản lý mượn/trả- Quản lý duyệt yêu cầu- Quản lý sự cố- Quản lý bảo trì- Dashboard thống kê
+Luồng nghiệp vụ cốt lõi:
+Đăng ký→ Kiểm tra điều kiện→ Chờ duyệt→ Duyệt→ Check-in→ Sử dụng→ Check-out→ Hoàn tất hoặc báo sự cố
+Kiến trúc triển khai:
+Clean Architecture+ SQL Server+ Backend API+ Frontend Dashboard
+Tầng xử lý:
+Domain Layer: nghiệp vụ cốt lõiApplication Layer: use caseInfrastructure Layer: SQL Server, email, file storagePresentation Layer: API, controller, giao diện
+Đặc tả này phù hợp để triển khai thành một website quản lý phòng lab hoàn chỉnh cho ngành Công nghệ thông tin.
