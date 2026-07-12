@@ -5,6 +5,9 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { createHealthRouter } from './presentation/http/routes/health.routes';
 import { authRouter } from './presentation/http/routes/auth.routes';
+import { createLabRouter } from './presentation/http/routes/lab.routes';
+import { createComputerRouter } from './presentation/http/routes/computer.routes';
+import { createEquipmentRouter } from './presentation/http/routes/equipment.routes';
 import { container } from './container/dependency-container';
 import { correlationIdMiddleware } from './presentation/http/middlewares/correlationIdMiddleware';
 import { errorHandlerMiddleware } from './presentation/http/middlewares/errorHandlerMiddleware';
@@ -48,6 +51,12 @@ export function createExpressApp(): Express {
   // API Routes
   app.use('/api', createHealthRouter(container.healthController));
   app.use('/api/auth', authRouter);
+  app.use('/api/lab-profile', createLabRouter(container.labController));
+  app.use('/api/computers', createComputerRouter(container.computerController));
+  app.use('/api/equipments', createEquipmentRouter(container.equipmentController));
+
+
+
 
   // 404 handler
   app.use((req: Request, res: Response, next: NextFunction) => {

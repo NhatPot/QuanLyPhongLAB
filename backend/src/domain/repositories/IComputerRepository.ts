@@ -1,0 +1,17 @@
+import { Computer } from '../entities/Computer';
+
+export interface ComputerFilter {
+  keyword?: string;
+  status?: string;
+  position?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface IComputerRepository {
+  findById(id: string): Promise<Computer | null>;
+  findByCode(code: string): Promise<Computer | null>;
+  list(filter: ComputerFilter): Promise<{ data: Computer[]; total: number }>;
+  countActive(): Promise<number>;
+  save(computer: Computer, transaction?: any): Promise<void>;
+}

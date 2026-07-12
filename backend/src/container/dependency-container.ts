@@ -21,6 +21,11 @@ import { SqlAuthSessionRepository } from '../infrastructure/database/sqlserver/r
 import { SqlRolePermissionQuery } from '../infrastructure/database/sqlserver/repositories/SqlRolePermissionQuery';
 import { SqlAuditLogRepository } from '../infrastructure/database/sqlserver/repositories/SqlAuditLogRepository';
 import { SqlUnitOfWork } from '../infrastructure/database/sqlserver/unit-of-work/SqlUnitOfWork';
+import { SqlLabProfileRepository } from '../infrastructure/database/sqlserver/repositories/SqlLabProfileRepository';
+import { SqlComputerRepository } from '../infrastructure/database/sqlserver/repositories/SqlComputerRepository';
+import { SqlEquipmentCategoryRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentCategoryRepository';
+import { SqlEquipmentRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentRepository';
+import { SqlEquipmentInventoryTransactionRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentInventoryTransactionRepository';
 
 import { GetHealthUseCase } from '../application/use-cases/GetHealthUseCase';
 import { LoginUseCase } from '../application/use-cases/auth/LoginUseCase';
@@ -29,7 +34,35 @@ import { LogoutUseCase } from '../application/use-cases/auth/LogoutUseCase';
 import { GetCurrentUserUseCase } from '../application/use-cases/auth/GetCurrentUserUseCase';
 import { ChangePasswordUseCase } from '../application/use-cases/auth/ChangePasswordUseCase';
 
+import { GetLabProfileUseCase } from '../application/use-cases/lab/GetLabProfileUseCase';
+import { UpdateLabProfileUseCase } from '../application/use-cases/lab/UpdateLabProfileUseCase';
+import { UpdateLabStatusUseCase } from '../application/use-cases/lab/UpdateLabStatusUseCase';
+
+import { CreateComputerUseCase } from '../application/use-cases/computer/CreateComputerUseCase';
+import { GetComputerUseCase } from '../application/use-cases/computer/GetComputerUseCase';
+import { ListComputersUseCase } from '../application/use-cases/computer/ListComputersUseCase';
+import { UpdateComputerUseCase } from '../application/use-cases/computer/UpdateComputerUseCase';
+import { UpdateComputerStatusUseCase } from '../application/use-cases/computer/UpdateComputerStatusUseCase';
+import { DeleteComputerUseCase } from '../application/use-cases/computer/DeleteComputerUseCase';
+
+import { CreateEquipmentCategoryUseCase } from '../application/use-cases/equipment-category/CreateEquipmentCategoryUseCase';
+import { ListEquipmentCategoriesUseCase } from '../application/use-cases/equipment-category/ListEquipmentCategoriesUseCase';
+import { CreateEquipmentUseCase } from '../application/use-cases/equipment/CreateEquipmentUseCase';
+import { GetEquipmentUseCase } from '../application/use-cases/equipment/GetEquipmentUseCase';
+import { ListEquipmentUseCase } from '../application/use-cases/equipment/ListEquipmentUseCase';
+import { UpdateEquipmentUseCase } from '../application/use-cases/equipment/UpdateEquipmentUseCase';
+import { AdjustInventoryUseCase } from '../application/use-cases/equipment/AdjustInventoryUseCase';
+import { ReportBrokenEquipmentUseCase } from '../application/use-cases/equipment/ReportBrokenEquipmentUseCase';
+
 import { HealthController } from '../presentation/http/controllers/HealthController';
+import { LabController } from '../presentation/http/controllers/LabController';
+import { ComputerController } from '../presentation/http/controllers/ComputerController';
+import { EquipmentController } from '../presentation/http/controllers/EquipmentController';
+import { ILabProfileRepository } from '../domain/repositories/ILabProfileRepository';
+import { IComputerRepository } from '../domain/repositories/IComputerRepository';
+import { IEquipmentCategoryRepository } from '../domain/repositories/IEquipmentCategoryRepository';
+import { IEquipmentRepository } from '../domain/repositories/IEquipmentRepository';
+import { IEquipmentInventoryTransactionRepository } from '../domain/repositories/IEquipmentInventoryTransactionRepository';
 
 class DependencyContainer {
   public readonly clock: IClock;
@@ -43,9 +76,17 @@ class DependencyContainer {
   public readonly auditLogRepo: IAuditLogRepository;
   public readonly rolePermQuery: IRolePermissionQuery;
   public readonly uow: IUnitOfWork;
+  public readonly labProfileRepo: ILabProfileRepository;
+  public readonly computerRepo: IComputerRepository;
+  public readonly equipmentCategoryRepo: IEquipmentCategoryRepository;
+  public readonly equipmentRepo: IEquipmentRepository;
+  public readonly equipmentTxRepo: IEquipmentInventoryTransactionRepository;
 
   // Controllers
   public readonly healthController: HealthController;
+  public readonly labController: LabController;
+  public readonly computerController: ComputerController;
+  public readonly equipmentController: EquipmentController;
 
   // Use cases
   public readonly getHealthUseCase: GetHealthUseCase;
@@ -54,6 +95,26 @@ class DependencyContainer {
   public readonly logoutUseCase: LogoutUseCase;
   public readonly getCurrentUserUseCase: GetCurrentUserUseCase;
   public readonly changePasswordUseCase: ChangePasswordUseCase;
+  
+  public readonly getLabProfileUseCase: GetLabProfileUseCase;
+  public readonly updateLabProfileUseCase: UpdateLabProfileUseCase;
+  public readonly updateLabStatusUseCase: UpdateLabStatusUseCase;
+
+  public readonly createComputerUseCase: CreateComputerUseCase;
+  public readonly getComputerUseCase: GetComputerUseCase;
+  public readonly listComputersUseCase: ListComputersUseCase;
+  public readonly updateComputerUseCase: UpdateComputerUseCase;
+  public readonly updateComputerStatusUseCase: UpdateComputerStatusUseCase;
+  public readonly deleteComputerUseCase: DeleteComputerUseCase;
+
+  public readonly createEquipmentCategoryUseCase: CreateEquipmentCategoryUseCase;
+  public readonly listEquipmentCategoriesUseCase: ListEquipmentCategoriesUseCase;
+  public readonly createEquipmentUseCase: CreateEquipmentUseCase;
+  public readonly getEquipmentUseCase: GetEquipmentUseCase;
+  public readonly listEquipmentUseCase: ListEquipmentUseCase;
+  public readonly updateEquipmentUseCase: UpdateEquipmentUseCase;
+  public readonly adjustInventoryUseCase: AdjustInventoryUseCase;
+  public readonly reportBrokenEquipmentUseCase: ReportBrokenEquipmentUseCase;
 
   constructor() {
     this.clock = new SystemClock();
@@ -67,9 +128,55 @@ class DependencyContainer {
     this.auditLogRepo = new SqlAuditLogRepository();
     this.rolePermQuery = new SqlRolePermissionQuery();
     this.uow = new SqlUnitOfWork();
+    this.labProfileRepo = new SqlLabProfileRepository();
+    this.computerRepo = new SqlComputerRepository();
+    this.equipmentCategoryRepo = new SqlEquipmentCategoryRepository();
+    this.equipmentRepo = new SqlEquipmentRepository();
+    this.equipmentTxRepo = new SqlEquipmentInventoryTransactionRepository();
 
     this.getHealthUseCase = new GetHealthUseCase();
     this.healthController = new HealthController(this.getHealthUseCase);
+
+    this.getLabProfileUseCase = new GetLabProfileUseCase(this.labProfileRepo);
+    this.updateLabProfileUseCase = new UpdateLabProfileUseCase(this.labProfileRepo, this.uow, this.auditLogRepo);
+    this.updateLabStatusUseCase = new UpdateLabStatusUseCase(this.labProfileRepo, this.uow, this.auditLogRepo);
+    this.labController = new LabController(this.getLabProfileUseCase, this.updateLabProfileUseCase, this.updateLabStatusUseCase);
+
+    this.createComputerUseCase = new CreateComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo);
+    this.getComputerUseCase = new GetComputerUseCase(this.computerRepo);
+    this.listComputersUseCase = new ListComputersUseCase(this.computerRepo);
+    this.updateComputerUseCase = new UpdateComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo);
+    this.updateComputerStatusUseCase = new UpdateComputerStatusUseCase(this.computerRepo, this.uow, this.auditLogRepo);
+    this.deleteComputerUseCase = new DeleteComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo);
+    this.computerController = new ComputerController(
+      this.createComputerUseCase,
+      this.getComputerUseCase,
+      this.listComputersUseCase,
+      this.updateComputerUseCase,
+      this.updateComputerStatusUseCase,
+      this.deleteComputerUseCase,
+      this.computerRepo
+    );
+
+    this.createEquipmentCategoryUseCase = new CreateEquipmentCategoryUseCase(this.equipmentCategoryRepo);
+    this.listEquipmentCategoriesUseCase = new ListEquipmentCategoriesUseCase(this.equipmentCategoryRepo);
+    this.createEquipmentUseCase = new CreateEquipmentUseCase(this.equipmentRepo, this.uow, this.auditLogRepo);
+    this.getEquipmentUseCase = new GetEquipmentUseCase(this.equipmentRepo);
+    this.listEquipmentUseCase = new ListEquipmentUseCase(this.equipmentRepo);
+    this.updateEquipmentUseCase = new UpdateEquipmentUseCase(this.equipmentRepo, this.uow, this.auditLogRepo);
+    this.adjustInventoryUseCase = new AdjustInventoryUseCase(this.equipmentRepo, this.equipmentTxRepo, this.uow, this.auditLogRepo);
+    this.reportBrokenEquipmentUseCase = new ReportBrokenEquipmentUseCase(this.equipmentRepo, this.equipmentTxRepo, this.uow, this.auditLogRepo);
+    this.equipmentController = new EquipmentController(
+      this.createEquipmentCategoryUseCase,
+      this.listEquipmentCategoriesUseCase,
+      this.createEquipmentUseCase,
+      this.getEquipmentUseCase,
+      this.listEquipmentUseCase,
+      this.updateEquipmentUseCase,
+      this.adjustInventoryUseCase,
+      this.reportBrokenEquipmentUseCase,
+      this.equipmentTxRepo
+    );
 
     this.loginUseCase = new LoginUseCase(
       this.userRepo,
