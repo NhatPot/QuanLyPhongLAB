@@ -14,8 +14,8 @@ CREATE TABLE CheckInOutLogs (
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     CONSTRAINT FK_CheckInOutLogs_Booking FOREIGN KEY (BookingRequestId) REFERENCES BookingRequests(Id) ON DELETE CASCADE,
-    CONSTRAINT FK_CheckInOutLogs_CheckedInBy FOREIGN KEY (CheckedInBy) REFERENCES Users(Id) ON DELETE SET NULL,
-    CONSTRAINT FK_CheckInOutLogs_CheckedOutBy FOREIGN KEY (CheckedOutBy) REFERENCES Users(Id) ON DELETE SET NULL,
+    CONSTRAINT FK_CheckInOutLogs_CheckedInBy FOREIGN KEY (CheckedInBy) REFERENCES Users(Id) ON DELETE NO ACTION,
+    CONSTRAINT FK_CheckInOutLogs_CheckedOutBy FOREIGN KEY (CheckedOutBy) REFERENCES Users(Id) ON DELETE NO ACTION,
     CONSTRAINT CK_CheckInOutLogs_People CHECK (ActualPeopleCount IS NULL OR ActualPeopleCount >= 0),
     CONSTRAINT CK_CheckInOutLogs_Computers CHECK (ActualComputerCount IS NULL OR ActualComputerCount >= 0)
 );

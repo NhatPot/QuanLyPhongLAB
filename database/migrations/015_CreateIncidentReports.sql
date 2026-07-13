@@ -17,11 +17,11 @@ CREATE TABLE IncidentReports (
     ResultNote NVARCHAR(MAX) NULL,
     CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     UpdatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_IncidentReports_Reporter FOREIGN KEY (ReporterId) REFERENCES Users(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_IncidentReports_Reporter FOREIGN KEY (ReporterId) REFERENCES Users(Id) ON DELETE NO ACTION,
     CONSTRAINT FK_IncidentReports_Computer FOREIGN KEY (ComputerId) REFERENCES Computers(Id) ON DELETE SET NULL,
     CONSTRAINT FK_IncidentReports_Equipment FOREIGN KEY (EquipmentId) REFERENCES Equipments(Id) ON DELETE SET NULL,
     CONSTRAINT FK_IncidentReports_Booking FOREIGN KEY (BookingRequestId) REFERENCES BookingRequests(Id) ON DELETE SET NULL,
-    CONSTRAINT FK_IncidentReports_AssignedTo FOREIGN KEY (AssignedTo) REFERENCES Users(Id) ON DELETE SET NULL,
+    CONSTRAINT FK_IncidentReports_AssignedTo FOREIGN KEY (AssignedTo) REFERENCES Users(Id) ON DELETE NO ACTION,
     CONSTRAINT CK_IncidentReports_Severity CHECK (Severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
     CONSTRAINT CK_IncidentReports_Status CHECK (Status IN ('OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'))
 );

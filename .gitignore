@@ -22,3 +22,6 @@ lerna-debug.log*
 CVS/
 .svn/
 .hg/
+
+# Custom ignored files
+Initializing Agent Skill Skeleton.md

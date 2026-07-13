@@ -11,7 +11,8 @@
     "test": "vitest run",
     "db:migrate": "tsx ../database/migrations/runner.ts up",
     "db:rollback": "tsx ../database/migrations/runner.ts down",
-    "db:seed": "tsx ../database/seeds/seeder.ts"
+    "db:seed": "tsx ../database/seeds/seeder.ts",
+    "db:seed-dummy": "tsx ../database/seeds/dummy-data.ts"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -21,6 +22,7 @@
     "express": "^4.19.2",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "msnodesqlv8": "^5.2.1",
     "mssql": "^10.0.2",
     "pino": "^9.1.0",
     "pino-pretty": "^11.1.0",
@@ -41,5 +43,4 @@
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
   }
-
 }

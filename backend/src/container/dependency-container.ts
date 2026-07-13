@@ -26,6 +26,9 @@ import { SqlComputerRepository } from '../infrastructure/database/sqlserver/repo
 import { SqlEquipmentCategoryRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentCategoryRepository';
 import { SqlEquipmentRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentRepository';
 import { SqlEquipmentInventoryTransactionRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentInventoryTransactionRepository';
+import { SqlBookingRequestRepository } from '../infrastructure/database/sqlserver/repositories/SqlBookingRequestRepository';
+import { SqlBookingEquipmentItemRepository } from '../infrastructure/database/sqlserver/repositories/SqlBookingEquipmentItemRepository';
+import { SqlAvailabilityQueryService } from '../infrastructure/database/sqlserver/repositories/SqlAvailabilityQueryService';
 
 import { GetHealthUseCase } from '../application/use-cases/GetHealthUseCase';
 import { LoginUseCase } from '../application/use-cases/auth/LoginUseCase';
@@ -54,15 +57,31 @@ import { UpdateEquipmentUseCase } from '../application/use-cases/equipment/Updat
 import { AdjustInventoryUseCase } from '../application/use-cases/equipment/AdjustInventoryUseCase';
 import { ReportBrokenEquipmentUseCase } from '../application/use-cases/equipment/ReportBrokenEquipmentUseCase';
 
+import { CheckAvailabilityUseCase } from '../application/use-cases/booking/CheckAvailabilityUseCase';
+import { CreateBookingUseCase } from '../application/use-cases/booking/CreateBookingUseCase';
+import { GetBookingUseCase } from '../application/use-cases/booking/GetBookingUseCase';
+import { GetMyBookingsUseCase } from '../application/use-cases/booking/GetMyBookingsUseCase';
+import { GetBookingCalendarUseCase } from '../application/use-cases/booking/GetBookingCalendarUseCase';
+import { CancelBookingUseCase } from '../application/use-cases/booking/CancelBookingUseCase';
+import { ListPendingBookingsUseCase } from '../application/use-cases/booking/ListPendingBookingsUseCase';
+import { ApproveBookingUseCase } from '../application/use-cases/booking/ApproveBookingUseCase';
+import { RejectBookingUseCase } from '../application/use-cases/booking/RejectBookingUseCase';
+
 import { HealthController } from '../presentation/http/controllers/HealthController';
 import { LabController } from '../presentation/http/controllers/LabController';
 import { ComputerController } from '../presentation/http/controllers/ComputerController';
 import { EquipmentController } from '../presentation/http/controllers/EquipmentController';
+import { BookingController } from '../presentation/http/controllers/BookingController';
+import { AvailabilityController } from '../presentation/http/controllers/AvailabilityController';
+
 import { ILabProfileRepository } from '../domain/repositories/ILabProfileRepository';
 import { IComputerRepository } from '../domain/repositories/IComputerRepository';
 import { IEquipmentCategoryRepository } from '../domain/repositories/IEquipmentCategoryRepository';
 import { IEquipmentRepository } from '../domain/repositories/IEquipmentRepository';
 import { IEquipmentInventoryTransactionRepository } from '../domain/repositories/IEquipmentInventoryTransactionRepository';
+import { IBookingRequestRepository } from '../domain/repositories/IBookingRequestRepository';
+import { IBookingEquipmentItemRepository } from '../domain/repositories/IBookingEquipmentItemRepository';
+import { IAvailabilityQueryService } from '../domain/services/IAvailabilityQueryService';
 
 class DependencyContainer {
   public readonly clock: IClock;
@@ -81,12 +100,17 @@ class DependencyContainer {
   public readonly equipmentCategoryRepo: IEquipmentCategoryRepository;
   public readonly equipmentRepo: IEquipmentRepository;
   public readonly equipmentTxRepo: IEquipmentInventoryTransactionRepository;
+  public readonly bookingRepo: IBookingRequestRepository;
+  public readonly bookingEqItemRepo: IBookingEquipmentItemRepository;
+  public readonly availabilityQueryService: IAvailabilityQueryService;
 
   // Controllers
   public readonly healthController: HealthController;
   public readonly labController: LabController;
   public readonly computerController: ComputerController;
   public readonly equipmentController: EquipmentController;
+  public readonly bookingController: BookingController;
+  public readonly availabilityController: AvailabilityController;
 
   // Use cases
   public readonly getHealthUseCase: GetHealthUseCase;
@@ -116,6 +140,16 @@ class DependencyContainer {
   public readonly adjustInventoryUseCase: AdjustInventoryUseCase;
   public readonly reportBrokenEquipmentUseCase: ReportBrokenEquipmentUseCase;
 
+  public readonly checkAvailabilityUseCase: CheckAvailabilityUseCase;
+  public readonly createBookingUseCase: CreateBookingUseCase;
+  public readonly getBookingUseCase: GetBookingUseCase;
+  public readonly getMyBookingsUseCase: GetMyBookingsUseCase;
+  public readonly getBookingCalendarUseCase: GetBookingCalendarUseCase;
+  public readonly cancelBookingUseCase: CancelBookingUseCase;
+  public readonly listPendingBookingsUseCase: ListPendingBookingsUseCase;
+  public readonly approveBookingUseCase: ApproveBookingUseCase;
+  public readonly rejectBookingUseCase: RejectBookingUseCase;
+
   constructor() {
     this.clock = new SystemClock();
     this.idGenerator = new UuidGenerator();
@@ -133,6 +167,9 @@ class DependencyContainer {
     this.equipmentCategoryRepo = new SqlEquipmentCategoryRepository();
     this.equipmentRepo = new SqlEquipmentRepository();
     this.equipmentTxRepo = new SqlEquipmentInventoryTransactionRepository();
+    this.bookingRepo = new SqlBookingRequestRepository();
+    this.bookingEqItemRepo = new SqlBookingEquipmentItemRepository();
+    this.availabilityQueryService = new SqlAvailabilityQueryService();
 
     this.getHealthUseCase = new GetHealthUseCase();
     this.healthController = new HealthController(this.getHealthUseCase);
@@ -176,6 +213,41 @@ class DependencyContainer {
       this.adjustInventoryUseCase,
       this.reportBrokenEquipmentUseCase,
       this.equipmentTxRepo
+    );
+
+    this.checkAvailabilityUseCase = new CheckAvailabilityUseCase(
+      this.labProfileRepo,
+      this.computerRepo,
+      this.equipmentRepo,
+      this.availabilityQueryService
+    );
+
+    this.availabilityController = new AvailabilityController(this.checkAvailabilityUseCase);
+
+    this.createBookingUseCase = new CreateBookingUseCase(
+      this.bookingRepo,
+      this.bookingEqItemRepo,
+      this.checkAvailabilityUseCase,
+      this.uow,
+      this.auditLogRepo
+    );
+    this.getBookingUseCase = new GetBookingUseCase(this.bookingRepo, this.bookingEqItemRepo);
+    this.getMyBookingsUseCase = new GetMyBookingsUseCase(this.bookingRepo, this.bookingEqItemRepo);
+    this.getBookingCalendarUseCase = new GetBookingCalendarUseCase(this.bookingRepo);
+    this.cancelBookingUseCase = new CancelBookingUseCase(this.bookingRepo, this.bookingEqItemRepo, this.uow, this.auditLogRepo);
+    this.listPendingBookingsUseCase = new ListPendingBookingsUseCase(this.bookingRepo, this.bookingEqItemRepo);
+    this.approveBookingUseCase = new ApproveBookingUseCase(this.bookingRepo, this.bookingEqItemRepo, this.checkAvailabilityUseCase, this.uow, this.auditLogRepo);
+    this.rejectBookingUseCase = new RejectBookingUseCase(this.bookingRepo, this.uow, this.auditLogRepo);
+
+    this.bookingController = new BookingController(
+      this.createBookingUseCase,
+      this.getBookingUseCase,
+      this.getMyBookingsUseCase,
+      this.getBookingCalendarUseCase,
+      this.cancelBookingUseCase,
+      this.listPendingBookingsUseCase,
+      this.approveBookingUseCase,
+      this.rejectBookingUseCase
     );
 
     this.loginUseCase = new LoginUseCase(
