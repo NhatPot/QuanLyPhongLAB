@@ -54,6 +54,13 @@ export class SqlUnitOfWork implements IUnitOfWork {
     return new mssql.Request(this.transaction);
   }
 
+  public getTransaction(): mssql.Transaction {
+    if (!this.transaction) {
+      throw new Error('No active transaction.');
+    }
+    return this.transaction;
+  }
+
   public hasActiveTransaction(): boolean {
     return this.transaction !== null;
   }

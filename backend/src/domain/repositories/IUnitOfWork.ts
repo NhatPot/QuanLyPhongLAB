@@ -3,4 +3,5 @@ export interface IUnitOfWork {
   commitTransaction(): Promise<void>;
   rollbackTransaction(): Promise<void>;
   complete<T>(work: () => Promise<T>): Promise<T>;
+  getTransaction(): any;
 }

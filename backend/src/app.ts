@@ -10,6 +10,9 @@ import { createComputerRouter } from './presentation/http/routes/computer.routes
 import { createEquipmentRouter } from './presentation/http/routes/equipment.routes';
 import { createBookingRouter } from './presentation/http/routes/booking.routes';
 import { createAvailabilityRouter } from './presentation/http/routes/availability.routes';
+import { createUserRouter } from './presentation/http/routes/user.routes';
+import { createRoleRouter } from './presentation/http/routes/role.routes';
+import { createAuditLogRouter } from './presentation/http/routes/audit-log.routes';
 import { container } from './container/dependency-container';
 import { correlationIdMiddleware } from './presentation/http/middlewares/correlationIdMiddleware';
 import { errorHandlerMiddleware } from './presentation/http/middlewares/errorHandlerMiddleware';
@@ -57,7 +60,12 @@ export function createExpressApp(): Express {
   app.use('/api/computers', createComputerRouter(container.computerController));
   app.use('/api/equipments', createEquipmentRouter(container.equipmentController));
   app.use('/api/bookings', createBookingRouter());
-  app.use('/api/availability', createAvailabilityRouter());  // 404 handler
+  app.use('/api/availability', createAvailabilityRouter());
+  app.use('/api/users', createUserRouter(container.userController));
+  app.use('/api/roles', createRoleRouter(container.roleController));
+  app.use('/api/audit-logs', createAuditLogRouter(container.auditLogController));
+  app.use('/api/audit-log', createAuditLogRouter(container.auditLogController));
+  // 404 handler
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.status(404).json(
       ApiResponse.error("RESOURCE_NOT_FOUND", `Không tìm thấy tài nguyên: ${req.method} ${req.url}`, null, req.correlationId)
@@ -69,4 +77,3 @@ export function createExpressApp(): Express {
 
   return app;
 }
-

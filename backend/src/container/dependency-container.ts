@@ -15,10 +15,12 @@ import { IUserRepository } from '../domain/repositories/IUserRepository';
 import { IAuthSessionRepository } from '../domain/repositories/IAuthSessionRepository';
 import { IAuditLogRepository } from '../domain/repositories/IAuditLogRepository';
 import { IUnitOfWork } from '../domain/repositories/IUnitOfWork';
+import { IRolePermissionRepository } from '../domain/repositories/IRolePermissionRepository';
 
 import { SqlUserRepository } from '../infrastructure/database/sqlserver/repositories/SqlUserRepository';
 import { SqlAuthSessionRepository } from '../infrastructure/database/sqlserver/repositories/SqlAuthSessionRepository';
 import { SqlRolePermissionQuery } from '../infrastructure/database/sqlserver/repositories/SqlRolePermissionQuery';
+import { SqlRolePermissionRepository } from '../infrastructure/database/sqlserver/repositories/SqlRolePermissionRepository';
 import { SqlAuditLogRepository } from '../infrastructure/database/sqlserver/repositories/SqlAuditLogRepository';
 import { SqlUnitOfWork } from '../infrastructure/database/sqlserver/unit-of-work/SqlUnitOfWork';
 import { SqlLabProfileRepository } from '../infrastructure/database/sqlserver/repositories/SqlLabProfileRepository';
@@ -66,6 +68,22 @@ import { CancelBookingUseCase } from '../application/use-cases/booking/CancelBoo
 import { ListPendingBookingsUseCase } from '../application/use-cases/booking/ListPendingBookingsUseCase';
 import { ApproveBookingUseCase } from '../application/use-cases/booking/ApproveBookingUseCase';
 import { RejectBookingUseCase } from '../application/use-cases/booking/RejectBookingUseCase';
+import {
+  AssignUserRolesUseCase,
+  CreateUserUseCase,
+  GetUserSummaryUseCase,
+  GetUserUseCase,
+  ListUsersUseCase,
+  ResetUserPasswordUseCase,
+  UpdateUserStatusUseCase,
+  UpdateUserUseCase,
+} from '../application/use-cases/user/UserManagementUseCases';
+import {
+  GetRoleCatalogUseCase,
+  GetRoleUseCase,
+  ListRolesUseCase,
+  UpdateRolePermissionsUseCase,
+} from '../application/use-cases/role/RoleManagementUseCases';
 
 import { HealthController } from '../presentation/http/controllers/HealthController';
 import { LabController } from '../presentation/http/controllers/LabController';
@@ -73,6 +91,10 @@ import { ComputerController } from '../presentation/http/controllers/ComputerCon
 import { EquipmentController } from '../presentation/http/controllers/EquipmentController';
 import { BookingController } from '../presentation/http/controllers/BookingController';
 import { AvailabilityController } from '../presentation/http/controllers/AvailabilityController';
+import { UserController } from '../presentation/http/controllers/UserController';
+import { RoleController } from '../presentation/http/controllers/RoleController';
+import { AuditLogController } from '../presentation/http/controllers/AuditLogController';
+import { ListAuditLogsUseCase } from '../application/use-cases/audit/AuditLogUseCases';
 
 import { ILabProfileRepository } from '../domain/repositories/ILabProfileRepository';
 import { IComputerRepository } from '../domain/repositories/IComputerRepository';
@@ -91,6 +113,7 @@ class DependencyContainer {
   public readonly tokenService: ITokenService;
   
   public readonly userRepo: IUserRepository;
+  public readonly rolePermissionRepo: IRolePermissionRepository;
   public readonly sessionRepo: IAuthSessionRepository;
   public readonly auditLogRepo: IAuditLogRepository;
   public readonly rolePermQuery: IRolePermissionQuery;
@@ -111,6 +134,9 @@ class DependencyContainer {
   public readonly equipmentController: EquipmentController;
   public readonly bookingController: BookingController;
   public readonly availabilityController: AvailabilityController;
+  public readonly userController: UserController;
+  public readonly roleController: RoleController;
+  public readonly auditLogController: AuditLogController;
 
   // Use cases
   public readonly getHealthUseCase: GetHealthUseCase;
@@ -150,6 +176,21 @@ class DependencyContainer {
   public readonly approveBookingUseCase: ApproveBookingUseCase;
   public readonly rejectBookingUseCase: RejectBookingUseCase;
 
+  public readonly listUsersUseCase: ListUsersUseCase;
+  public readonly getUserSummaryUseCase: GetUserSummaryUseCase;
+  public readonly getUserUseCase: GetUserUseCase;
+  public readonly createUserUseCase: CreateUserUseCase;
+  public readonly updateUserUseCase: UpdateUserUseCase;
+  public readonly updateUserStatusUseCase: UpdateUserStatusUseCase;
+  public readonly assignUserRolesUseCase: AssignUserRolesUseCase;
+  public readonly resetUserPasswordUseCase: ResetUserPasswordUseCase;
+
+  public readonly listRolesUseCase: ListRolesUseCase;
+  public readonly getRoleCatalogUseCase: GetRoleCatalogUseCase;
+  public readonly getRoleUseCase: GetRoleUseCase;
+  public readonly updateRolePermissionsUseCase: UpdateRolePermissionsUseCase;
+  public readonly listAuditLogsUseCase: ListAuditLogsUseCase;
+
   constructor() {
     this.clock = new SystemClock();
     this.idGenerator = new UuidGenerator();
@@ -158,6 +199,7 @@ class DependencyContainer {
     this.tokenService = new JwtTokenService();
 
     this.userRepo = new SqlUserRepository();
+    this.rolePermissionRepo = new SqlRolePermissionRepository();
     this.sessionRepo = new SqlAuthSessionRepository();
     this.auditLogRepo = new SqlAuditLogRepository();
     this.rolePermQuery = new SqlRolePermissionQuery();
@@ -281,6 +323,66 @@ class DependencyContainer {
       this.uow,
       this.auditLogRepo
     );
+
+    this.listUsersUseCase = new ListUsersUseCase(this.userRepo);
+    this.getUserSummaryUseCase = new GetUserSummaryUseCase(this.userRepo);
+    this.getUserUseCase = new GetUserUseCase(this.userRepo);
+    this.createUserUseCase = new CreateUserUseCase(
+      this.userRepo,
+      this.hasher,
+      this.uow,
+      this.auditLogRepo
+    );
+    this.updateUserUseCase = new UpdateUserUseCase(
+      this.userRepo,
+      this.uow,
+      this.auditLogRepo
+    );
+    this.updateUserStatusUseCase = new UpdateUserStatusUseCase(
+      this.userRepo,
+      this.uow,
+      this.auditLogRepo
+    );
+    this.assignUserRolesUseCase = new AssignUserRolesUseCase(
+      this.userRepo,
+      this.uow,
+      this.auditLogRepo
+    );
+    this.resetUserPasswordUseCase = new ResetUserPasswordUseCase(
+      this.userRepo,
+      this.sessionRepo,
+      this.hasher,
+      this.uow,
+      this.auditLogRepo
+    );
+    this.userController = new UserController(
+      this.listUsersUseCase,
+      this.getUserSummaryUseCase,
+      this.getUserUseCase,
+      this.createUserUseCase,
+      this.updateUserUseCase,
+      this.updateUserStatusUseCase,
+      this.assignUserRolesUseCase,
+      this.resetUserPasswordUseCase
+    );
+
+    this.listRolesUseCase = new ListRolesUseCase(this.rolePermissionRepo);
+    this.getRoleCatalogUseCase = new GetRoleCatalogUseCase(this.rolePermissionRepo);
+    this.getRoleUseCase = new GetRoleUseCase(this.rolePermissionRepo);
+    this.updateRolePermissionsUseCase = new UpdateRolePermissionsUseCase(
+      this.rolePermissionRepo,
+      this.uow,
+      this.auditLogRepo
+    );
+    this.roleController = new RoleController(
+      this.listRolesUseCase,
+      this.getRoleCatalogUseCase,
+      this.getRoleUseCase,
+      this.updateRolePermissionsUseCase
+    );
+
+    this.listAuditLogsUseCase = new ListAuditLogsUseCase(this.auditLogRepo);
+    this.auditLogController = new AuditLogController(this.listAuditLogsUseCase);
   }
 }
 

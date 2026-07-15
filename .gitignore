@@ -25,3 +25,7 @@ CVS/
 
 # Custom ignored files
 Initializing Agent Skill Skeleton.md
+
+# Next.js generated files
+.next/
+*.tsbuildinfo

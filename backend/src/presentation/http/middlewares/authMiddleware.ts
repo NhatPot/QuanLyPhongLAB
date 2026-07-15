@@ -25,7 +25,8 @@ export function requirePermissions(...requiredPermissions: string[]) {
       throw new UnauthorizedError("Người dùng chưa được xác thực.");
     }
 
-    const hasPermission = requiredPermissions.every(perm => user.permissions.includes(perm));
+    const isAdministrator = Array.isArray(user.roles) && user.roles.includes('ADMIN');
+    const hasPermission = isAdministrator || requiredPermissions.every((perm) => user.permissions.includes(perm));
     if (!hasPermission) {
       throw new ForbiddenError("Bạn không có quyền thực hiện hành động này.");
     }

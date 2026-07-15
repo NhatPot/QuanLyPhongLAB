@@ -10,6 +10,10 @@ export interface LoginResponse {
   mustChangePassword: boolean;
 }
 
+export interface RefreshResponse {
+  accessToken: string;
+}
+
 export interface UserProfile {
   id: string;
   fullName: string;
@@ -23,6 +27,11 @@ export interface UserProfile {
 export const authApi = {
   login: async (payload: LoginPayload): Promise<LoginResponse> => {
     const response = await apiClient.post('/auth/login', payload);
+    return response.data.data;
+  },
+
+  refresh: async (): Promise<RefreshResponse> => {
+    const response = await apiClient.post('/auth/refresh');
     return response.data.data;
   },
   
