@@ -147,6 +147,7 @@ export function permissionGroupOf(code: string): string {
   if (code.startsWith('LAB_')) return 'lab';
   if (code.startsWith('COMPUTER_')) return 'computers';
   if (code.startsWith('EQUIPMENT_')) return 'equipment';
+  if (code.startsWith('MAINTENANCE_')) return 'maintenance';
   if (code.startsWith('BOOKING_')) return 'bookings';
   if (code.startsWith('INCIDENT_')) return 'incidents';
   return 'reports';

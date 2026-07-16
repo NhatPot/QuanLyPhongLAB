@@ -8,6 +8,7 @@ import { UniqueEntityId } from '../src/domain/value-objects/UniqueEntityId';
 vi.spyOn(container.uow, 'complete').mockImplementation(async (work: any) => {
   return work();
 });
+vi.spyOn(container.uow, 'getTransaction').mockReturnValue({} as any);
 
 const mockComputer = Computer.create({
   code: 'PC01',

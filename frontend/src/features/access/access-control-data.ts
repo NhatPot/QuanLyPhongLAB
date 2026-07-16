@@ -149,6 +149,20 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    id: 'maintenance',
+    name: 'Bảo trì tài sản',
+    description: 'Lập lịch, thực hiện và ghi nhận kết quả bảo trì.',
+    permissions: [
+      { code: 'MAINTENANCE_VIEW', name: 'Xem lịch bảo trì', description: 'Xem danh sách, chi tiết và thống kê bảo trì.' },
+      { code: 'MAINTENANCE_CREATE', name: 'Tạo lịch bảo trì', description: 'Lập lịch bảo trì cho phòng, máy tính hoặc thiết bị.' },
+      { code: 'MAINTENANCE_UPDATE', name: 'Cập nhật lịch bảo trì', description: 'Chỉnh sửa lịch bảo trì chưa bắt đầu.' },
+      { code: 'MAINTENANCE_START', name: 'Bắt đầu bảo trì', description: 'Chuyển lịch và tài sản sang trạng thái bảo trì.' },
+      { code: 'MAINTENANCE_COMPLETE', name: 'Hoàn tất bảo trì', description: 'Ghi nhận kết quả, chi phí và linh kiện thay thế.' },
+      { code: 'MAINTENANCE_CANCEL', name: 'Hủy lịch bảo trì', description: 'Hủy lịch bảo trì chưa bắt đầu.' },
+      { code: 'MAINTENANCE_DELETE', name: 'Xóa lịch bảo trì', description: 'Xóa mềm lịch bảo trì hợp lệ.' },
+    ],
+  },
+  {
     id: 'bookings',
     name: 'Đăng ký sử dụng',
     description: 'Tạo, duyệt và quản lý lịch sử dụng.',
@@ -222,6 +236,9 @@ export const ROLE_PERMISSION_PRESETS: Record<RoleCode, string[]> = {
     'INCIDENT_UPDATE',
     'INCIDENT_RESOLVE',
     'DASHBOARD_VIEW_OPERATION',
+    'MAINTENANCE_VIEW',
+    'MAINTENANCE_START',
+    'MAINTENANCE_COMPLETE',
   ],
   LAB_STAFF: [
     'LAB_PROFILE_VIEW',
@@ -237,6 +254,12 @@ export const ROLE_PERMISSION_PRESETS: Record<RoleCode, string[]> = {
     'INCIDENT_VIEW_ASSIGNED',
     'INCIDENT_UPDATE',
     'DASHBOARD_VIEW_OPERATION',
+    'MAINTENANCE_VIEW',
+    'MAINTENANCE_CREATE',
+    'MAINTENANCE_UPDATE',
+    'MAINTENANCE_START',
+    'MAINTENANCE_COMPLETE',
+    'MAINTENANCE_CANCEL',
   ],
   STUDENT: [
     'LAB_PROFILE_VIEW',
@@ -251,6 +274,7 @@ export const ROLE_PERMISSION_PRESETS: Record<RoleCode, string[]> = {
     'DASHBOARD_VIEW_ADMIN',
     'REPORT_VIEW',
     'REPORT_EXPORT',
+    'MAINTENANCE_VIEW',
   ],
 };
 
@@ -366,4 +390,3 @@ export const INITIAL_USERS: UserRecord[] = [
 ];
 
 export const roleByCode = (code: RoleCode) => ROLE_DEFINITIONS.find((role) => role.code === code);
-

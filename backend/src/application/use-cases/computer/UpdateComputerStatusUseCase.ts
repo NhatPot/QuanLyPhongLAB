@@ -3,6 +3,7 @@ import { IComputerRepository } from '../../../domain/repositories/IComputerRepos
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { IAuditLogRepository } from '../../../domain/repositories/IAuditLogRepository';
 import { Computer, ComputerStatus } from '../../../domain/entities/Computer';
+import { ComputerMaintenanceProposalService } from '../maintenance/ComputerMaintenanceProposalService';
 
 export interface UpdateComputerStatusInput {
   id: string;
@@ -17,7 +18,8 @@ export class UpdateComputerStatusUseCase {
   constructor(
     private computerRepo: IComputerRepository,
     private uow: IUnitOfWork,
-    private auditLogRepo: IAuditLogRepository
+    private auditLogRepo: IAuditLogRepository,
+    private maintenanceProposalService: ComputerMaintenanceProposalService,
   ) {}
 
   public async execute(input: UpdateComputerStatusInput): Promise<Result<Computer>> {
@@ -32,10 +34,24 @@ export class UpdateComputerStatusUseCase {
         return Result.ok<Computer>(computer);
       }
 
+      if (oldStatus === 'MAINTENANCE' || input.status === 'MAINTENANCE') {
+        return Result.fail<Computer>('Trạng thái bảo trì chỉ được thay đổi từ lịch bảo trì.');
+      }
+
       computer.changeStatus(input.status);
 
       await this.uow.complete(async () => {
-        await this.computerRepo.save(computer);
+        const transaction = this.uow.getTransaction();
+        await this.computerRepo.save(computer, transaction);
+
+        if (input.status === 'BROKEN') {
+          await this.maintenanceProposalService.ensureProposal(computer, 'BROKEN_STATUS', {
+            actorUserId: input.userId,
+            ipAddress: input.ipAddressClient,
+            userAgent: input.userAgent,
+            correlationId: input.correlationId,
+          }, transaction);
+        }
 
         await this.auditLogRepo.save({
           userId: input.userId,
@@ -49,7 +65,7 @@ export class UpdateComputerStatusUseCase {
             old: oldStatus,
             new: input.status
           })
-        } as any);
+        } as any, transaction);
       });
 
       return Result.ok<Computer>(computer);

@@ -8,7 +8,7 @@ export const navItems:NavItem[]=[
  {label:'Máy tính',href:'/computers',icon:Monitor,permission:'COMPUTER_VIEW',group:'main'},
  {label:'Thiết bị',href:'/equipments',icon:PackageOpen,permission:'EQUIPMENT_VIEW',group:'main'},
  {label:'Sự cố',href:'/incidents',icon:AlertTriangle,permission:'INCIDENT_CREATE',group:'main'},
- {label:'Bảo trì',href:'/maintenance',icon:Wrench,permission:'EQUIPMENT_UPDATE',group:'main'},
+ {label:'Bảo trì',href:'/maintenance',icon:Wrench,permission:'MAINTENANCE_VIEW',group:'main'},
  {label:'Báo cáo thống kê',href:'/reports',icon:ChartNoAxesCombined,permission:'REPORT_VIEW',group:'main'},
  {label:'Người dùng',href:'/users',icon:Users,permission:'USER_VIEW',group:'system'},
  {label:'Phân quyền',href:'/roles',icon:UserRoundCog,permission:'PERMISSION_MANAGE',group:'system'},

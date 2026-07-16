@@ -16,6 +16,7 @@ import { IAuthSessionRepository } from '../domain/repositories/IAuthSessionRepos
 import { IAuditLogRepository } from '../domain/repositories/IAuditLogRepository';
 import { IUnitOfWork } from '../domain/repositories/IUnitOfWork';
 import { IRolePermissionRepository } from '../domain/repositories/IRolePermissionRepository';
+import { IMaintenanceScheduleRepository } from '../domain/repositories/IMaintenanceScheduleRepository';
 
 import { SqlUserRepository } from '../infrastructure/database/sqlserver/repositories/SqlUserRepository';
 import { SqlAuthSessionRepository } from '../infrastructure/database/sqlserver/repositories/SqlAuthSessionRepository';
@@ -31,6 +32,7 @@ import { SqlEquipmentInventoryTransactionRepository } from '../infrastructure/da
 import { SqlBookingRequestRepository } from '../infrastructure/database/sqlserver/repositories/SqlBookingRequestRepository';
 import { SqlBookingEquipmentItemRepository } from '../infrastructure/database/sqlserver/repositories/SqlBookingEquipmentItemRepository';
 import { SqlAvailabilityQueryService } from '../infrastructure/database/sqlserver/repositories/SqlAvailabilityQueryService';
+import { SqlMaintenanceScheduleRepository } from '../infrastructure/database/sqlserver/repositories/SqlMaintenanceScheduleRepository';
 
 import { GetHealthUseCase } from '../application/use-cases/GetHealthUseCase';
 import { LoginUseCase } from '../application/use-cases/auth/LoginUseCase';
@@ -95,6 +97,23 @@ import { UserController } from '../presentation/http/controllers/UserController'
 import { RoleController } from '../presentation/http/controllers/RoleController';
 import { AuditLogController } from '../presentation/http/controllers/AuditLogController';
 import { ListAuditLogsUseCase } from '../application/use-cases/audit/AuditLogUseCases';
+import {
+  CancelMaintenanceUseCase,
+  CompleteMaintenanceUseCase,
+  CreateMaintenanceUseCase,
+  DeleteMaintenanceUseCase,
+  GetMaintenanceOptionsUseCase,
+  GetMaintenanceSummaryUseCase,
+  GetMaintenanceUseCase,
+  ListMaintenancesUseCase,
+  StartMaintenanceUseCase,
+  UpdateMaintenanceUseCase,
+} from '../application/use-cases/maintenance/MaintenanceManagementUseCases';
+import { MaintenanceController } from '../presentation/http/controllers/MaintenanceController';
+import {
+  ComputerMaintenanceProposalService,
+  SyncComputerMaintenanceRemindersUseCase,
+} from '../application/use-cases/maintenance/ComputerMaintenanceProposalService';
 
 import { ILabProfileRepository } from '../domain/repositories/ILabProfileRepository';
 import { IComputerRepository } from '../domain/repositories/IComputerRepository';
@@ -126,6 +145,8 @@ class DependencyContainer {
   public readonly bookingRepo: IBookingRequestRepository;
   public readonly bookingEqItemRepo: IBookingEquipmentItemRepository;
   public readonly availabilityQueryService: IAvailabilityQueryService;
+  public readonly maintenanceRepo: IMaintenanceScheduleRepository;
+  public readonly maintenanceProposalService: ComputerMaintenanceProposalService;
 
   // Controllers
   public readonly healthController: HealthController;
@@ -137,6 +158,7 @@ class DependencyContainer {
   public readonly userController: UserController;
   public readonly roleController: RoleController;
   public readonly auditLogController: AuditLogController;
+  public readonly maintenanceController: MaintenanceController;
 
   // Use cases
   public readonly getHealthUseCase: GetHealthUseCase;
@@ -190,6 +212,17 @@ class DependencyContainer {
   public readonly getRoleUseCase: GetRoleUseCase;
   public readonly updateRolePermissionsUseCase: UpdateRolePermissionsUseCase;
   public readonly listAuditLogsUseCase: ListAuditLogsUseCase;
+  public readonly listMaintenancesUseCase: ListMaintenancesUseCase;
+  public readonly getMaintenanceSummaryUseCase: GetMaintenanceSummaryUseCase;
+  public readonly getMaintenanceOptionsUseCase: GetMaintenanceOptionsUseCase;
+  public readonly getMaintenanceUseCase: GetMaintenanceUseCase;
+  public readonly createMaintenanceUseCase: CreateMaintenanceUseCase;
+  public readonly updateMaintenanceUseCase: UpdateMaintenanceUseCase;
+  public readonly startMaintenanceUseCase: StartMaintenanceUseCase;
+  public readonly completeMaintenanceUseCase: CompleteMaintenanceUseCase;
+  public readonly cancelMaintenanceUseCase: CancelMaintenanceUseCase;
+  public readonly deleteMaintenanceUseCase: DeleteMaintenanceUseCase;
+  public readonly syncComputerMaintenanceRemindersUseCase: SyncComputerMaintenanceRemindersUseCase;
 
   constructor() {
     this.clock = new SystemClock();
@@ -212,6 +245,12 @@ class DependencyContainer {
     this.bookingRepo = new SqlBookingRequestRepository();
     this.bookingEqItemRepo = new SqlBookingEquipmentItemRepository();
     this.availabilityQueryService = new SqlAvailabilityQueryService();
+    this.maintenanceRepo = new SqlMaintenanceScheduleRepository();
+    this.maintenanceProposalService = new ComputerMaintenanceProposalService(
+      this.maintenanceRepo,
+      this.idGenerator,
+      this.auditLogRepo,
+    );
 
     this.getHealthUseCase = new GetHealthUseCase();
     this.healthController = new HealthController(this.getHealthUseCase);
@@ -221,11 +260,11 @@ class DependencyContainer {
     this.updateLabStatusUseCase = new UpdateLabStatusUseCase(this.labProfileRepo, this.uow, this.auditLogRepo);
     this.labController = new LabController(this.getLabProfileUseCase, this.updateLabProfileUseCase, this.updateLabStatusUseCase);
 
-    this.createComputerUseCase = new CreateComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo);
+    this.createComputerUseCase = new CreateComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo, this.maintenanceProposalService);
     this.getComputerUseCase = new GetComputerUseCase(this.computerRepo);
     this.listComputersUseCase = new ListComputersUseCase(this.computerRepo);
-    this.updateComputerUseCase = new UpdateComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo);
-    this.updateComputerStatusUseCase = new UpdateComputerStatusUseCase(this.computerRepo, this.uow, this.auditLogRepo);
+    this.updateComputerUseCase = new UpdateComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo, this.maintenanceProposalService);
+    this.updateComputerStatusUseCase = new UpdateComputerStatusUseCase(this.computerRepo, this.uow, this.auditLogRepo, this.maintenanceProposalService);
     this.deleteComputerUseCase = new DeleteComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo);
     this.computerController = new ComputerController(
       this.createComputerUseCase,
@@ -383,6 +422,45 @@ class DependencyContainer {
 
     this.listAuditLogsUseCase = new ListAuditLogsUseCase(this.auditLogRepo);
     this.auditLogController = new AuditLogController(this.listAuditLogsUseCase);
+
+    const maintenanceDependencies = {
+      maintenanceRepo: this.maintenanceRepo,
+      labRepo: this.labProfileRepo,
+      computerRepo: this.computerRepo,
+      equipmentRepo: this.equipmentRepo,
+      userRepo: this.userRepo,
+      equipmentTxRepo: this.equipmentTxRepo,
+      uow: this.uow,
+      auditLogRepo: this.auditLogRepo,
+    };
+    this.listMaintenancesUseCase = new ListMaintenancesUseCase(this.maintenanceRepo);
+    this.getMaintenanceSummaryUseCase = new GetMaintenanceSummaryUseCase(this.maintenanceRepo);
+    this.getMaintenanceOptionsUseCase = new GetMaintenanceOptionsUseCase(this.maintenanceRepo);
+    this.getMaintenanceUseCase = new GetMaintenanceUseCase(this.maintenanceRepo);
+    this.createMaintenanceUseCase = new CreateMaintenanceUseCase(maintenanceDependencies, this.idGenerator);
+    this.updateMaintenanceUseCase = new UpdateMaintenanceUseCase(maintenanceDependencies);
+    this.startMaintenanceUseCase = new StartMaintenanceUseCase(maintenanceDependencies);
+    this.completeMaintenanceUseCase = new CompleteMaintenanceUseCase(maintenanceDependencies);
+    this.cancelMaintenanceUseCase = new CancelMaintenanceUseCase(maintenanceDependencies);
+    this.deleteMaintenanceUseCase = new DeleteMaintenanceUseCase(maintenanceDependencies);
+    this.syncComputerMaintenanceRemindersUseCase = new SyncComputerMaintenanceRemindersUseCase(
+      this.computerRepo,
+      this.maintenanceProposalService,
+      this.uow,
+    );
+    this.maintenanceController = new MaintenanceController(
+      this.listMaintenancesUseCase,
+      this.getMaintenanceSummaryUseCase,
+      this.getMaintenanceOptionsUseCase,
+      this.getMaintenanceUseCase,
+      this.createMaintenanceUseCase,
+      this.updateMaintenanceUseCase,
+      this.startMaintenanceUseCase,
+      this.completeMaintenanceUseCase,
+      this.cancelMaintenanceUseCase,
+      this.deleteMaintenanceUseCase,
+      this.syncComputerMaintenanceRemindersUseCase,
+    );
   }
 }
 

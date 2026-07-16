@@ -3,6 +3,7 @@ import { IComputerRepository } from '../../../domain/repositories/IComputerRepos
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { IAuditLogRepository } from '../../../domain/repositories/IAuditLogRepository';
 import { Computer, ComputerStatus } from '../../../domain/entities/Computer';
+import { ComputerMaintenanceProposalService } from '../maintenance/ComputerMaintenanceProposalService';
 
 export interface CreateComputerInput {
   code: string;
@@ -28,7 +29,8 @@ export class CreateComputerUseCase {
   constructor(
     private computerRepo: IComputerRepository,
     private uow: IUnitOfWork,
-    private auditLogRepo: IAuditLogRepository
+    private auditLogRepo: IAuditLogRepository,
+    private maintenanceProposalService: ComputerMaintenanceProposalService,
   ) {}
 
   public async execute(input: CreateComputerInput): Promise<Result<Computer>> {
@@ -36,6 +38,9 @@ export class CreateComputerUseCase {
       const existing = await this.computerRepo.findByCode(input.code);
       if (existing) {
         return Result.fail<Computer>(`Mã máy tính '${input.code}' đã tồn tại.`);
+      }
+      if (input.status === 'MAINTENANCE') {
+        return Result.fail<Computer>('Không thể tạo máy trực tiếp ở trạng thái bảo trì. Hãy lập lịch sau khi tạo máy.');
       }
 
       const computer = Computer.create({
@@ -55,7 +60,17 @@ export class CreateComputerUseCase {
       });
 
       await this.uow.complete(async () => {
-        await this.computerRepo.save(computer);
+        const transaction = this.uow.getTransaction();
+        await this.computerRepo.save(computer, transaction);
+
+        if (computer.status === 'BROKEN') {
+          await this.maintenanceProposalService.ensureProposal(computer, 'BROKEN_STATUS', {
+            actorUserId: input.userId,
+            ipAddress: input.ipAddressClient,
+            userAgent: input.userAgent,
+            correlationId: input.correlationId,
+          }, transaction);
+        }
 
         await this.auditLogRepo.save({
           userId: input.userId,
@@ -65,7 +80,7 @@ export class CreateComputerUseCase {
           ipAddress: input.ipAddressClient,
           userAgent: input.userAgent,
           correlationId: input.correlationId
-        } as any);
+        } as any, transaction);
       });
 
       return Result.ok<Computer>(computer);

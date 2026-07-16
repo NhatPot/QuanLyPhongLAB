@@ -13,6 +13,7 @@ import { createAvailabilityRouter } from './presentation/http/routes/availabilit
 import { createUserRouter } from './presentation/http/routes/user.routes';
 import { createRoleRouter } from './presentation/http/routes/role.routes';
 import { createAuditLogRouter } from './presentation/http/routes/audit-log.routes';
+import { createMaintenanceRouter } from './presentation/http/routes/maintenance.routes';
 import { container } from './container/dependency-container';
 import { correlationIdMiddleware } from './presentation/http/middlewares/correlationIdMiddleware';
 import { errorHandlerMiddleware } from './presentation/http/middlewares/errorHandlerMiddleware';
@@ -65,6 +66,7 @@ export function createExpressApp(): Express {
   app.use('/api/roles', createRoleRouter(container.roleController));
   app.use('/api/audit-logs', createAuditLogRouter(container.auditLogController));
   app.use('/api/audit-log', createAuditLogRouter(container.auditLogController));
+  app.use('/api/maintenances', createMaintenanceRouter(container.maintenanceController));
   // 404 handler
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.status(404).json(

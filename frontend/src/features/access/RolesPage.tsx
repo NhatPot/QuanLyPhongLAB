@@ -17,6 +17,7 @@ import {
   Search,
   ShieldCheck,
   TriangleAlert,
+  Wrench,
   UserRoundCog,
   Users,
   type LucideIcon,
@@ -24,6 +25,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '@/features/auth/AuthContext';
 import { roleApi, type PermissionApiRecord, type RoleApiRecord } from '@/services/role-api';
+import { dataModeLabel, isMockDataMode } from '@/services/data-mode';
 import { cn } from '@/lib/utils';
 import { PERMISSION_GROUPS, type RoleTone } from './access-control-data';
 
@@ -36,7 +38,7 @@ const ROLE_TONES: Record<RoleTone, { icon: string; badge: string; active: string
   slate: { icon: 'bg-slate-100 text-slate-600', badge: 'border-slate-200 bg-slate-100 text-slate-600', active: 'border-slate-300 bg-slate-100/80' },
 };
 const FALLBACK_TONES: RoleTone[] = ['violet', 'blue', 'emerald', 'cyan', 'amber', 'slate'];
-const GROUP_ICONS: Record<string, LucideIcon> = { users: Users, lab: CalendarDays, computers: Monitor, equipment: PackageOpen, bookings: ClipboardCheck, incidents: TriangleAlert, reports: FileBarChart };
+const GROUP_ICONS: Record<string, LucideIcon> = { users: Users, lab: CalendarDays, computers: Monitor, equipment: PackageOpen, maintenance: Wrench, bookings: ClipboardCheck, incidents: TriangleAlert, reports: FileBarChart };
 const normalizeCodes = (codes: string[]) => [...codes].sort().join('|');
 const errorMessage = (error: unknown) => (error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'Không thể cập nhật ma trận quyền.';
 
@@ -121,7 +123,7 @@ export default function RolesPage() {
 
   return (
     <div className="animate-float-in space-y-4">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="mb-1.5 flex items-center gap-2"><span className="text-[10px] font-extrabold uppercase tracking-[.16em] text-blue-600">RBAC</span><span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">API trực tiếp</span></div><h1 className="text-2xl font-extrabold tracking-tight text-slate-950">Vai trò & phân quyền</h1><p className="mt-1 text-sm text-slate-500">Thiết lập phạm vi truy cập cho từng nhóm người dùng trong hệ thống.</p></div><div className="flex items-center gap-2 self-start sm:self-auto">{isDirty && <button type="button" onClick={resetRole} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 hover:bg-slate-50"><RotateCcw className="h-4 w-4" />Hoàn tác</button>}{!isAdminRole && <button type="button" onClick={() => updateMutation.mutate()} disabled={!isDirty || updateMutation.isPending} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm shadow-blue-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}</button>}</div></section>
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="mb-1.5 flex items-center gap-2"><span className="text-[10px] font-extrabold uppercase tracking-[.16em] text-blue-600">RBAC</span><span className={cn('rounded-full border px-2 py-0.5 text-[9px] font-bold', isMockDataMode ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700')}>{dataModeLabel}</span></div><h1 className="text-2xl font-extrabold tracking-tight text-slate-950">Vai trò & phân quyền</h1><p className="mt-1 text-sm text-slate-500">Thiết lập phạm vi truy cập cho từng nhóm người dùng trong hệ thống.</p></div><div className="flex items-center gap-2 self-start sm:self-auto">{isDirty && <button type="button" onClick={resetRole} className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"><RotateCcw className="h-4 w-4" />Hoàn tác</button>}{!isAdminRole && <button type="button" onClick={() => updateMutation.mutate()} disabled={!isDirty || updateMutation.isPending} className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm shadow-blue-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}</button>}</div></section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricCard label="Vai trò hệ thống" value={roles.length} helper="Đồng bộ từ database" icon={UserRoundCog} tone="violet" highlighted /><MetricCard label="Quyền truy cập" value={permissionCount} helper={`${visibleGroups.length} nhóm chức năng`} icon={KeyRound} tone="blue" /><MetricCard label="Tài khoản được gán" value={assignmentCount} helper="Tổng lượt gán vai trò" icon={Users} tone="emerald" /><MetricCard label="Quyền của vai trò này" value={selectedPermissions.length} helper={`${selectedRole.name}`} icon={ShieldCheck} tone="amber" /></section>
 
@@ -140,4 +142,3 @@ function MetricCard({ label, value, helper, icon: Icon, tone, highlighted = fals
   const tones = { violet: 'bg-violet-50 text-violet-600', blue: 'bg-blue-50 text-blue-600', emerald: 'bg-emerald-50 text-emerald-600', amber: 'bg-amber-50 text-amber-600' };
   return <div className={cn('flex min-h-[96px] items-center gap-3 p-4 transition hover:-translate-y-0.5', highlighted ? 'rounded-2xl border border-violet-500/30 bg-gradient-to-br from-[#5B43F4] via-[#6D3FF2] to-[#8B2CF5] shadow-[0_10px_24px_rgba(109,63,242,.24)]' : 'dashboard-card')}><span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', highlighted ? 'bg-white/15 text-white ring-1 ring-white/25' : tones[tone])}><Icon className="h-5 w-5" /></span><div className="min-w-0"><p className={cn('truncate text-[11px] font-semibold', highlighted ? 'text-white/80' : 'text-slate-500')}>{label}</p><p className={cn('mt-0.5 text-xl font-extrabold leading-none', highlighted ? 'text-white' : 'text-slate-900')}>{value}</p><p className={cn('mt-1.5 truncate text-[10px] font-medium', highlighted ? 'text-white/75' : 'text-slate-400')}>{helper}</p></div></div>;
 }
-

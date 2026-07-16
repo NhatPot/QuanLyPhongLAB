@@ -196,14 +196,21 @@ export function ComputerEditorDialog({
 
                 <Field label="Trạng thái máy">
                   <select {...register('status')} className={inputClass}>
-                    <option value="ACTIVE">Sẵn sàng</option>
-                    <option value="IN_USE">Đang sử dụng</option>
-                    <option value="BROKEN">Bị hỏng</option>
-                    <option value="MAINTENANCE">Bảo trì</option>
-                    <option value="LOCKED">Đã khóa</option>
-                    <option value="INACTIVE">Không hoạt động</option>
+                    {computer?.status === 'MAINTENANCE' ? <option value="MAINTENANCE">Bảo trì</option> : <>
+                      <option value="ACTIVE">Sẵn sàng</option>
+                      <option value="IN_USE">Đang sử dụng</option>
+                      <option value="BROKEN">Bị hỏng</option>
+                      <option value="LOCKED">Đã khóa</option>
+                      <option value="INACTIVE">Không hoạt động</option>
+                    </>}
                   </select>
+                  <span className="mt-1.5 block text-[10px] leading-4 text-slate-400">Máy bị hỏng sẽ tự sinh đề xuất bảo trì. Trạng thái bảo trì chỉ được điều khiển từ lịch bảo trì.</span>
                 </Field>
+
+                {computer && (computer.status === 'BROKEN' || computer.status === 'MAINTENANCE' || isMaintenanceDue(computer)) && <div className="sm:col-span-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                  {computer.status === 'BROKEN' ? 'Máy đang bị hỏng và cần được xếp lịch sửa chữa.' : computer.status === 'MAINTENANCE' ? 'Máy đang được xử lý trong một lịch bảo trì.' : 'Máy đã đến hạn bảo trì định kỳ 270 ngày.'}{' '}
+                  <a href="/maintenance" className="font-extrabold text-blue-700 hover:underline">Mở danh sách bảo trì</a>
+                </div>}
 
                 <div className="sm:col-span-2 mt-1 border-t border-slate-100 pt-4">
                   <h3 className="text-[11px] font-extrabold uppercase tracking-[.14em] text-slate-400">
@@ -359,4 +366,9 @@ function Field({
       {error && <span className="mt-1 block text-xs font-medium text-red-500">{error}</span>}
     </label>
   );
+}
+
+function isMaintenanceDue(computer: ComputerData): boolean {
+  const base = computer.lastMaintenanceDate || computer.createdAt;
+  return Boolean(base && Date.now() - new Date(base).getTime() >= 270 * 24 * 60 * 60 * 1000);
 }

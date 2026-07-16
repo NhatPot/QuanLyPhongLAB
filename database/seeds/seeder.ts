@@ -53,6 +53,14 @@ const permissions = [
   { code: 'EQUIPMENT_DELETE', name: 'Xóa thiết bị', desc: 'Xóa thiết bị' },
   { code: 'EQUIPMENT_HANDOVER', name: 'Bàn giao thiết bị', desc: 'Bàn giao thiết bị khi check-in' },
   { code: 'EQUIPMENT_RECEIVE', name: 'Nhận lại thiết bị', desc: 'Nhận lại thiết bị khi check-out' },
+  // Maintenance
+  { code: 'MAINTENANCE_VIEW', name: 'Xem lịch bảo trì', desc: 'Xem danh sách, chi tiết và thống kê bảo trì' },
+  { code: 'MAINTENANCE_CREATE', name: 'Tạo lịch bảo trì', desc: 'Lập lịch bảo trì tài sản' },
+  { code: 'MAINTENANCE_UPDATE', name: 'Cập nhật lịch bảo trì', desc: 'Chỉnh sửa lịch bảo trì chưa bắt đầu' },
+  { code: 'MAINTENANCE_START', name: 'Bắt đầu bảo trì', desc: 'Chuyển lịch và tài sản sang trạng thái bảo trì' },
+  { code: 'MAINTENANCE_COMPLETE', name: 'Hoàn tất bảo trì', desc: 'Ghi nhận kết quả bảo trì' },
+  { code: 'MAINTENANCE_CANCEL', name: 'Hủy lịch bảo trì', desc: 'Hủy lịch bảo trì chưa bắt đầu' },
+  { code: 'MAINTENANCE_DELETE', name: 'Xóa lịch bảo trì', desc: 'Xóa mềm lịch bảo trì hợp lệ' },
   // Booking
   { code: 'BOOKING_CREATE', name: 'Tạo booking', desc: 'Tạo yêu cầu sử dụng phòng/thiết bị' },
   { code: 'BOOKING_VIEW_OWN', name: 'Xem booking cá nhân', desc: 'Xem booking của chính mình' },
@@ -92,13 +100,16 @@ const rolePermissionsMap: Record<string, string[]> = {
   COLLABORATOR: [
     'LAB_PROFILE_VIEW', 'LAB_CALENDAR_VIEW', 'COMPUTER_VIEW', 'COMPUTER_STATUS_UPDATE',
     'EQUIPMENT_VIEW', 'EQUIPMENT_STATUS_UPDATE', 'INCIDENT_CREATE',
-    'INCIDENT_VIEW_ASSIGNED', 'INCIDENT_UPDATE', 'INCIDENT_RESOLVE', 'DASHBOARD_VIEW_OPERATION'
+    'INCIDENT_VIEW_ASSIGNED', 'INCIDENT_UPDATE', 'INCIDENT_RESOLVE', 'DASHBOARD_VIEW_OPERATION',
+    'MAINTENANCE_VIEW', 'MAINTENANCE_START', 'MAINTENANCE_COMPLETE'
   ],
   LAB_STAFF: [
     'LAB_PROFILE_VIEW', 'LAB_CALENDAR_VIEW', 'COMPUTER_VIEW', 'EQUIPMENT_VIEW',
     'EQUIPMENT_HANDOVER', 'EQUIPMENT_RECEIVE', 'BOOKING_VIEW_ALL',
     'BOOKING_CHECK_IN', 'BOOKING_CHECK_OUT', 'INCIDENT_CREATE',
-    'INCIDENT_VIEW_ASSIGNED', 'INCIDENT_UPDATE', 'DASHBOARD_VIEW_OPERATION'
+    'INCIDENT_VIEW_ASSIGNED', 'INCIDENT_UPDATE', 'DASHBOARD_VIEW_OPERATION',
+    'MAINTENANCE_VIEW', 'MAINTENANCE_CREATE', 'MAINTENANCE_UPDATE',
+    'MAINTENANCE_START', 'MAINTENANCE_COMPLETE', 'MAINTENANCE_CANCEL'
   ],
   STUDENT: [
     'LAB_PROFILE_VIEW', 'LAB_CALENDAR_VIEW', 'INCIDENT_CREATE',
@@ -106,7 +117,7 @@ const rolePermissionsMap: Record<string, string[]> = {
   ],
   MANAGER: [
     'LAB_PROFILE_VIEW', 'LAB_CALENDAR_VIEW', 'DASHBOARD_VIEW_ADMIN',
-    'REPORT_VIEW', 'REPORT_EXPORT'
+    'REPORT_VIEW', 'REPORT_EXPORT', 'MAINTENANCE_VIEW'
   ]
 };
 

@@ -102,10 +102,16 @@ export class Computer extends Entity<ComputerProps> {
 
   public changeStatus(newStatus: ComputerStatus): void {
     this.props.status = newStatus;
-    if (newStatus === 'MAINTENANCE') {
-      this.props.lastMaintenanceDate = new Date();
-    }
     this.props.updatedAt = new Date();
+  }
+
+  public completeMaintenance(isStillBroken: boolean, completedAt = new Date()): void {
+    if (this.props.status !== 'MAINTENANCE') {
+      throw new Error('Máy tính không ở trạng thái bảo trì.');
+    }
+    this.props.status = isStillBroken ? 'BROKEN' : 'ACTIVE';
+    this.props.lastMaintenanceDate = completedAt;
+    this.props.updatedAt = completedAt;
   }
 
   public delete(): void {

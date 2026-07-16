@@ -1,10 +1,17 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { isMockDataMode } from './data-mode';
+import { createMockApiAdapter } from './mock-api-adapter';
 
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
+
+// Mock mode is deliberately opt-in. SQL/API remains the default for normal use.
+if (isMockDataMode) {
+  apiClient.defaults.adapter = createMockApiAdapter();
+}
 
 type PendingRequest = { resolve:(token:string)=>void; reject:(error:unknown)=>void };
 let isRefreshing=false;

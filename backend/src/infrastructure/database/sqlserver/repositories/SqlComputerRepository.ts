@@ -79,6 +79,23 @@ export class SqlComputerRepository implements IComputerRepository {
     return result.recordset[0].Total;
   }
 
+  public async listMaintenanceCandidates(cutoffDate: Date): Promise<Computer[]> {
+    const pool = await SqlConnectionFactory.getPool();
+    const result = await pool.request()
+      .input('cutoffDate', mssql.DateTime2, cutoffDate)
+      .query(`
+        SELECT *
+        FROM Computers
+        WHERE DeletedAt IS NULL
+          AND (
+            Status IN ('BROKEN', 'MAINTENANCE')
+            OR (Status <> 'MAINTENANCE' AND COALESCE(LastMaintenanceDate, CreatedAt) <= @cutoffDate)
+          )
+        ORDER BY COALESCE(LastMaintenanceDate, CreatedAt), Code
+      `);
+    return result.recordset.map((row) => this.toDomain(row));
+  }
+
   public async save(computer: Computer, transaction?: mssql.Transaction): Promise<void> {
     const connection = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
     const raw = this.toPersistence(computer);

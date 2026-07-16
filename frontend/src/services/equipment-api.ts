@@ -50,7 +50,7 @@ export interface EquipmentListResponse {
 export interface EquipmentTxData {
   id: string;
   equipmentId: string;
-  transactionType: 'ADJUSTMENT' | 'RESERVATION' | 'RELEASE' | 'BORROW' | 'RETURN' | 'DAMAGE_REPORT' | 'DAMAGE_RESOLVED' | 'MAINTENANCE_COMPLETE';
+  transactionType: 'ADJUSTMENT' | 'RESERVATION' | 'RELEASE' | 'BORROW' | 'RETURN' | 'DAMAGE_REPORT' | 'DAMAGE_RESOLVED' | 'MAINTENANCE_START' | 'MAINTENANCE_COMPLETE';
   deltaTotal: number;
   deltaAvailable: number;
   deltaReserved: number;

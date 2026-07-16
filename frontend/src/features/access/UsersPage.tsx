@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/features/auth/AuthContext';
 import { cn } from '@/lib/utils';
 import { userApi, type UserApiRecord, type UserStatus } from '@/services/user-api';
+import { dataModeLabel, isMockDataMode } from '@/services/data-mode';
 import {
   ROLE_DEFINITIONS,
   roleByCode,
@@ -191,7 +192,7 @@ export default function UsersPage() {
         <div>
           <div className="mb-1.5 flex items-center gap-2">
             <span className="text-[10px] font-extrabold uppercase tracking-[.16em] text-blue-600">Quản trị hệ thống</span>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">API trực tiếp</span>
+            <span className={cn('rounded-full border px-2 py-0.5 text-[9px] font-bold', isMockDataMode ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700')}>{dataModeLabel}</span>
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-950">Quản lý người dùng</h1>
           <p className="mt-1 text-sm text-slate-500">Quản lý hồ sơ, trạng thái tài khoản và vai trò truy cập hệ thống.</p>
@@ -256,4 +257,3 @@ function StatusBadge({ status }: { status: UserStatus }) {
 function avatarTone(index: number) {
   return ['bg-violet-100 text-violet-700', 'bg-blue-100 text-blue-700', 'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-700', 'bg-cyan-100 text-cyan-700'][index % 5];
 }
-

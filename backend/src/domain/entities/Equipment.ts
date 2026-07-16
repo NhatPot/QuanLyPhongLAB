@@ -215,6 +215,24 @@ export class Equipment extends Entity<EquipmentProps> {
     this.props.updatedAt = new Date();
   }
 
+  public startMaintenance(quantity: number, from: 'AVAILABLE' | 'BROKEN'): void {
+    if (quantity <= 0) throw new Error('Số lượng bảo trì phải lớn hơn 0.');
+    if (from === 'AVAILABLE') {
+      if (this.props.availableQuantity < quantity) {
+        throw new Error('Số lượng khả dụng không đủ để đưa vào bảo trì.');
+      }
+      this.props.availableQuantity -= quantity;
+    } else {
+      if (this.props.brokenQuantity < quantity) {
+        throw new Error('Số lượng hỏng không đủ để đưa vào bảo trì.');
+      }
+      this.props.brokenQuantity -= quantity;
+    }
+    this.props.maintenanceQuantity += quantity;
+    this.validateQuantities();
+    this.props.updatedAt = new Date();
+  }
+
   public completeMaintenance(quantity: number, isBroken = false): void {
     if (quantity <= 0) throw new Error('Số lượng hoàn thành bảo trì phải lớn hơn 0.');
     if (this.props.maintenanceQuantity < quantity) {

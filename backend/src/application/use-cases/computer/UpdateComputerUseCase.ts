@@ -3,6 +3,7 @@ import { IComputerRepository } from '../../../domain/repositories/IComputerRepos
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { IAuditLogRepository } from '../../../domain/repositories/IAuditLogRepository';
 import { Computer, ComputerStatus } from '../../../domain/entities/Computer';
+import { ComputerMaintenanceProposalService } from '../maintenance/ComputerMaintenanceProposalService';
 
 export interface UpdateComputerInput {
   id: string;
@@ -29,7 +30,8 @@ export class UpdateComputerUseCase {
   constructor(
     private computerRepo: IComputerRepository,
     private uow: IUnitOfWork,
-    private auditLogRepo: IAuditLogRepository
+    private auditLogRepo: IAuditLogRepository,
+    private maintenanceProposalService: ComputerMaintenanceProposalService,
   ) {}
 
   public async execute(input: UpdateComputerInput): Promise<Result<Computer>> {
@@ -54,6 +56,10 @@ export class UpdateComputerUseCase {
         macAddress: computer.macAddress
       };
 
+      if (computer.status !== input.status && (computer.status === 'MAINTENANCE' || input.status === 'MAINTENANCE')) {
+        return Result.fail<Computer>('Trạng thái bảo trì chỉ được thay đổi từ lịch bảo trì.');
+      }
+
       computer.updateInformation({
         code: input.code,
         name: input.name,
@@ -71,7 +77,17 @@ export class UpdateComputerUseCase {
       });
 
       await this.uow.complete(async () => {
-        await this.computerRepo.save(computer);
+        const transaction = this.uow.getTransaction();
+        await this.computerRepo.save(computer, transaction);
+
+        if (oldState.status !== 'BROKEN' && computer.status === 'BROKEN') {
+          await this.maintenanceProposalService.ensureProposal(computer, 'BROKEN_STATUS', {
+            actorUserId: input.userId,
+            ipAddress: input.ipAddressClient,
+            userAgent: input.userAgent,
+            correlationId: input.correlationId,
+          }, transaction);
+        }
 
         await this.auditLogRepo.save({
           userId: input.userId,
@@ -91,7 +107,7 @@ export class UpdateComputerUseCase {
               macAddress: computer.macAddress
             }
           })
-        } as any);
+        } as any, transaction);
       });
 
       return Result.ok<Computer>(computer);

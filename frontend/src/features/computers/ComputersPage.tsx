@@ -22,6 +22,7 @@ import { EChart } from '@/components/charts/echart';
 import { useAuth } from '@/features/auth/AuthContext';
 import { bookingApi } from '@/services/booking-api';
 import { computerApi, type ComputerData, type ComputerStatus } from '@/services/computer-api';
+import { maintenanceApi } from '@/services/maintenance-api';
 import { ComputerEditorDialog } from '@/features/computers/ComputerEditorDialog';
 import { cn } from '@/lib/utils';
 import { COMPUTER_STATUS_THEME, COMPUTER_SUMMARY_THEME } from '@/features/computers/computer-status-theme';
@@ -57,6 +58,12 @@ const formatPercent = (value: number, total: number) =>
   total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '0%';
 
 const normalize = (value?: string) => (value || '').trim().toLocaleLowerCase('vi');
+const maintenanceReminderOf = (computer: ComputerData) => {
+  if (computer.status === 'BROKEN') return 'Cần xếp lịch sửa chữa';
+  if (computer.status === 'MAINTENANCE') return 'Đang có lịch bảo trì';
+  const base = computer.lastMaintenanceDate || computer.createdAt;
+  return base && Date.now() - new Date(base).getTime() >= 270 * 24 * 60 * 60 * 1000 ? 'Đến hạn bảo trì 270 ngày' : null;
+};
 
 export default function ComputersPage() {
   const { hasPermission } = useAuth();
@@ -72,6 +79,15 @@ export default function ComputersPage() {
   const canCreate = hasPermission('COMPUTER_CREATE');
   const canUpdate = hasPermission('COMPUTER_UPDATE');
   const canDelete = hasPermission('COMPUTER_DELETE');
+  const canCreateMaintenance = hasPermission('MAINTENANCE_CREATE');
+
+  const { data: reminderSync } = useQuery({
+    queryKey: ['maintenance-reminder-sync'],
+    queryFn: maintenanceApi.syncReminders,
+    enabled: canCreateMaintenance,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
 
   const activityRange = useMemo(() => {
     const end = new Date();
@@ -401,6 +417,8 @@ export default function ComputersPage() {
           </button>
         )}
       </section>
+
+      {!!reminderSync?.created && <a href="/maintenance" className="flex items-center justify-between gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs text-amber-800 transition hover:border-amber-200 hover:bg-amber-100/70"><span><strong>Đã tạo {reminderSync.created} đề xuất bảo trì.</strong> Máy bị hỏng hoặc đã đến hạn chu kỳ 270 ngày đang chờ xếp lịch.</span><span className="shrink-0 font-extrabold text-blue-700">Xem bảo trì →</span></a>}
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {summaryCards.map((card) => (
@@ -764,6 +782,7 @@ function ComputerCard({
   const meta = COMPUTER_STATUS_THEME[computer.status];
   const Icon = STATUS_ICONS[computer.status];
   const specification = [computer.cpu, computer.ram, computer.storage].filter(Boolean).join(' · ') || 'Chưa cập nhật cấu hình';
+  const maintenanceReminder = maintenanceReminderOf(computer);
 
   if (viewMode === 'list') {
     return (
@@ -784,6 +803,7 @@ function ComputerCard({
         <span className={cn('inline-flex items-center gap-1.5 text-[11px] font-bold', meta.text)}>
           <i className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} />
           {meta.label}
+          {maintenanceReminder && <small className="ml-1 text-[9px] font-bold text-amber-600">· {maintenanceReminder}</small>}
         </span>
       </button>
     );
@@ -806,6 +826,7 @@ function ComputerCard({
         </p>
         <p className="mt-2 truncate text-[9px] font-medium text-slate-400">{specification}</p>
         <p className="mt-0.5 truncate text-[9px] text-slate-400">{computer.ipAddress || computer.position || 'Chưa cập nhật IP'}</p>
+        {maintenanceReminder && <p className="mt-1 truncate text-[9px] font-bold text-amber-600">{maintenanceReminder}</p>}
       </div>
     </button>
   );

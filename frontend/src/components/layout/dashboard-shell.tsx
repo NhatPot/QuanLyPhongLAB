@@ -6,6 +6,7 @@ import { AppSidebar } from '@/components/layout/app-sidebar';
 import { AppHeader } from '@/components/layout/app-header';
 import { useAuth } from '@/features/auth/AuthContext';
 import { Brand } from '@/components/layout/brand';
+import { isMockDataMode } from '@/services/data-mode';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -55,6 +56,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           sidebarCollapsed={sidebarCollapsed}
           onLogout={handleLogout}
         />
+        {isMockDataMode && <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-[11px] font-bold text-amber-800">Đang dùng MOCK DATA · thay đổi chỉ lưu trong bộ nhớ trình duyệt, không ghi vào SQL Server</div>}
         <main className="subtle-grid min-h-[calc(100vh-68px)] p-4 sm:p-6 xl:p-7">
           <div className="mx-auto max-w-[1600px]">{children}</div>
         </main>
