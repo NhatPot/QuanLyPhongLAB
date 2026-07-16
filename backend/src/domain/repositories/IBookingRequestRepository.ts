@@ -1,11 +1,11 @@
 import { BookingRequest } from '../entities/BookingRequest';
 
 export interface IBookingRequestRepository {
-  findById(id: string): Promise<BookingRequest | null>;
+  findById(id: string, transaction?: any): Promise<BookingRequest | null>;
   findByRequestCode(code: string): Promise<BookingRequest | null>;
   
   // Lưu mới hoặc cập nhật
-  save(booking: BookingRequest): Promise<void>;
+  save(booking: BookingRequest, transaction?: any): Promise<void>;
   
   // List queries
   findPending(): Promise<BookingRequest[]>;

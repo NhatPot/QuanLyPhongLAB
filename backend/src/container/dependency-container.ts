@@ -17,6 +17,7 @@ import { IAuditLogRepository } from '../domain/repositories/IAuditLogRepository'
 import { IUnitOfWork } from '../domain/repositories/IUnitOfWork';
 import { IRolePermissionRepository } from '../domain/repositories/IRolePermissionRepository';
 import { IMaintenanceScheduleRepository } from '../domain/repositories/IMaintenanceScheduleRepository';
+import { IComputerActivityRepository } from '../domain/repositories/IComputerActivityRepository';
 
 import { SqlUserRepository } from '../infrastructure/database/sqlserver/repositories/SqlUserRepository';
 import { SqlAuthSessionRepository } from '../infrastructure/database/sqlserver/repositories/SqlAuthSessionRepository';
@@ -31,8 +32,10 @@ import { SqlEquipmentRepository } from '../infrastructure/database/sqlserver/rep
 import { SqlEquipmentInventoryTransactionRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentInventoryTransactionRepository';
 import { SqlBookingRequestRepository } from '../infrastructure/database/sqlserver/repositories/SqlBookingRequestRepository';
 import { SqlBookingEquipmentItemRepository } from '../infrastructure/database/sqlserver/repositories/SqlBookingEquipmentItemRepository';
+import { SqlCheckInOutLogRepository } from '../infrastructure/database/sqlserver/repositories/SqlCheckInOutLogRepository';
 import { SqlAvailabilityQueryService } from '../infrastructure/database/sqlserver/repositories/SqlAvailabilityQueryService';
 import { SqlMaintenanceScheduleRepository } from '../infrastructure/database/sqlserver/repositories/SqlMaintenanceScheduleRepository';
+import { SqlComputerActivityRepository } from '../infrastructure/database/sqlserver/repositories/SqlComputerActivityRepository';
 
 import { GetHealthUseCase } from '../application/use-cases/GetHealthUseCase';
 import { LoginUseCase } from '../application/use-cases/auth/LoginUseCase';
@@ -70,6 +73,9 @@ import { CancelBookingUseCase } from '../application/use-cases/booking/CancelBoo
 import { ListPendingBookingsUseCase } from '../application/use-cases/booking/ListPendingBookingsUseCase';
 import { ApproveBookingUseCase } from '../application/use-cases/booking/ApproveBookingUseCase';
 import { RejectBookingUseCase } from '../application/use-cases/booking/RejectBookingUseCase';
+import { CheckInBookingUseCase } from '../application/use-cases/booking/CheckInBookingUseCase';
+import { CheckOutBookingUseCase } from '../application/use-cases/booking/CheckOutBookingUseCase';
+import { GetLabUsageStatisticsUseCase } from '../application/use-cases/booking/GetLabUsageStatisticsUseCase';
 import {
   AssignUserRolesUseCase,
   CreateUserUseCase,
@@ -122,6 +128,7 @@ import { IEquipmentRepository } from '../domain/repositories/IEquipmentRepositor
 import { IEquipmentInventoryTransactionRepository } from '../domain/repositories/IEquipmentInventoryTransactionRepository';
 import { IBookingRequestRepository } from '../domain/repositories/IBookingRequestRepository';
 import { IBookingEquipmentItemRepository } from '../domain/repositories/IBookingEquipmentItemRepository';
+import { ICheckInOutLogRepository } from '../domain/repositories/ICheckInOutLogRepository';
 import { IAvailabilityQueryService } from '../domain/services/IAvailabilityQueryService';
 
 class DependencyContainer {
@@ -144,8 +151,10 @@ class DependencyContainer {
   public readonly equipmentTxRepo: IEquipmentInventoryTransactionRepository;
   public readonly bookingRepo: IBookingRequestRepository;
   public readonly bookingEqItemRepo: IBookingEquipmentItemRepository;
+  public readonly checkInOutLogRepo: ICheckInOutLogRepository;
   public readonly availabilityQueryService: IAvailabilityQueryService;
   public readonly maintenanceRepo: IMaintenanceScheduleRepository;
+  public readonly computerActivityRepo: IComputerActivityRepository;
   public readonly maintenanceProposalService: ComputerMaintenanceProposalService;
 
   // Controllers
@@ -197,6 +206,9 @@ class DependencyContainer {
   public readonly listPendingBookingsUseCase: ListPendingBookingsUseCase;
   public readonly approveBookingUseCase: ApproveBookingUseCase;
   public readonly rejectBookingUseCase: RejectBookingUseCase;
+  public readonly checkInBookingUseCase: CheckInBookingUseCase;
+  public readonly checkOutBookingUseCase: CheckOutBookingUseCase;
+  public readonly getLabUsageStatisticsUseCase: GetLabUsageStatisticsUseCase;
 
   public readonly listUsersUseCase: ListUsersUseCase;
   public readonly getUserSummaryUseCase: GetUserSummaryUseCase;
@@ -244,8 +256,10 @@ class DependencyContainer {
     this.equipmentTxRepo = new SqlEquipmentInventoryTransactionRepository();
     this.bookingRepo = new SqlBookingRequestRepository();
     this.bookingEqItemRepo = new SqlBookingEquipmentItemRepository();
+    this.checkInOutLogRepo = new SqlCheckInOutLogRepository();
     this.availabilityQueryService = new SqlAvailabilityQueryService();
     this.maintenanceRepo = new SqlMaintenanceScheduleRepository();
+    this.computerActivityRepo = new SqlComputerActivityRepository();
     this.maintenanceProposalService = new ComputerMaintenanceProposalService(
       this.maintenanceRepo,
       this.idGenerator,
@@ -260,12 +274,12 @@ class DependencyContainer {
     this.updateLabStatusUseCase = new UpdateLabStatusUseCase(this.labProfileRepo, this.uow, this.auditLogRepo);
     this.labController = new LabController(this.getLabProfileUseCase, this.updateLabProfileUseCase, this.updateLabStatusUseCase);
 
-    this.createComputerUseCase = new CreateComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo, this.maintenanceProposalService);
+    this.createComputerUseCase = new CreateComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo, this.maintenanceProposalService, this.computerActivityRepo);
     this.getComputerUseCase = new GetComputerUseCase(this.computerRepo);
     this.listComputersUseCase = new ListComputersUseCase(this.computerRepo);
-    this.updateComputerUseCase = new UpdateComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo, this.maintenanceProposalService);
-    this.updateComputerStatusUseCase = new UpdateComputerStatusUseCase(this.computerRepo, this.uow, this.auditLogRepo, this.maintenanceProposalService);
-    this.deleteComputerUseCase = new DeleteComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo);
+    this.updateComputerUseCase = new UpdateComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo, this.maintenanceProposalService, this.computerActivityRepo);
+    this.updateComputerStatusUseCase = new UpdateComputerStatusUseCase(this.computerRepo, this.uow, this.auditLogRepo, this.maintenanceProposalService, this.computerActivityRepo);
+    this.deleteComputerUseCase = new DeleteComputerUseCase(this.computerRepo, this.uow, this.auditLogRepo, this.computerActivityRepo);
     this.computerController = new ComputerController(
       this.createComputerUseCase,
       this.getComputerUseCase,
@@ -319,6 +333,9 @@ class DependencyContainer {
     this.listPendingBookingsUseCase = new ListPendingBookingsUseCase(this.bookingRepo, this.bookingEqItemRepo);
     this.approveBookingUseCase = new ApproveBookingUseCase(this.bookingRepo, this.bookingEqItemRepo, this.checkAvailabilityUseCase, this.uow, this.auditLogRepo);
     this.rejectBookingUseCase = new RejectBookingUseCase(this.bookingRepo, this.uow, this.auditLogRepo);
+    this.checkInBookingUseCase = new CheckInBookingUseCase(this.bookingRepo, this.checkInOutLogRepo, this.computerRepo, this.computerActivityRepo, this.uow, this.auditLogRepo);
+    this.checkOutBookingUseCase = new CheckOutBookingUseCase(this.bookingRepo, this.checkInOutLogRepo, this.computerRepo, this.computerActivityRepo, this.uow, this.auditLogRepo);
+    this.getLabUsageStatisticsUseCase = new GetLabUsageStatisticsUseCase(this.checkInOutLogRepo, this.computerActivityRepo);
 
     this.bookingController = new BookingController(
       this.createBookingUseCase,
@@ -328,7 +345,10 @@ class DependencyContainer {
       this.cancelBookingUseCase,
       this.listPendingBookingsUseCase,
       this.approveBookingUseCase,
-      this.rejectBookingUseCase
+      this.rejectBookingUseCase,
+      this.checkInBookingUseCase,
+      this.checkOutBookingUseCase,
+      this.getLabUsageStatisticsUseCase
     );
 
     this.loginUseCase = new LoginUseCase(
@@ -427,6 +447,7 @@ class DependencyContainer {
       maintenanceRepo: this.maintenanceRepo,
       labRepo: this.labProfileRepo,
       computerRepo: this.computerRepo,
+      computerActivityRepo: this.computerActivityRepo,
       equipmentRepo: this.equipmentRepo,
       userRepo: this.userRepo,
       equipmentTxRepo: this.equipmentTxRepo,

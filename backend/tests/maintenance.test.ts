@@ -37,6 +37,8 @@ const detailOf = (maintenance: MaintenanceSchedule) => ({
 
 vi.spyOn(container.uow, 'complete').mockImplementation(async (work: any) => work());
 vi.spyOn(container.uow, 'getTransaction').mockReturnValue({} as any);
+vi.spyOn(container.computerActivityRepo, 'transition').mockResolvedValue();
+vi.spyOn(container.computerActivityRepo, 'closeCurrent').mockResolvedValue();
 
 describe('Maintenance API and authorization', () => {
   const app = createExpressApp();

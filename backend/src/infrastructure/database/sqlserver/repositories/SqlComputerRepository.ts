@@ -5,11 +5,13 @@ import { UniqueEntityId } from '../../../../domain/value-objects/UniqueEntityId'
 import { SqlConnectionFactory } from '../connection';
 
 export class SqlComputerRepository implements IComputerRepository {
-  public async findById(id: string): Promise<Computer | null> {
-    const pool = await SqlConnectionFactory.getPool();
-    const result = await pool.request()
+  public async findById(id: string, transaction?: mssql.Transaction): Promise<Computer | null> {
+    const request = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
+    const result = await request
       .input('id', mssql.UniqueIdentifier, id)
-      .query('SELECT * FROM Computers WHERE Id = @id AND DeletedAt IS NULL');
+      .query(transaction
+        ? 'SELECT * FROM Computers WITH (UPDLOCK, HOLDLOCK) WHERE Id = @id AND DeletedAt IS NULL'
+        : 'SELECT * FROM Computers WHERE Id = @id AND DeletedAt IS NULL');
 
     if (result.recordset.length === 0) {
       return null;

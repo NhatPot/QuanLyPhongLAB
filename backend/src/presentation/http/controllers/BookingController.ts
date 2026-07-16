@@ -7,6 +7,9 @@ import { CancelBookingUseCase } from '../../../application/use-cases/booking/Can
 import { ListPendingBookingsUseCase } from '../../../application/use-cases/booking/ListPendingBookingsUseCase';
 import { ApproveBookingUseCase } from '../../../application/use-cases/booking/ApproveBookingUseCase';
 import { RejectBookingUseCase } from '../../../application/use-cases/booking/RejectBookingUseCase';
+import { CheckInBookingUseCase } from '../../../application/use-cases/booking/CheckInBookingUseCase';
+import { CheckOutBookingUseCase } from '../../../application/use-cases/booking/CheckOutBookingUseCase';
+import { GetLabUsageStatisticsUseCase } from '../../../application/use-cases/booking/GetLabUsageStatisticsUseCase';
 import { BookingType } from '../../../domain/entities/BookingRequest';
 
 export class BookingController {
@@ -18,7 +21,10 @@ export class BookingController {
     private cancelBookingUseCase: CancelBookingUseCase,
     private listPendingBookingsUseCase: ListPendingBookingsUseCase,
     private approveBookingUseCase: ApproveBookingUseCase,
-    private rejectBookingUseCase: RejectBookingUseCase
+    private rejectBookingUseCase: RejectBookingUseCase,
+    private checkInBookingUseCase: CheckInBookingUseCase,
+    private checkOutBookingUseCase: CheckOutBookingUseCase,
+    private getLabUsageStatisticsUseCase: GetLabUsageStatisticsUseCase,
   ) {}
 
   public create = async (req: Request, res: Response): Promise<void> => {
@@ -119,6 +125,56 @@ export class BookingController {
       const user = (req as any).user;
       const booking = await this.rejectBookingUseCase.execute(req.params.id, user.id, req.body.reason);
       res.status(200).json({ success: true, status: booking.status });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  };
+
+  public checkIn = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const user = (req as any).user;
+      const result = await this.checkInBookingUseCase.execute({
+        bookingId: req.params.id,
+        userId: user.id,
+        actualPeopleCount: req.body.actualPeopleCount === undefined ? undefined : Number(req.body.actualPeopleCount),
+        actualComputerCount: req.body.actualComputerCount === undefined ? undefined : Number(req.body.actualComputerCount),
+        computerIds: Array.isArray(req.body.computerIds) ? req.body.computerIds : undefined,
+        initialCondition: req.body.initialCondition,
+        note: req.body.note,
+      });
+      res.status(200).json({
+        success: true,
+        status: result.booking.status,
+        checkInTime: result.log.checkInTime,
+        actualPeopleCount: result.log.actualPeopleCount,
+        actualComputerCount: result.log.actualComputerCount,
+        computerIds: result.computerIds,
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  };
+
+  public checkOut = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const user = (req as any).user;
+      const result = await this.checkOutBookingUseCase.execute({
+        bookingId: req.params.id,
+        userId: user.id,
+        returnCondition: req.body.returnCondition,
+        note: req.body.note,
+      });
+      res.status(200).json({ success: true, status: result.booking.status, checkOutTime: result.log.checkOutTime, computerIds: result.computerIds });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  };
+
+  public getUsageStatistics = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const month = typeof req.query.month === 'string' ? req.query.month : new Date().toISOString().slice(0, 7);
+      const statistics = await this.getLabUsageStatisticsUseCase.execute(month);
+      res.status(200).json({ data: statistics });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

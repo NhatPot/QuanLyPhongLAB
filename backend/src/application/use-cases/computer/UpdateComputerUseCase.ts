@@ -4,6 +4,7 @@ import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { IAuditLogRepository } from '../../../domain/repositories/IAuditLogRepository';
 import { Computer, ComputerStatus } from '../../../domain/entities/Computer';
 import { ComputerMaintenanceProposalService } from '../maintenance/ComputerMaintenanceProposalService';
+import { IComputerActivityRepository } from '../../../domain/repositories/IComputerActivityRepository';
 
 export interface UpdateComputerInput {
   id: string;
@@ -32,6 +33,7 @@ export class UpdateComputerUseCase {
     private uow: IUnitOfWork,
     private auditLogRepo: IAuditLogRepository,
     private maintenanceProposalService: ComputerMaintenanceProposalService,
+    private computerActivityRepo: IComputerActivityRepository,
   ) {}
 
   public async execute(input: UpdateComputerInput): Promise<Result<Computer>> {
@@ -79,6 +81,16 @@ export class UpdateComputerUseCase {
       await this.uow.complete(async () => {
         const transaction = this.uow.getTransaction();
         await this.computerRepo.save(computer, transaction);
+
+        if (oldState.status !== computer.status) {
+          await this.computerActivityRepo.transition({
+            computerId: computer.id.toString(),
+            activityType: computer.status,
+            occurredAt: computer.updatedAt || new Date(),
+            performedBy: input.userId,
+            note: `Cập nhật trạng thái từ ${oldState.status} sang ${computer.status}`,
+          }, transaction);
+        }
 
         if (oldState.status !== 'BROKEN' && computer.status === 'BROKEN') {
           await this.maintenanceProposalService.ensureProposal(computer, 'BROKEN_STATUS', {

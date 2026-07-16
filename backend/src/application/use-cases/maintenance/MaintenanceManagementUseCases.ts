@@ -1,6 +1,7 @@
 import { IIdGenerator } from '../../ports/IIdGenerator';
 import { IAuditLogRepository } from '../../../domain/repositories/IAuditLogRepository';
 import { IComputerRepository } from '../../../domain/repositories/IComputerRepository';
+import { IComputerActivityRepository } from '../../../domain/repositories/IComputerActivityRepository';
 import { IEquipmentInventoryTransactionRepository } from '../../../domain/repositories/IEquipmentInventoryTransactionRepository';
 import { IEquipmentRepository } from '../../../domain/repositories/IEquipmentRepository';
 import { ILabProfileRepository } from '../../../domain/repositories/ILabProfileRepository';
@@ -49,6 +50,7 @@ interface MaintenanceDependencies {
   maintenanceRepo: IMaintenanceScheduleRepository;
   labRepo: ILabProfileRepository;
   computerRepo: IComputerRepository;
+  computerActivityRepo: IComputerActivityRepository;
   equipmentRepo: IEquipmentRepository;
   userRepo: IUserRepository;
   equipmentTxRepo: IEquipmentInventoryTransactionRepository;
@@ -184,7 +186,17 @@ export class StartMaintenanceUseCase {
     await this.deps.uow.complete(async () => {
       const transaction = this.deps.uow.getTransaction();
       if (target.kind === 'LAB') await this.deps.labRepo.save(target.asset, transaction);
-      if (target.kind === 'COMPUTER') await this.deps.computerRepo.save(target.asset, transaction);
+      if (target.kind === 'COMPUTER') {
+        await this.deps.computerRepo.save(target.asset, transaction);
+        await this.deps.computerActivityRepo.transition({
+          computerId: target.asset.id.toString(),
+          activityType: 'MAINTENANCE',
+          occurredAt: maintenance.startedAt || new Date(),
+          maintenanceScheduleId: maintenance.id.toString(),
+          performedBy: context.actorUserId,
+          note: maintenance.reason,
+        }, transaction);
+      }
       if (target.kind === 'EQUIPMENT') {
         await this.deps.equipmentRepo.save(target.asset, transaction);
         await this.deps.equipmentTxRepo.save(EquipmentInventoryTransaction.create({
@@ -229,7 +241,17 @@ export class CompleteMaintenanceUseCase {
     await this.deps.uow.complete(async () => {
       const transaction = this.deps.uow.getTransaction();
       if (target.kind === 'LAB') await this.deps.labRepo.save(target.asset, transaction);
-      if (target.kind === 'COMPUTER') await this.deps.computerRepo.save(target.asset, transaction);
+      if (target.kind === 'COMPUTER') {
+        await this.deps.computerRepo.save(target.asset, transaction);
+        await this.deps.computerActivityRepo.transition({
+          computerId: target.asset.id.toString(),
+          activityType: input.outcome === 'BROKEN' ? 'BROKEN' : 'ACTIVE',
+          occurredAt: maintenance.completedAt || new Date(),
+          maintenanceScheduleId: maintenance.id.toString(),
+          performedBy: input.actorUserId,
+          note: input.resultNote,
+        }, transaction);
+      }
       if (target.kind === 'EQUIPMENT') {
         await this.deps.equipmentRepo.save(target.asset, transaction);
         await this.deps.equipmentTxRepo.save(EquipmentInventoryTransaction.create({

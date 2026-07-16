@@ -17,7 +17,8 @@ export class GetBookingCalendarUseCase {
         type: b.bookingType,
         status: b.status,
         requesterId: isPrivileged ? b.requesterId : undefined,
-        numberOfPeople: isPrivileged ? b.numberOfPeople : undefined
+        numberOfPeople: isPrivileged ? b.numberOfPeople : undefined,
+        numberOfComputers: isPrivileged ? b.numberOfComputers : undefined,
       };
     });
   }

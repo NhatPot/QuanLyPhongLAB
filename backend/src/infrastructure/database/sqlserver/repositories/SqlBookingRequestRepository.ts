@@ -4,9 +4,9 @@ import { BookingRequest, BookingType, BookingStatus } from '../../../../domain/e
 import { SqlConnectionFactory } from '../connection';
 
 export class SqlBookingRequestRepository implements IBookingRequestRepository {
-  public async findById(id: string): Promise<BookingRequest | null> {
-    const pool = await SqlConnectionFactory.getPool();
-    const result = await pool.request()
+  public async findById(id: string, transaction?: mssql.Transaction): Promise<BookingRequest | null> {
+    const request = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
+    const result = await request
       .input('id', mssql.UniqueIdentifier, id)
       .query('SELECT * FROM BookingRequests WHERE Id = @id');
 
@@ -24,11 +24,11 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
     return this.toDomain(result.recordset[0]);
   }
 
-  public async save(booking: BookingRequest): Promise<void> {
-    const pool = await SqlConnectionFactory.getPool();
+  public async save(booking: BookingRequest, transaction?: mssql.Transaction): Promise<void> {
+    const request = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
     const raw = this.toPersistence(booking);
 
-    await pool.request()
+    await request
       .input('id', mssql.UniqueIdentifier, raw.Id)
       .input('requestCode', mssql.NVarChar, raw.RequestCode)
       .input('requesterId', mssql.UniqueIdentifier, raw.RequesterId)
@@ -102,7 +102,7 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
       .input('end', mssql.DateTime2, endDate)
       .query(`
         SELECT * FROM BookingRequests 
-        WHERE Status IN ('APPROVED', 'CHECKED_IN')
+        WHERE Status IN ('APPROVED', 'CHECKED_IN', 'COMPLETED')
         AND StartTime < @end AND EndTime > @start
       `);
     return result.recordset.map(row => this.toDomain(row));

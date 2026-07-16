@@ -1,5 +1,5 @@
 import type { Row, Worksheet } from 'exceljs';
-import type { CalendarEvent } from '@/services/booking-api';
+import type { LabUsageStatistics } from '@/services/booking-api';
 import type { ComputerData, ComputerSummary, ComputerStatus } from '@/services/computer-api';
 import type { EquipmentData } from '@/services/equipment-api';
 import { COMPUTER_STATUS_THEME } from '@/features/computers/computer-status-theme';
@@ -8,9 +8,7 @@ type ReportWorkbookPayload = {
   summary?: ComputerSummary;
   computers: ComputerData[];
   equipment: EquipmentData[];
-  events: CalendarEvent[];
-  rangeStart: Date;
-  rangeDays: number;
+  usage: LabUsageStatistics;
 };
 
 const COLORS = {
@@ -116,26 +114,7 @@ function applySheetDefaults(sheet: Worksheet, orientation: 'landscape' | 'portra
   sheet.headerFooter.oddFooter = 'IT-LAB Manager · Trang &P / &N';
 }
 
-function activityRows(events: CalendarEvent[], rangeStart: Date, rangeDays: number) {
-  return Array.from({ length: rangeDays }, (_, index) => {
-    const date = new Date(rangeStart);
-    date.setDate(rangeStart.getDate() + index);
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart);
-    dayEnd.setDate(dayEnd.getDate() + 1);
-    const approved = events.filter((event) => ['APPROVED', 'CHECKED_IN', 'COMPLETED'].includes(event.status));
-    const hours = approved.reduce((sum, event) => {
-      const overlapStart = Math.max(dayStart.getTime(), new Date(event.start).getTime());
-      const overlapEnd = Math.min(dayEnd.getTime(), new Date(event.end).getTime());
-      return sum + (overlapEnd > overlapStart ? (overlapEnd - overlapStart) / 3_600_000 : 0);
-    }, 0);
-    const bookingCount = approved.filter((event) => new Date(event.start).getTime() < dayEnd.getTime() && new Date(event.end).getTime() > dayStart.getTime()).length;
-    return { date: dayStart, hours: Number(hours.toFixed(1)), bookingCount };
-  });
-}
-
-export async function downloadReportWorkbook({ summary, computers, equipment, events, rangeStart, rangeDays }: ReportWorkbookPayload) {
+export async function buildReportWorkbook({ summary, computers, equipment, usage }: ReportWorkbookPayload) {
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'IT-LAB Manager';
@@ -157,7 +136,7 @@ export async function downloadReportWorkbook({ summary, computers, equipment, ev
   overview.columns = [{ width: 26 }, { width: 15 }, { width: 4 }, { width: 26 }, { width: 15 }, { width: 4 }, { width: 22 }, { width: 18 }];
   styleTitle(overview, 1, 'BÁO CÁO THỐNG KÊ PHÒNG IT-LAB', 8);
   overview.mergeCells('A2:H2');
-  overview.getCell('A2').value = `Xuất lúc ${new Date().toLocaleString('vi-VN')} · Dữ liệu sử dụng từ ${rangeDays} ngày gần nhất`;
+  overview.getCell('A2').value = `Xuất lúc ${new Date().toLocaleString('vi-VN')} · Dữ liệu sử dụng thực tế tháng ${usage.month}`;
   overview.getCell('A2').font = { name: 'Aptos', size: 10, italic: true, color: { argb: COLORS.slate } };
   overview.getCell('A2').alignment = { horizontal: 'center' };
 
@@ -176,12 +155,12 @@ export async function downloadReportWorkbook({ summary, computers, equipment, ev
   const equipmentMetrics: Array<[string, number]> = [
     ['Tổng số thiết bị', totalEquipment],
     ['Thiết bị khả dụng', availableEquipment],
-    ['Thiết bị đã giữ', reservedEquipment],
     ['Thiết bị đang mượn', borrowedEquipment],
     ['Thiết bị bảo trì', maintenanceEquipment],
     ['Thiết bị hỏng', brokenEquipment],
-    ['Thiết bị mất', lostEquipment],
-    ['Nhóm tài sản', equipment.length],
+    ['Tổng giờ dùng phòng', usage.totalUsageHours],
+    ['Tổng giờ-máy', usage.totalComputerHours],
+    ['Lượt check-in', usage.totalCheckIns],
   ];
   computerMetrics.forEach(([label, value], index) => {
     const row = 5 + index;
@@ -242,7 +221,7 @@ export async function downloadReportWorkbook({ summary, computers, equipment, ev
     [2, 3, 6, 7].forEach((column) => { overview.getCell(row, column).alignment = { horizontal: 'right', vertical: 'middle' }; });
   }
   overview.mergeCells('A25:H25');
-  overview.getCell('A25').value = 'Ghi chú: Báo cáo được tổng hợp tại thời điểm xuất. Màu trạng thái đồng nhất với màn hình quản lý máy tính.';
+  overview.getCell('A25').value = 'Ghi chú: Nhật ký máy tính được lưu ngay khi trạng thái thay đổi. Phiên đang diễn ra chỉ tính thời lượng đến lúc xuất và không bị đóng giả.';
   overview.getCell('A25').font = { name: 'Aptos', size: 9, italic: true, color: { argb: COLORS.slate } };
   overview.getCell('A25').fill = solidFill(COLORS.lightBlue);
   overview.getCell('A25').alignment = { vertical: 'middle', wrapText: true };
@@ -269,45 +248,74 @@ export async function downloadReportWorkbook({ summary, computers, equipment, ev
 
   const computersSheet = workbook.addWorksheet('Máy tính', { properties: { tabColor: { argb: COLORS.blue } } });
   applySheetDefaults(computersSheet);
-  computersSheet.columns = [{ width: 7 }, { width: 13 }, { width: 24 }, { width: 18 }, { width: 16 }, { width: 23 }, { width: 11 }, { width: 15 }, { width: 17 }, { width: 22 }, { width: 21 }, { width: 20 }];
-  const computerHeaders = ['STT', 'Mã máy', 'Tên máy', 'Trạng thái', 'Vị trí', 'CPU', 'RAM', 'Lưu trữ', 'Địa chỉ IP', 'Hệ điều hành', 'Bảo trì gần nhất', 'Cập nhật'];
-  computersSheet.addRow(computerHeaders);
-  styleHeader(computersSheet.getRow(1));
+  computersSheet.columns = [
+    { width: 7 }, { width: 13 }, { width: 24 }, { width: 16 }, { width: 18 }, { width: 20 }, { width: 18 },
+    { width: 24 }, { width: 17 }, { width: 12 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 13 },
+    { width: 23 }, { width: 11 }, { width: 15 }, { width: 17 }, { width: 22 }, { width: 21 }, { width: 20 },
+  ];
+  styleTitle(computersSheet, 1, 'DANH MỤC & THỐNG KÊ MÁY TÍNH', 21);
+  computersSheet.mergeCells('A2:U2');
+  computersSheet.getCell('A2').value = `Tháng ${usage.month} · Trạng thái hiện tại kết hợp với nhật ký hoạt động thực tế của từng máy.`;
+  computersSheet.getCell('A2').font = { name: 'Aptos', size: 10, italic: true, color: { argb: COLORS.slate } };
+  computersSheet.getCell('A2').alignment = { horizontal: 'center' };
+  const computerHeaders = [
+    'STT', 'Mã máy', 'Tên máy', 'Vị trí', 'Trạng thái hiện tại', 'Bắt đầu trạng thái', 'Phiên hiện tại',
+    'Người/đơn vị sử dụng', 'Thời lượng trạng thái', 'Số phiên trong tháng', 'Giờ sử dụng', 'Giờ sẵn sàng',
+    'Giờ bảo trì', 'Giờ bị hỏng', 'CPU', 'RAM', 'Lưu trữ', 'Địa chỉ IP', 'Hệ điều hành', 'Bảo trì gần nhất', 'Cập nhật',
+  ];
+  computersSheet.getRow(4).values = computerHeaders;
+  styleHeader(computersSheet.getRow(4));
+  const computerSummaryMap = new Map(usage.computerSummaries.map((item) => [item.computerId, item]));
+  const exportedAt = new Date();
   [...computers].sort((left, right) => left.code.localeCompare(right.code, 'vi')).forEach((item, index) => {
-    const row = computersSheet.addRow([index + 1, item.code, item.name, COMPUTER_STATUS_THEME[item.status].label, item.position || '', item.cpu || '', item.ram || '', item.storage || '', item.ipAddress || '', item.operatingSystem || '', formatDate(item.lastMaintenanceDate), formatDate(item.updatedAt)]);
-    row.getCell(11).numFmt = 'dd/mm/yyyy';
-    row.getCell(12).numFmt = 'dd/mm/yyyy hh:mm';
-    row.getCell(4).fill = solidFill(`FF${COMPUTER_STATUS_THEME[item.status].chart.slice(1)}`);
-    row.getCell(4).font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
+    const summaryItem = computerSummaryMap.get(item.id);
+    const status = summaryItem?.currentActivityType || item.status;
+    const statusStartedAt = formatDate(summaryItem?.currentActivityStartedAt);
+    const currentDuration = statusStartedAt ? Math.max(0, (exportedAt.getTime() - statusStartedAt.getTime()) / 3_600_000) : null;
+    const row = computersSheet.addRow([
+      index + 1, item.code, item.name, item.position || '', COMPUTER_STATUS_THEME[status].label,
+      statusStartedAt, summaryItem?.currentBookingCode || '', summaryItem?.currentRequesterName || '', currentDuration,
+      summaryItem?.usageSessionCount ?? 0, summaryItem?.usageHours ?? 0, summaryItem?.readyHours ?? 0,
+      summaryItem?.maintenanceHours ?? 0, summaryItem?.brokenHours ?? 0, item.cpu || '', item.ram || '',
+      item.storage || '', item.ipAddress || '', item.operatingSystem || '', formatDate(item.lastMaintenanceDate), formatDate(item.updatedAt),
+    ]);
+    row.getCell(6).numFmt = 'dd/mm/yyyy hh:mm';
+    row.getCell(9).numFmt = '0.00 "giờ"';
+    [11, 12, 13, 14].forEach((column) => { row.getCell(column).numFmt = '0.00 "giờ"'; });
+    row.getCell(20).numFmt = 'dd/mm/yyyy';
+    row.getCell(21).numFmt = 'dd/mm/yyyy hh:mm';
+    row.getCell(5).fill = solidFill(`FF${COMPUTER_STATUS_THEME[status].chart.slice(1)}`);
+    row.getCell(5).font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
   });
-  const computersLastRow = Math.max(2, computersSheet.rowCount);
-  if (!computers.length) computersSheet.getCell('A2').value = 'Chưa có dữ liệu máy tính.';
-  styleDataRange(computersSheet, 2, computersLastRow, computerHeaders.length);
-  computersSheet.autoFilter = { from: 'A1', to: `L${computersLastRow}` };
-  computersSheet.views = [{ state: 'frozen', ySplit: 1 }];
-  for (let row = 2; row <= computersLastRow; row += 1) [1, 2, 4, 5, 7].forEach((column) => { computersSheet.getCell(row, column).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
+  const computersLastRow = Math.max(5, computersSheet.rowCount);
+  if (!computers.length) computersSheet.getCell('A5').value = 'Chưa có dữ liệu máy tính.';
+  styleDataRange(computersSheet, 5, computersLastRow, computerHeaders.length);
+  computersSheet.autoFilter = { from: 'A4', to: `U${computersLastRow}` };
+  computersSheet.views = [{ state: 'frozen', xSplit: 2, ySplit: 4 }];
+  for (let row = 5; row <= computersLastRow; row += 1) [1, 2, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 16].forEach((column) => { computersSheet.getCell(row, column).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
 
   const activitySheet = workbook.addWorksheet('Sử dụng phòng Lab', { properties: { tabColor: { argb: 'FF8B5CF6' } } });
   applySheetDefaults(activitySheet, 'portrait');
-  activitySheet.columns = [{ width: 18 }, { width: 20 }, { width: 22 }];
-  styleTitle(activitySheet, 1, 'THỐNG KÊ GIỜ SỬ DỤNG PHÒNG LAB', 3);
-  activitySheet.mergeCells('A2:C2');
-  activitySheet.getCell('A2').value = `Khoảng dữ liệu: ${rangeDays} ngày, từ ${rangeStart.toLocaleDateString('vi-VN')} đến ${new Date(rangeStart.getTime() + (rangeDays - 1) * 86_400_000).toLocaleDateString('vi-VN')}`;
+  activitySheet.columns = [{ width: 18 }, { width: 15 }, { width: 16 }, { width: 21 }, { width: 18 }];
+  styleTitle(activitySheet, 1, 'THỐNG KÊ GIỜ SỬ DỤNG THỰC TẾ', 5);
+  activitySheet.mergeCells('A2:E2');
+  activitySheet.getCell('A2').value = `Tháng ${usage.month} · Chỉ tính khoảng thời gian thực tế từ check-in đến check-out.`;
   activitySheet.getCell('A2').font = { name: 'Aptos', size: 10, italic: true, color: { argb: COLORS.slate } };
   activitySheet.getCell('A2').alignment = { horizontal: 'center' };
-  activitySheet.getRow(4).values = ['Ngày', 'Số lịch đã duyệt', 'Tổng giờ sử dụng'];
+  activitySheet.getRow(4).values = ['Ngày', 'Lượt check-in', 'Lượt check-out', 'Giờ sử dụng phòng', 'Giờ-máy'];
   styleHeader(activitySheet.getRow(4));
-  const rows = activityRows(events, rangeStart, rangeDays);
-  rows.forEach((item) => {
-    const row = activitySheet.addRow([item.date, item.bookingCount, item.hours]);
+  usage.daily.forEach((item) => {
+    const row = activitySheet.addRow([new Date(`${item.date}T00:00:00.000Z`), item.checkInCount, item.checkOutCount, item.usageHours, item.computerHours]);
     row.getCell(1).numFmt = 'dd/mm/yyyy';
-    row.getCell(3).numFmt = '0.0 "giờ"';
+    row.getCell(4).numFmt = '0.00 "giờ"';
+    row.getCell(5).numFmt = '0.00 "giờ-máy"';
   });
   const activityLastRow = activitySheet.rowCount;
-  styleDataRange(activitySheet, 5, activityLastRow, 3);
-  activitySheet.addRow(['Tổng cộng', rows.reduce((sum, item) => sum + item.bookingCount, 0), rows.reduce((sum, item) => sum + item.hours, 0)]);
+  styleDataRange(activitySheet, 5, activityLastRow, 5);
+  activitySheet.addRow(['Tổng cộng', usage.totalCheckIns, usage.totalCheckOuts, usage.totalUsageHours, usage.totalComputerHours]);
   const totalRow = activitySheet.getRow(activitySheet.rowCount);
-  totalRow.getCell(3).numFmt = '0.0 "giờ"';
+  totalRow.getCell(4).numFmt = '0.00 "giờ"';
+  totalRow.getCell(5).numFmt = '0.00 "giờ-máy"';
   totalRow.eachCell((cell) => {
     cell.font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.navy } };
     cell.fill = solidFill(COLORS.lightBlue);
@@ -316,6 +324,97 @@ export async function downloadReportWorkbook({ summary, computers, equipment, ev
   });
   activitySheet.views = [{ state: 'frozen', ySplit: 4 }];
 
+  const usageLogSheet = workbook.addWorksheet('Lịch sử check-in-out', { properties: { tabColor: { argb: COLORS.green } } });
+  applySheetDefaults(usageLogSheet);
+  usageLogSheet.columns = [{ width: 8 }, { width: 17 }, { width: 34 }, { width: 20 }, { width: 20 }, { width: 13 }, { width: 13 }, { width: 14 }, { width: 15 }, { width: 32 }, { width: 20 }, { width: 14 }];
+  const usageLogHeaders = ['STT', 'Mã yêu cầu', 'Mục đích', 'Check-in', 'Check-out', 'Số người', 'Số máy', 'Giờ phòng', 'Giờ-máy', 'Danh sách máy', 'Nguồn giờ-máy', 'Trạng thái'];
+  usageLogSheet.addRow(usageLogHeaders);
+  styleHeader(usageLogSheet.getRow(1));
+  usage.sessions.forEach((session, index) => {
+    const row = usageLogSheet.addRow([
+      index + 1,
+      session.requestCode,
+      session.purpose,
+      new Date(session.checkInTime),
+      session.checkOutTime ? new Date(session.checkOutTime) : 'Đang sử dụng',
+      session.actualPeopleCount,
+      session.actualComputerCount,
+      session.usageHours,
+      session.computerHours,
+      session.computerCodes.join(', '),
+      session.computerHoursSource === 'MACHINE_LOGS' ? 'Nhật ký từng máy' : 'Ước tính theo số lượng',
+      session.isActive ? 'Đang sử dụng' : 'Đã check-out',
+    ]);
+    row.getCell(4).numFmt = 'dd/mm/yyyy hh:mm';
+    if (session.checkOutTime) row.getCell(5).numFmt = 'dd/mm/yyyy hh:mm';
+    row.getCell(8).numFmt = '0.00 "giờ"';
+    row.getCell(9).numFmt = '0.00 "giờ-máy"';
+    row.getCell(12).fill = solidFill(session.isActive ? COLORS.amber : COLORS.green);
+    row.getCell(12).font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
+  });
+  const usageLogLastRow = Math.max(2, usageLogSheet.rowCount);
+  if (!usage.sessions.length) usageLogSheet.getCell('A2').value = 'Tháng này chưa có phiên sử dụng đã check-in.';
+  styleDataRange(usageLogSheet, 2, usageLogLastRow, usageLogHeaders.length);
+  usageLogSheet.autoFilter = { from: 'A1', to: `L${usageLogLastRow}` };
+  usageLogSheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  const computerActivitySheet = workbook.addWorksheet('Nhật ký máy tính', { properties: { tabColor: { argb: COLORS.amber } } });
+  applySheetDefaults(computerActivitySheet);
+  computerActivitySheet.columns = [
+    { width: 7 }, { width: 13 }, { width: 24 }, { width: 18 }, { width: 20 }, { width: 20 }, { width: 18 },
+    { width: 19 }, { width: 20 }, { width: 32 }, { width: 25 }, { width: 23 }, { width: 16 }, { width: 34 },
+  ];
+  styleTitle(computerActivitySheet, 1, 'NHẬT KÝ HOẠT ĐỘNG MÁY TÍNH', 14);
+  computerActivitySheet.mergeCells('A2:N2');
+  computerActivitySheet.getCell('A2').value = `Tháng ${usage.month} · Mỗi dòng là một khoảng trạng thái liên tục; phiên đang mở không bị đóng giả tại thời điểm xuất.`;
+  computerActivitySheet.getCell('A2').font = { name: 'Aptos', size: 10, italic: true, color: { argb: COLORS.slate } };
+  computerActivitySheet.getCell('A2').alignment = { horizontal: 'center' };
+  const computerActivityHeaders = [
+    'STT', 'Mã máy', 'Tên máy', 'Hoạt động', 'Bắt đầu', 'Kết thúc', 'Thời lượng trong tháng',
+    'Mã tham chiếu', 'Loại tham chiếu', 'Mục đích/Công việc', 'Người/đơn vị sử dụng',
+    'Người ghi nhận', 'Tình trạng phiên', 'Ghi chú',
+  ];
+  computerActivitySheet.getRow(4).values = computerActivityHeaders;
+  styleHeader(computerActivitySheet.getRow(4));
+  usage.computerActivities.forEach((activity, index) => {
+    const referenceCode = activity.bookingRequestCode || activity.maintenanceCode || '';
+    const referenceType = activity.bookingRequestCode ? 'Đăng ký sử dụng' : activity.maintenanceCode ? 'Bảo trì' : 'Thay đổi trạng thái';
+    const row = computerActivitySheet.addRow([
+      index + 1,
+      activity.computerCode,
+      activity.computerName,
+      COMPUTER_STATUS_THEME[activity.activityType].label,
+      new Date(activity.startedAt),
+      activity.endedAt ? new Date(activity.endedAt) : 'Đang diễn ra',
+      activity.durationHours,
+      referenceCode,
+      referenceType,
+      activity.bookingPurpose || activity.note || '',
+      activity.requesterName || '',
+      activity.performedByName || '',
+      activity.isActive ? 'Đang diễn ra' : 'Đã kết thúc',
+      activity.note || '',
+    ]);
+    row.getCell(5).numFmt = 'dd/mm/yyyy hh:mm';
+    if (activity.endedAt) row.getCell(6).numFmt = 'dd/mm/yyyy hh:mm';
+    row.getCell(7).numFmt = '0.00 "giờ"';
+    row.getCell(4).fill = solidFill(`FF${COMPUTER_STATUS_THEME[activity.activityType].chart.slice(1)}`);
+    row.getCell(4).font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
+    row.getCell(13).fill = solidFill(activity.isActive ? COLORS.amber : COLORS.green);
+    row.getCell(13).font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
+  });
+  const computerActivityLastRow = Math.max(5, computerActivitySheet.rowCount);
+  if (!usage.computerActivities.length) computerActivitySheet.getCell('A5').value = 'Tháng này chưa có nhật ký hoạt động máy tính.';
+  styleDataRange(computerActivitySheet, 5, computerActivityLastRow, computerActivityHeaders.length);
+  computerActivitySheet.autoFilter = { from: 'A4', to: `N${computerActivityLastRow}` };
+  computerActivitySheet.views = [{ state: 'frozen', xSplit: 2, ySplit: 4 }];
+  for (let row = 5; row <= computerActivityLastRow; row += 1) [1, 2, 4, 5, 6, 7, 8, 9, 13].forEach((column) => { computerActivitySheet.getCell(row, column).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
+
+  return workbook;
+}
+
+export async function downloadReportWorkbook(payload: ReportWorkbookPayload) {
+  const workbook = await buildReportWorkbook(payload);
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);

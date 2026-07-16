@@ -11,7 +11,7 @@ import type { RoleApiRecord, PermissionApiRecord } from './role-api';
 import type { AuditLogRecord } from './audit-log-api';
 import type { ComputerData, ComputerStatus } from './computer-api';
 import type { EquipmentCategoryData, EquipmentData, EquipmentTxData } from './equipment-api';
-import type { BookingData, BookingStatus, CalendarEvent, CreateBookingPayload } from './booking-api';
+import type { BookingData, BookingStatus, CalendarEvent, ComputerActivityRecord, CreateBookingPayload } from './booking-api';
 import type { LabProfileData } from './lab-api';
 import type { UserProfile } from './auth-api';
 import type {
@@ -92,8 +92,10 @@ let lab: LabProfileData = {
 };
 
 let bookings: BookingData[] = [
-  { id: id('booking', 1), requestCode: 'BK-MOCK-001', requesterId: users[1]?.id, bookingType: 'FULL_LAB', purpose: 'Thực hành mạng máy tính', startTime: '2026-07-16T08:00:00.000Z', endTime: '2026-07-16T10:00:00.000Z', numberOfPeople: 25, numberOfComputers: 20, status: 'APPROVED', isOverdue: false, hasIncident: false, note: 'Lớp CNTT K46', createdAt: '2026-07-10T08:00:00.000Z' },
-  { id: id('booking', 2), requestCode: 'BK-MOCK-002', requesterId: users[2]?.id, bookingType: 'COMPUTERS_ONLY', purpose: 'Kiểm tra thiết bị', startTime: '2026-07-17T13:30:00.000Z', endTime: '2026-07-17T15:00:00.000Z', numberOfPeople: 8, numberOfComputers: 8, status: 'PENDING', isOverdue: false, hasIncident: false, note: null, createdAt: '2026-07-14T08:00:00.000Z' },
+  { id: id('booking', 1), requestCode: 'BK-MOCK-001', requesterId: users[1]?.id, bookingType: 'FULL_LAB', purpose: 'Thực hành mạng máy tính', startTime: '2026-07-13T01:00:00.000Z', endTime: '2026-07-13T04:00:00.000Z', numberOfPeople: 25, numberOfComputers: 20, status: 'COMPLETED', isOverdue: false, hasIncident: false, note: 'Lớp CNTT K46', createdAt: '2026-07-10T08:00:00.000Z', checkInTime: '2026-07-13T01:10:00.000Z', checkOutTime: '2026-07-13T03:55:00.000Z', actualPeopleCount: 24, actualComputerCount: 20 },
+  { id: id('booking', 2), requestCode: 'BK-MOCK-002', requesterId: users[2]?.id, bookingType: 'COMPUTERS_ONLY', purpose: 'Kiểm tra thiết bị', startTime: '2026-07-14T05:30:00.000Z', endTime: '2026-07-14T07:00:00.000Z', numberOfPeople: 8, numberOfComputers: 8, status: 'COMPLETED', isOverdue: false, hasIncident: false, note: null, createdAt: '2026-07-12T08:00:00.000Z', checkInTime: '2026-07-14T05:35:00.000Z', checkOutTime: '2026-07-14T06:50:00.000Z', actualPeopleCount: 8, actualComputerCount: 8 },
+  { id: id('booking', 3), requestCode: 'BK-MOCK-003', requesterId: users[1]?.id, bookingType: 'FULL_LAB', purpose: 'Thực hành lập trình', startTime: '2026-07-16T08:00:00.000Z', endTime: '2026-07-16T10:00:00.000Z', numberOfPeople: 25, numberOfComputers: 20, status: 'APPROVED', isOverdue: false, hasIncident: false, note: 'Lớp CNTT K46', createdAt: '2026-07-10T08:00:00.000Z' },
+  { id: id('booking', 4), requestCode: 'BK-MOCK-004', requesterId: users[2]?.id, bookingType: 'COMPUTERS_ONLY', purpose: 'Thực hành hệ điều hành', startTime: '2026-07-17T13:30:00.000Z', endTime: '2026-07-17T15:00:00.000Z', numberOfPeople: 8, numberOfComputers: 8, status: 'PENDING', isOverdue: false, hasIncident: false, note: null, createdAt: '2026-07-14T08:00:00.000Z' },
 ];
 
 let maintenances: MaintenanceRecord[] = [
@@ -139,6 +141,54 @@ let maintenances: MaintenanceRecord[] = [
     cancellationReason: 'Phòng có lịch thi bù.', triggerSource: 'MANUAL', triggeredAt: null, createdBy: users[0]?.id || null, createdByName: users[0]?.fullName || 'Administrator',
     createdAt: '2026-07-05T01:00:00.000Z', updatedAt: '2026-07-09T08:00:00.000Z', isOverdue: false,
   },
+];
+
+type MockComputerActivity = Omit<ComputerActivityRecord, 'durationHours' | 'isActive'>;
+
+let computerActivityLogs: MockComputerActivity[] = [
+  ...bookings.filter((booking) => booking.checkInTime).flatMap((booking) => {
+    const count = booking.actualComputerCount ?? booking.numberOfComputers;
+    const requester = users.find((user) => user.id === booking.requesterId);
+    return computers.slice(0, count).map((computer, index) => ({
+      id: `mock-activity-${booking.id}-${index}`,
+      computerId: computer.id,
+      computerCode: computer.code,
+      computerName: computer.name,
+      activityType: 'IN_USE' as const,
+      startedAt: booking.checkInTime!,
+      endedAt: booking.checkOutTime || null,
+      bookingRequestId: booking.id,
+      bookingRequestCode: booking.requestCode,
+      bookingPurpose: booking.purpose,
+      requesterName: requester?.fullName || null,
+      maintenanceScheduleId: null,
+      maintenanceCode: null,
+      performedBy: users[0]?.id || null,
+      performedByName: users[0]?.fullName || null,
+      note: booking.note || null,
+    }));
+  }),
+  ...computers.map((computer, index) => {
+    const maintenance = maintenances.find((item) => item.targetType === 'COMPUTER' && item.targetId === computer.id && item.status === 'IN_PROGRESS');
+    return {
+      id: `mock-activity-current-${index}`,
+      computerId: computer.id,
+      computerCode: computer.code,
+      computerName: computer.name,
+      activityType: computer.status,
+      startedAt: maintenance?.startedAt || '2026-07-15T08:00:00.000Z',
+      endedAt: null,
+      bookingRequestId: null,
+      bookingRequestCode: null,
+      bookingPurpose: null,
+      requesterName: null,
+      maintenanceScheduleId: maintenance?.id || null,
+      maintenanceCode: maintenance?.code || null,
+      performedBy: users[0]?.id || null,
+      performedByName: users[0]?.fullName || null,
+      note: computer.note || null,
+    };
+  }),
 ];
 
 let auditLogs: AuditLogRecord[] = [
@@ -224,10 +274,10 @@ const mockAdapter: AxiosAdapter = async (config) => {
   if (path === '/computers' && method === 'GET') { const keyword = stringParam(params, 'keyword')?.toLocaleLowerCase('vi'); const status = stringParam(params, 'status'); const position = stringParam(params, 'position'); const filtered = computers.filter((item) => (!keyword || `${item.code} ${item.name} ${item.ipAddress || ''}`.toLocaleLowerCase('vi').includes(keyword)) && (!status || item.status === status) && (!position || item.position === position)); return response(request, paginate(filtered, request)); }
   const computerMatch = path.match(/^\/computers\/([^/]+)$/); const computerStatusMatch = path.match(/^\/computers\/([^/]+)\/status$/);
   if (computerMatch && method === 'GET') { const item = matchComputer(computerMatch[1]); return item ? response(request, body(item)) : errorResponse(request, 404, 'Không tìm thấy máy tính mock.'); }
-  if (computerMatch && method === 'DELETE') { const index = computers.findIndex((item) => item.id === computerMatch[1]); if (index < 0) return errorResponse(request, 404, 'Không tìm thấy máy tính mock.'); computers.splice(index, 1); return response(request, body(null)); }
-  if (computerStatusMatch && method === 'PATCH') { const item = matchComputer(computerStatusMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy máy tính mock.'); const nextStatus = String(payload.status) as ComputerStatus; if (item.status !== nextStatus && (item.status === 'MAINTENANCE' || nextStatus === 'MAINTENANCE')) return errorResponse(request, 422, 'Trạng thái bảo trì chỉ được thay đổi từ lịch bảo trì.'); item.status = nextStatus; item.updatedAt = now(); if (nextStatus === 'BROKEN') ensureMockComputerProposal(item, 'BROKEN_STATUS'); return response(request, body(item)); }
-  if (computerMatch && method === 'PUT') { const item = matchComputer(computerMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy máy tính mock.'); const nextStatus = String(payload.status || item.status) as ComputerStatus; if (item.status !== nextStatus && (item.status === 'MAINTENANCE' || nextStatus === 'MAINTENANCE')) return errorResponse(request, 422, 'Trạng thái bảo trì chỉ được thay đổi từ lịch bảo trì.'); const wasBroken = item.status === 'BROKEN'; Object.assign(item, payload, { id: item.id, updatedAt: now() }); if (!wasBroken && item.status === 'BROKEN') ensureMockComputerProposal(item, 'BROKEN_STATUS'); return response(request, body(item)); }
-  if (path === '/computers' && method === 'POST') { const item = { ...(payload as unknown as ComputerData), id: `mock-computer-${Date.now()}`, createdAt: now(), updatedAt: now() }; if (item.status === 'MAINTENANCE') return errorResponse(request, 422, 'Không thể tạo máy trực tiếp ở trạng thái bảo trì.'); computers.unshift(item); if (item.status === 'BROKEN') ensureMockComputerProposal(item, 'BROKEN_STATUS'); return response(request, body(item), 201); }
+  if (computerMatch && method === 'DELETE') { const index = computers.findIndex((item) => item.id === computerMatch[1]); if (index < 0) return errorResponse(request, 404, 'Không tìm thấy máy tính mock.'); closeMockComputerActivity(computers[index].id, now()); computers.splice(index, 1); return response(request, body(null)); }
+  if (computerStatusMatch && method === 'PATCH') { const item = matchComputer(computerStatusMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy máy tính mock.'); const nextStatus = String(payload.status) as ComputerStatus; if (item.status !== nextStatus && (item.status === 'MAINTENANCE' || nextStatus === 'MAINTENANCE')) return errorResponse(request, 422, 'Trạng thái bảo trì chỉ được thay đổi từ lịch bảo trì.'); const previousStatus = item.status; item.status = nextStatus; item.updatedAt = now(); if (previousStatus !== nextStatus) transitionMockComputerActivity(item, nextStatus, item.updatedAt, { note: `Chuyển từ ${previousStatus} sang ${nextStatus}` }); if (nextStatus === 'BROKEN') ensureMockComputerProposal(item, 'BROKEN_STATUS'); return response(request, body(item)); }
+  if (computerMatch && method === 'PUT') { const item = matchComputer(computerMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy máy tính mock.'); const nextStatus = String(payload.status || item.status) as ComputerStatus; if (item.status !== nextStatus && (item.status === 'MAINTENANCE' || nextStatus === 'MAINTENANCE')) return errorResponse(request, 422, 'Trạng thái bảo trì chỉ được thay đổi từ lịch bảo trì.'); const previousStatus = item.status; const wasBroken = item.status === 'BROKEN'; Object.assign(item, payload, { id: item.id, updatedAt: now() }); if (previousStatus !== item.status) transitionMockComputerActivity(item, item.status, item.updatedAt!, { note: `Chuyển từ ${previousStatus} sang ${item.status}` }); if (!wasBroken && item.status === 'BROKEN') ensureMockComputerProposal(item, 'BROKEN_STATUS'); return response(request, body(item)); }
+  if (path === '/computers' && method === 'POST') { const item = { ...(payload as unknown as ComputerData), id: `mock-computer-${Date.now()}`, createdAt: now(), updatedAt: now() }; if (item.status === 'MAINTENANCE') return errorResponse(request, 422, 'Không thể tạo máy trực tiếp ở trạng thái bảo trì.'); computers.unshift(item); transitionMockComputerActivity(item, item.status, item.createdAt!, { note: 'Khởi tạo máy tính' }); if (item.status === 'BROKEN') ensureMockComputerProposal(item, 'BROKEN_STATUS'); return response(request, body(item), 201); }
 
   if (path === '/equipments/categories' && method === 'GET') return response(request, body(categories));
   if (path === '/equipments/categories' && method === 'POST') { const category = { ...(payload as unknown as EquipmentCategoryData), id: `mock-category-${Date.now()}` }; categories.push(category); return response(request, body(category), 201); }
@@ -300,6 +350,7 @@ const mockAdapter: AxiosAdapter = async (config) => {
       const startError = startMockMaintenanceTarget(item);
       if (startError) return errorResponse(request, 422, startError);
       item.status = 'IN_PROGRESS'; item.startedAt = now(); item.updatedAt = item.startedAt;
+      if (item.targetType === 'COMPUTER') { const computer = matchComputer(item.targetId); if (computer) transitionMockComputerActivity(computer, 'MAINTENANCE', item.startedAt, { maintenance: item, note: item.reason }); }
       auditLogs = [createMockAudit('MAINTENANCE_STARTED', 'MaintenanceSchedule', item.id, before, item), ...auditLogs];
     } else if (maintenanceAction[2] === 'complete') {
       if (item.status !== 'IN_PROGRESS') return errorResponse(request, 422, 'Chỉ lịch đang thực hiện mới có thể hoàn tất.');
@@ -311,6 +362,7 @@ const mockAdapter: AxiosAdapter = async (config) => {
       if (completeError) return errorResponse(request, 422, completeError);
       item.status = 'COMPLETED'; item.completedAt = now(); item.updatedAt = item.completedAt; item.resultNote = resultNote;
       item.actualCost = actualCost; item.completionOutcome = outcome; item.partsNote = String(payload.partsNote || '').trim() || item.partsNote;
+      if (item.targetType === 'COMPUTER') { const computer = matchComputer(item.targetId); if (computer) transitionMockComputerActivity(computer, outcome === 'BROKEN' ? 'BROKEN' : 'ACTIVE', item.completedAt, { maintenance: item, note: resultNote }); }
       auditLogs = [createMockAudit('MAINTENANCE_COMPLETED', 'MaintenanceSchedule', item.id, before, item), ...auditLogs];
     } else {
       if (!['PENDING', 'SCHEDULED'].includes(item.status)) return errorResponse(request, 422, 'Chỉ lịch chưa bắt đầu mới có thể hủy.');
@@ -357,10 +409,37 @@ const mockAdapter: AxiosAdapter = async (config) => {
 
   if (path === '/bookings/my-bookings' && method === 'GET') return response(request, bookings.filter((item) => item.requesterId === users[0]?.id || item.requesterId === users[1]?.id));
   if (path === '/bookings/admin/pending' && method === 'GET') return response(request, bookings.filter((item) => item.status === 'PENDING'));
-  if (path === '/bookings/calendar' && method === 'GET') { const start = new Date(String(params.start || 0)); const end = new Date(String(params.end || 8640000000000000)); return response(request, bookings.filter((item) => new Date(item.startTime) < end && new Date(item.endTime) > start).map((item) => ({ id: item.id, title: item.purpose, start: item.startTime, end: item.endTime, type: item.bookingType, status: item.status, requesterId: item.requesterId, numberOfPeople: item.numberOfPeople })) as CalendarEvent[]); }
+  if (path === '/bookings/usage-statistics' && method === 'GET') {
+    const month = stringParam(params, 'month') || new Date().toISOString().slice(0, 7);
+    try { return response(request, body(mockUsageStatistics(month))); } catch (error: any) { return errorResponse(request, 400, error.message); }
+  }
+  if (path === '/bookings/calendar' && method === 'GET') { const start = new Date(String(params.start || 0)); const end = new Date(String(params.end || 8640000000000000)); return response(request, bookings.filter((item) => new Date(item.startTime) < end && new Date(item.endTime) > start).map((item) => ({ id: item.id, title: item.purpose, start: item.startTime, end: item.endTime, type: item.bookingType, status: item.status, requesterId: item.requesterId, numberOfPeople: item.numberOfPeople, numberOfComputers: item.numberOfComputers })) as CalendarEvent[]); }
   if (path === '/bookings' && method === 'POST') { const input = payload as unknown as CreateBookingPayload; const item: BookingData = { id: `mock-booking-${Date.now()}`, requestCode: `BK-MOCK-${String(bookings.length + 1).padStart(3, '0')}`, requesterId: users[0]?.id, bookingType: input.bookingType, purpose: input.purpose, startTime: input.startTime, endTime: input.endTime, expectedReturnTime: input.expectedReturnTime, numberOfPeople: input.numberOfPeople, numberOfComputers: input.numberOfComputers, status: 'PENDING', isOverdue: false, hasIncident: false, note: input.note || null, createdAt: now() }; bookings = [item, ...bookings]; return response(request, item, 201); }
-  const bookingAction = path.match(/^\/bookings\/([^/]+)\/(approve|reject|cancel)$/);
-  if (bookingAction && method === 'POST') { const item = bookings.find((booking) => booking.id === bookingAction[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy lịch mock.'); item.status = bookingAction[2] === 'approve' ? 'APPROVED' : bookingAction[2] === 'reject' ? 'REJECTED' : 'CANCELLED'; return response(request, item); }
+  const bookingAction = path.match(/^\/bookings\/([^/]+)\/(approve|reject|cancel|check-in|check-out)$/);
+  if (bookingAction && method === 'POST') {
+    const item = bookings.find((booking) => booking.id === bookingAction[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy lịch mock.');
+    const action = bookingAction[2];
+    if (action === 'check-in') {
+      if (item.status !== 'APPROVED') return errorResponse(request, 422, 'Chỉ lịch đã duyệt mới có thể check-in.');
+      const computerIds = Array.isArray(payload.computerIds) ? Array.from(new Set(payload.computerIds.map(String))) : [];
+      if (item.numberOfComputers > 0 && computerIds.length === 0) return errorResponse(request, 422, 'Cần chọn cụ thể các máy tính được sử dụng.');
+      const selectedComputers = computerIds.map((computerId) => matchComputer(computerId));
+      if (selectedComputers.some((computer) => !computer || computer.status !== 'ACTIVE')) return errorResponse(request, 422, 'Một máy được chọn không còn ở trạng thái sẵn sàng.');
+      item.status = 'CHECKED_IN'; item.checkInTime = now(); item.actualPeopleCount = Number(payload.actualPeopleCount ?? item.numberOfPeople); item.actualComputerCount = computerIds.length; item.selectedComputerIds = computerIds;
+      selectedComputers.forEach((computer) => { if (!computer) return; computer.status = 'IN_USE'; computer.updatedAt = item.checkInTime!; transitionMockComputerActivity(computer, 'IN_USE', item.checkInTime!, { booking: item, note: item.purpose }); });
+      auditLogs = [createMockAudit('BOOKING_CHECKED_IN', 'BookingRequest', item.id, null, item), ...auditLogs];
+      return response(request, { success: true, status: item.status, checkInTime: item.checkInTime, actualPeopleCount: item.actualPeopleCount, actualComputerCount: item.actualComputerCount, computerIds });
+    }
+    if (action === 'check-out') {
+      if (item.status !== 'CHECKED_IN') return errorResponse(request, 422, 'Booking chưa check-in nên không thể check-out.');
+      item.status = 'COMPLETED'; item.checkOutTime = now();
+      const activeMachineActivities = computerActivityLogs.filter((activity) => activity.bookingRequestId === item.id && activity.activityType === 'IN_USE' && !activity.endedAt);
+      activeMachineActivities.forEach((activity) => { const computer = matchComputer(activity.computerId); if (!computer || computer.status !== 'IN_USE') return; computer.status = 'ACTIVE'; computer.updatedAt = item.checkOutTime!; transitionMockComputerActivity(computer, 'ACTIVE', item.checkOutTime!, { note: `Hoàn tất phiên ${item.requestCode}` }); });
+      auditLogs = [createMockAudit('BOOKING_CHECKED_OUT', 'BookingRequest', item.id, null, item), ...auditLogs];
+      return response(request, { success: true, status: item.status, checkOutTime: item.checkOutTime, computerIds: activeMachineActivities.map((activity) => activity.computerId) });
+    }
+    item.status = action === 'approve' ? 'APPROVED' : action === 'reject' ? 'REJECTED' : 'CANCELLED'; return response(request, item);
+  }
 
   return errorResponse(request, 404, `Mock API chưa có endpoint ${method} ${path}.`);
 };
@@ -371,6 +450,125 @@ function roleRecords(): RoleApiRecord[] {
 
 function computerSummary() {
   return { total: computers.length, active: computers.filter((item) => item.status === 'ACTIVE').length, inUse: computers.filter((item) => item.status === 'IN_USE').length, broken: computers.filter((item) => item.status === 'BROKEN').length, maintenance: computers.filter((item) => item.status === 'MAINTENANCE').length, locked: computers.filter((item) => item.status === 'LOCKED').length, inactive: computers.filter((item) => item.status === 'INACTIVE').length };
+}
+
+function closeMockComputerActivity(computerId: string, occurredAt: string) {
+  const current = computerActivityLogs.find((activity) => activity.computerId === computerId && !activity.endedAt);
+  if (current) current.endedAt = occurredAt;
+}
+
+function transitionMockComputerActivity(computer: ComputerData, activityType: ComputerStatus, occurredAt: string, options: { booking?: BookingData; maintenance?: MaintenanceRecord; note?: string } = {}) {
+  closeMockComputerActivity(computer.id, occurredAt);
+  const requester = options.booking ? users.find((user) => user.id === options.booking?.requesterId) : null;
+  computerActivityLogs.unshift({
+    id: `mock-activity-${Date.now()}-${computer.id}`,
+    computerId: computer.id,
+    computerCode: computer.code,
+    computerName: computer.name,
+    activityType,
+    startedAt: occurredAt,
+    endedAt: null,
+    bookingRequestId: options.booking?.id || null,
+    bookingRequestCode: options.booking?.requestCode || null,
+    bookingPurpose: options.booking?.purpose || null,
+    requesterName: requester?.fullName || null,
+    maintenanceScheduleId: options.maintenance?.id || null,
+    maintenanceCode: options.maintenance?.code || null,
+    performedBy: users[0]?.id || null,
+    performedByName: users[0]?.fullName || null,
+    note: options.note || null,
+  });
+}
+
+function mockUsageStatistics(month: string) {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('Tháng thống kê phải có dạng YYYY-MM.');
+  const [year, monthIndex] = month.split('-').map(Number);
+  const labTimezoneOffsetMs = 7 * 60 * 60 * 1000;
+  const start = new Date(Date.UTC(year, monthIndex - 1, 1) - labTimezoneOffsetMs);
+  const end = new Date(Date.UTC(year, monthIndex, 1) - labTimezoneOffsetMs);
+  const nowDate = new Date();
+  const round = (value: number) => Math.round(value * 100) / 100;
+  const labDayKey = (date: Date) => new Date(date.getTime() + labTimezoneOffsetMs).toISOString().slice(0, 10);
+  const nextLabDay = (date: Date) => {
+    const labDate = new Date(date.getTime() + labTimezoneOffsetMs);
+    return new Date(Date.UTC(labDate.getUTCFullYear(), labDate.getUTCMonth(), labDate.getUTCDate() + 1) - labTimezoneOffsetMs);
+  };
+  const overlapHours = (from: string, to: string | null) => Math.max(0, Math.min(new Date(to || nowDate).getTime(), end.getTime()) - Math.max(new Date(from).getTime(), start.getTime())) / 3_600_000;
+  const daily = new Map<string, { date: string; usageHours: number; computerHours: number; checkInCount: number; checkOutCount: number }>();
+  for (let cursor = new Date(start); cursor < end; cursor = nextLabDay(cursor)) {
+    const key = labDayKey(cursor);
+    daily.set(key, { date: key, usageHours: 0, computerHours: 0, checkInCount: 0, checkOutCount: 0 });
+  }
+  const accumulate = (from: string, to: string | null, onHours: (row: { date: string; usageHours: number; computerHours: number; checkInCount: number; checkOutCount: number }, hours: number) => void) => {
+    let cursor = new Date(Math.max(new Date(from).getTime(), start.getTime()));
+    const intervalEnd = new Date(Math.min(new Date(to || nowDate).getTime(), end.getTime()));
+    while (cursor < intervalEnd) {
+      const nextDay = nextLabDay(cursor);
+      const segmentEnd = new Date(Math.min(nextDay.getTime(), intervalEnd.getTime()));
+      const row = daily.get(labDayKey(cursor));
+      if (row) onHours(row, (segmentEnd.getTime() - cursor.getTime()) / 3_600_000);
+      cursor = segmentEnd;
+    }
+  };
+
+  const activities = computerActivityLogs.filter((activity) => new Date(activity.startedAt) < end && new Date(activity.endedAt || nowDate) > start);
+  const usageActivities = activities.filter((activity) => activity.activityType === 'IN_USE');
+  const bookingsWithMachineLogs = new Set(usageActivities.map((activity) => activity.bookingRequestId).filter(Boolean));
+  const sessions = bookings.filter((booking) => booking.checkInTime && new Date(booking.checkInTime) < end && new Date(booking.checkOutTime || nowDate) > start);
+  sessions.forEach((booking) => {
+    const computerCount = booking.actualComputerCount ?? booking.numberOfComputers;
+    accumulate(booking.checkInTime!, booking.checkOutTime || null, (row, hours) => {
+      row.usageHours += hours;
+      if (!bookingsWithMachineLogs.has(booking.id)) row.computerHours += hours * computerCount;
+    });
+    const checkIn = new Date(booking.checkInTime!);
+    const checkOut = booking.checkOutTime ? new Date(booking.checkOutTime) : null;
+    if (checkIn >= start && checkIn < end) daily.get(labDayKey(checkIn))!.checkInCount += 1;
+    if (checkOut && checkOut >= start && checkOut < end) daily.get(labDayKey(checkOut))!.checkOutCount += 1;
+  });
+  usageActivities.forEach((activity) => accumulate(activity.startedAt, activity.endedAt, (row, hours) => { row.computerHours += hours; }));
+
+  const rows = Array.from(daily.values()).map((item) => ({ ...item, usageHours: round(item.usageHours), computerHours: round(item.computerHours) }));
+  const currentActivities = computerActivityLogs.filter((activity) => !activity.endedAt);
+  const computerSummaries = computers.map((computer) => {
+    const machineActivities = activities.filter((activity) => activity.computerId === computer.id);
+    const current = currentActivities.find((activity) => activity.computerId === computer.id);
+    const hoursOf = (status: ComputerStatus) => round(machineActivities.filter((activity) => activity.activityType === status).reduce((sum, activity) => sum + overlapHours(activity.startedAt, activity.endedAt), 0));
+    return {
+      computerId: computer.id, computerCode: computer.code, computerName: computer.name,
+      usageSessionCount: machineActivities.filter((activity) => activity.activityType === 'IN_USE').length,
+      usageHours: hoursOf('IN_USE'), readyHours: hoursOf('ACTIVE'), maintenanceHours: hoursOf('MAINTENANCE'),
+      brokenHours: hoursOf('BROKEN'), lockedHours: hoursOf('LOCKED'), inactiveHours: hoursOf('INACTIVE'),
+      currentActivityType: current?.activityType || null, currentActivityStartedAt: current?.startedAt || null,
+      currentBookingCode: current?.bookingRequestCode || null, currentPurpose: current?.bookingPurpose || null,
+      currentRequesterName: current?.requesterName || null,
+    };
+  });
+
+  return {
+    month, rangeStart: start.toISOString(), rangeEnd: end.toISOString(),
+    totalUsageHours: round(rows.reduce((sum, item) => sum + item.usageHours, 0)),
+    totalComputerHours: round(rows.reduce((sum, item) => sum + item.computerHours, 0)),
+    totalCheckIns: sessions.filter((booking) => { const date = new Date(booking.checkInTime!); return date >= start && date < end; }).length,
+    totalCheckOuts: sessions.filter((booking) => { const date = booking.checkOutTime ? new Date(booking.checkOutTime) : null; return !!date && date >= start && date < end; }).length,
+    activeSessions: sessions.filter((booking) => !booking.checkOutTime).length,
+    daily: rows,
+    sessions: sessions.map((booking) => {
+      const machineLogs = usageActivities.filter((activity) => activity.bookingRequestId === booking.id);
+      const usageHours = round(overlapHours(booking.checkInTime!, booking.checkOutTime || null));
+      const actualComputerCount = booking.actualComputerCount ?? booking.numberOfComputers;
+      return {
+        bookingId: booking.id, requestCode: booking.requestCode, purpose: booking.purpose, bookingType: booking.bookingType,
+        checkInTime: booking.checkInTime, checkOutTime: booking.checkOutTime || null,
+        actualPeopleCount: booking.actualPeopleCount ?? booking.numberOfPeople, actualComputerCount, usageHours,
+        computerHours: machineLogs.length ? round(machineLogs.reduce((sum, activity) => sum + overlapHours(activity.startedAt, activity.endedAt), 0)) : round(usageHours * actualComputerCount),
+        computerHoursSource: machineLogs.length ? 'MACHINE_LOGS' as const : 'ESTIMATED_COUNT' as const,
+        computerCodes: machineLogs.map((activity) => activity.computerCode), isActive: !booking.checkOutTime,
+      };
+    }),
+    computerSummaries,
+    computerActivities: activities.map((activity) => ({ ...activity, durationHours: round(overlapHours(activity.startedAt, activity.endedAt)), isActive: !activity.endedAt })),
+  };
 }
 
 function maintenanceSummary() {

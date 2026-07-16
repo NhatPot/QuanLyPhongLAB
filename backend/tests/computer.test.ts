@@ -9,6 +9,8 @@ vi.spyOn(container.uow, 'complete').mockImplementation(async (work: any) => {
   return work();
 });
 vi.spyOn(container.uow, 'getTransaction').mockReturnValue({} as any);
+vi.spyOn(container.computerActivityRepo, 'transition').mockResolvedValue();
+vi.spyOn(container.computerActivityRepo, 'closeCurrent').mockResolvedValue();
 
 const mockComputer = Computer.create({
   code: 'PC01',

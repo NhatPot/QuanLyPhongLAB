@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { BookingController } from '../controllers/BookingController';
 import { CreateBookingUseCase } from '../../../application/use-cases/booking/CreateBookingUseCase';
 import { GetBookingUseCase } from '../../../application/use-cases/booking/GetBookingUseCase';
@@ -8,6 +9,9 @@ import { CancelBookingUseCase } from '../../../application/use-cases/booking/Can
 import { ListPendingBookingsUseCase } from '../../../application/use-cases/booking/ListPendingBookingsUseCase';
 import { ApproveBookingUseCase } from '../../../application/use-cases/booking/ApproveBookingUseCase';
 import { RejectBookingUseCase } from '../../../application/use-cases/booking/RejectBookingUseCase';
+import { CheckInBookingUseCase } from '../../../application/use-cases/booking/CheckInBookingUseCase';
+import { CheckOutBookingUseCase } from '../../../application/use-cases/booking/CheckOutBookingUseCase';
+import { GetLabUsageStatisticsUseCase } from '../../../application/use-cases/booking/GetLabUsageStatisticsUseCase';
 import { CheckAvailabilityUseCase } from '../../../application/use-cases/booking/CheckAvailabilityUseCase';
 import { SqlBookingRequestRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlBookingRequestRepository';
 import { SqlBookingEquipmentItemRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlBookingEquipmentItemRepository';
@@ -17,7 +21,29 @@ import { SqlEquipmentRepository } from '../../../infrastructure/database/sqlserv
 import { SqlAvailabilityQueryService } from '../../../infrastructure/database/sqlserver/repositories/SqlAvailabilityQueryService';
 import { SqlUnitOfWork } from '../../../infrastructure/database/sqlserver/unit-of-work/SqlUnitOfWork';
 import { SqlAuditLogRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlAuditLogRepository';
+import { SqlCheckInOutLogRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlCheckInOutLogRepository';
+import { SqlComputerActivityRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlComputerActivityRepository';
 import { authMiddleware, requirePermissions } from '../middlewares/authMiddleware';
+import { validateRequest } from '../middlewares/validateRequestMiddleware';
+
+const bookingIdParams = z.object({ id: z.string().uuid('ID lịch sử dụng không hợp lệ.') });
+const checkInSchema = z.object({
+  params: bookingIdParams,
+  body: z.object({
+    actualPeopleCount: z.number().int().min(0).max(1000).optional(),
+    actualComputerCount: z.number().int().min(0).max(1000).optional(),
+    computerIds: z.array(z.string().uuid('ID máy tính không hợp lệ.')).max(200).optional(),
+    initialCondition: z.string().trim().max(4000).optional(),
+    note: z.string().trim().max(4000).optional(),
+  }),
+});
+const checkOutSchema = z.object({
+  params: bookingIdParams,
+  body: z.object({
+    returnCondition: z.string().trim().max(4000).optional(),
+    note: z.string().trim().max(4000).optional(),
+  }),
+});
 
 export function createBookingRouter(): Router {
   const router = Router();
@@ -31,6 +57,8 @@ export function createBookingRouter(): Router {
   const availabilityQueryService = new SqlAvailabilityQueryService();
   const uow = new SqlUnitOfWork();
   const auditLogRepo = new SqlAuditLogRepository();
+  const checkInOutLogRepo = new SqlCheckInOutLogRepository();
+  const computerActivityRepo = new SqlComputerActivityRepository();
 
   // Shared Use Cases
   const checkAvailabilityUseCase = new CheckAvailabilityUseCase(
@@ -56,6 +84,9 @@ export function createBookingRouter(): Router {
   const listPendingBookingsUseCase = new ListPendingBookingsUseCase(bookingRepo, equipmentItemRepo);
   const approveBookingUseCase = new ApproveBookingUseCase(bookingRepo, equipmentItemRepo, checkAvailabilityUseCase, uow, auditLogRepo);
   const rejectBookingUseCase = new RejectBookingUseCase(bookingRepo, uow, auditLogRepo);
+  const checkInBookingUseCase = new CheckInBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo);
+  const checkOutBookingUseCase = new CheckOutBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo);
+  const getLabUsageStatisticsUseCase = new GetLabUsageStatisticsUseCase(checkInOutLogRepo, computerActivityRepo);
 
   // Controller
   const controller = new BookingController(
@@ -66,12 +97,16 @@ export function createBookingRouter(): Router {
     cancelBookingUseCase,
     listPendingBookingsUseCase,
     approveBookingUseCase,
-    rejectBookingUseCase
+    rejectBookingUseCase,
+    checkInBookingUseCase,
+    checkOutBookingUseCase,
+    getLabUsageStatisticsUseCase,
   );
 
   // Routes
   // Calendar public (but maybe require login)
   router.get('/calendar', authMiddleware, requirePermissions('LAB_CALENDAR_VIEW'), controller.getCalendar.bind(controller));
+  router.get('/usage-statistics', authMiddleware, requirePermissions('REPORT_VIEW'), controller.getUsageStatistics.bind(controller));
 
   // User booking operations
   router.post('/', authMiddleware, requirePermissions('BOOKING_CREATE'), controller.create.bind(controller));
@@ -83,6 +118,8 @@ export function createBookingRouter(): Router {
   router.get('/admin/pending', authMiddleware, requirePermissions('BOOKING_APPROVE'), controller.listPending.bind(controller));
   router.post('/:id/approve', authMiddleware, requirePermissions('BOOKING_APPROVE'), controller.approve.bind(controller));
   router.post('/:id/reject', authMiddleware, requirePermissions('BOOKING_APPROVE'), controller.reject.bind(controller));
+  router.post('/:id/check-in', authMiddleware, requirePermissions('BOOKING_CHECK_IN'), validateRequest(checkInSchema), controller.checkIn.bind(controller));
+  router.post('/:id/check-out', authMiddleware, requirePermissions('BOOKING_CHECK_OUT'), validateRequest(checkOutSchema), controller.checkOut.bind(controller));
 
   return router;
 }

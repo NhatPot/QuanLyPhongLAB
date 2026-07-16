@@ -2,6 +2,7 @@ import { Result } from '../../../shared/result/Result';
 import { IComputerRepository } from '../../../domain/repositories/IComputerRepository';
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { IAuditLogRepository } from '../../../domain/repositories/IAuditLogRepository';
+import { IComputerActivityRepository } from '../../../domain/repositories/IComputerActivityRepository';
 
 export interface DeleteComputerInput {
   id: string;
@@ -15,7 +16,8 @@ export class DeleteComputerUseCase {
   constructor(
     private computerRepo: IComputerRepository,
     private uow: IUnitOfWork,
-    private auditLogRepo: IAuditLogRepository
+    private auditLogRepo: IAuditLogRepository,
+    private computerActivityRepo: IComputerActivityRepository,
   ) {}
 
   public async execute(input: DeleteComputerInput): Promise<Result<void>> {
@@ -32,7 +34,9 @@ export class DeleteComputerUseCase {
       computer.delete();
 
       await this.uow.complete(async () => {
-        await this.computerRepo.save(computer);
+        const transaction = this.uow.getTransaction();
+        await this.computerRepo.save(computer, transaction);
+        await this.computerActivityRepo.closeCurrent(computer.id.toString(), computer.updatedAt || new Date(), transaction);
 
         await this.auditLogRepo.save({
           userId: input.userId,
@@ -42,7 +46,7 @@ export class DeleteComputerUseCase {
           ipAddress: input.ipAddressClient,
           userAgent: input.userAgent,
           correlationId: input.correlationId
-        } as any);
+        } as any, transaction);
       });
 
       return Result.ok<void>(undefined);

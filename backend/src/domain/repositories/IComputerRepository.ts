@@ -9,7 +9,7 @@ export interface ComputerFilter {
 }
 
 export interface IComputerRepository {
-  findById(id: string): Promise<Computer | null>;
+  findById(id: string, transaction?: any): Promise<Computer | null>;
   findByCode(code: string): Promise<Computer | null>;
   list(filter: ComputerFilter): Promise<{ data: Computer[]; total: number }>;
   listMaintenanceCandidates(cutoffDate: Date): Promise<Computer[]>;
