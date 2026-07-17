@@ -48,15 +48,16 @@ export class ApproveBookingUseCase {
 
     // 3. Save trong transaction
     await this.uow.complete(async () => {
-      await this.bookingRepo.save(booking);
-      await this.equipmentItemRepo.saveMany(items);
+      const transaction = this.uow.getTransaction();
+      await this.bookingRepo.save(booking, transaction);
+      await this.equipmentItemRepo.saveMany(items, transaction);
 
       await this.auditLogRepo.save({
         action: 'BOOKING_APPROVED',
         entityId: booking.id.toString(),
         entityName: 'BookingRequest',
         userId: adminId
-      });
+      }, transaction);
     });
 
     return booking;

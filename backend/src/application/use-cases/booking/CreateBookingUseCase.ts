@@ -77,20 +77,16 @@ export class CreateBookingUseCase {
 
     // 4. Save in transaction
     await this.uow.complete(async () => {
-      await this.bookingRepo.save(booking); // note: save should accept transaction if needed, but here we can just depend on the connection context if uow supports it, or pass transaction.
-      // Assuming save methods can extract transaction from some cls-hooked context or we need to pass it.
-      // Wait, SqlUnitOfWork in this project: usually passes the transaction object to the repository.
-      // Actually, looking at `SqlComputerRepository`, `save(computer, transaction?)`.
-      // Let's assume we need to update our repositories to accept `transaction?: mssql.Transaction`.
-      await this.bookingRepo.save(booking);
-      await this.bookingEqItemRepo.saveMany(equipmentItems);
+      const transaction = this.uow.getTransaction();
+      await this.bookingRepo.save(booking, transaction);
+      await this.bookingEqItemRepo.saveMany(equipmentItems, transaction);
       
       await this.auditLogRepo.save({
         action: 'BOOKING_CREATED',
         entityName: 'BookingRequest',
         entityId: booking.id.toString(),
         userId: input.requesterId
-      });
+      }, transaction);
     });
 
     return booking;

@@ -38,7 +38,6 @@ QuanLyPhongLAB/
 ├── docs/
 ├── .agent/
 ├── .editorconfig
-├── .env.example
 ├── .gitignore
 ├── package.json
 ├── docker-compose.yml

@@ -144,7 +144,7 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
 
   private toPersistence(booking: BookingRequest): any {
     return {
-      Id: booking.id,
+      Id: booking.id.toString(),
       RequestCode: booking.requestCode,
       RequesterId: booking.requesterId,
       BookingType: booking.bookingType,

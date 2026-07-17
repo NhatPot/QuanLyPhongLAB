@@ -34,15 +34,16 @@ export class CancelBookingUseCase {
     }
 
     await this.uow.complete(async () => {
-      await this.bookingRepo.save(booking);
-      await this.equipmentItemRepo.saveMany(items); // save the released reservations
+      const transaction = this.uow.getTransaction();
+      await this.bookingRepo.save(booking, transaction);
+      await this.equipmentItemRepo.saveMany(items, transaction);
 
       await this.auditLogRepo.save({
         action: isAdmin && !isOwner ? 'BOOKING_ADMIN_CANCELLED' : 'BOOKING_CANCELLED',
         entityId: booking.id.toString(),
         entityName: 'BookingRequest',
         userId: userId
-      });
+      }, transaction);
     });
 
     return booking;

@@ -12,6 +12,12 @@ import { CheckOutBookingUseCase } from '../../../application/use-cases/booking/C
 import { GetLabUsageStatisticsUseCase } from '../../../application/use-cases/booking/GetLabUsageStatisticsUseCase';
 import { BookingType } from '../../../domain/entities/BookingRequest';
 
+function primaryBookingRole(user: any): string {
+  if (Array.isArray(user?.roles) && user.roles.includes('ADMIN')) return 'ADMIN';
+  if (Array.isArray(user?.roles) && user.roles.includes('LAB_STAFF')) return 'LAB_STAFF';
+  return Array.isArray(user?.roles) ? user.roles[0] || '' : '';
+}
+
 export class BookingController {
   constructor(
     private createBookingUseCase: CreateBookingUseCase,
@@ -31,7 +37,7 @@ export class BookingController {
     try {
       const user = (req as any).user;
       const input = {
-        requesterId: user.id,
+        requesterId: user.userId,
         bookingType: req.body.bookingType as BookingType,
         purpose: req.body.purpose,
         startTime: new Date(req.body.startTime),
@@ -57,7 +63,7 @@ export class BookingController {
   public getById = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = (req as any).user;
-      const booking = await this.getBookingUseCase.execute(req.params.id, user.id, user.role);
+      const booking = await this.getBookingUseCase.execute(req.params.id, user.userId, primaryBookingRole(user));
       res.status(200).json(this.toDTO(booking));
     } catch (error: any) {
       if (error.message.includes('không có quyền')) {
@@ -71,7 +77,7 @@ export class BookingController {
   public getMyBookings = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = (req as any).user;
-      const bookings = await this.getMyBookingsUseCase.execute(user.id);
+      const bookings = await this.getMyBookingsUseCase.execute(user.userId);
       res.status(200).json(bookings.map(b => this.toDTO(b)));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -84,7 +90,7 @@ export class BookingController {
       const start = req.query.start ? new Date(req.query.start as string) : new Date();
       const end = req.query.end ? new Date(req.query.end as string) : new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
       
-      const calendar = await this.getBookingCalendarUseCase.execute(start, end, user ? user.role : 'GUEST');
+      const calendar = await this.getBookingCalendarUseCase.execute(start, end, user ? primaryBookingRole(user) : 'GUEST');
       res.status(200).json(calendar);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -94,7 +100,7 @@ export class BookingController {
   public cancel = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = (req as any).user;
-      const booking = await this.cancelBookingUseCase.execute(req.params.id, user.id, user.role, req.body.reason);
+      const booking = await this.cancelBookingUseCase.execute(req.params.id, user.userId, primaryBookingRole(user), req.body.reason);
       res.status(200).json({ success: true, status: booking.status });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -113,7 +119,7 @@ export class BookingController {
   public approve = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = (req as any).user;
-      const booking = await this.approveBookingUseCase.execute(req.params.id, user.id);
+      const booking = await this.approveBookingUseCase.execute(req.params.id, user.userId);
       res.status(200).json({ success: true, status: booking.status });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -123,7 +129,7 @@ export class BookingController {
   public reject = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = (req as any).user;
-      const booking = await this.rejectBookingUseCase.execute(req.params.id, user.id, req.body.reason);
+      const booking = await this.rejectBookingUseCase.execute(req.params.id, user.userId, req.body.reason);
       res.status(200).json({ success: true, status: booking.status });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -135,7 +141,7 @@ export class BookingController {
       const user = (req as any).user;
       const result = await this.checkInBookingUseCase.execute({
         bookingId: req.params.id,
-        userId: user.id,
+        userId: user.userId,
         actualPeopleCount: req.body.actualPeopleCount === undefined ? undefined : Number(req.body.actualPeopleCount),
         actualComputerCount: req.body.actualComputerCount === undefined ? undefined : Number(req.body.actualComputerCount),
         computerIds: Array.isArray(req.body.computerIds) ? req.body.computerIds : undefined,
@@ -160,7 +166,7 @@ export class BookingController {
       const user = (req as any).user;
       const result = await this.checkOutBookingUseCase.execute({
         bookingId: req.params.id,
-        userId: user.id,
+        userId: user.userId,
         returnCondition: req.body.returnCondition,
         note: req.body.note,
       });

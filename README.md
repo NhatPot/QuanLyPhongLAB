@@ -19,7 +19,6 @@ Dự án sử dụng cơ chế **NPM Workspaces** để quản lý đồng thờ
 1. Clone mã nguồn dự án.
 2. Sao chép và cấu hình file môi trường:
    ```bash
-   cp .env.example .env
    cp backend/.env.example backend/.env
    cp frontend/.env.example frontend/.env
    ```
@@ -82,9 +81,11 @@ Dòng phụ thuộc một chiều hướng vào lõi: `Presentation -> Applicati
 SQL mode remains the default. To run the frontend without calling the backend or SQL Server:
 
 ```powershell
-Copy-Item frontend/.env.mock.example frontend/.env.local
+Copy-Item frontend/.env.example frontend/.env.local
 npm run dev:frontend
 ```
+
+Trước khi chạy, mở `frontend/.env.local` và đổi `NEXT_PUBLIC_DATA_MODE=sql` thành `NEXT_PUBLIC_DATA_MODE=mock`.
 
 The mock login is `admin` / `admin123`. Mock users, roles, permissions, audit logs, computers, equipment, lab profile, bookings and maintenance schedules are kept in browser memory and reset after a full reload or restart. The dashboard shows an amber `Mock data` banner while this mode is active.
 

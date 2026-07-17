@@ -20,14 +20,15 @@ export class RejectBookingUseCase {
     booking.reject(adminId, reason);
 
     await this.uow.complete(async () => {
-      await this.bookingRepo.save(booking);
+      const transaction = this.uow.getTransaction();
+      await this.bookingRepo.save(booking, transaction);
 
       await this.auditLogRepo.save({
         action: 'BOOKING_REJECTED',
         entityId: booking.id.toString(),
         entityName: 'BookingRequest',
         userId: adminId
-      });
+      }, transaction);
     });
 
     return booking;
