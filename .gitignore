@@ -29,3 +29,4 @@ Initializing Agent Skill Skeleton.md
 # Next.js generated files
 .next/
 *.tsbuildinfo
+.agent/
