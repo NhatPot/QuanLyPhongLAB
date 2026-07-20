@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CircleCheck, Eye, LogOut, X } from 'lucide-react';
+import { CircleAlert, CircleCheck, Eye, LogOut, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Brand } from '@/components/layout/brand';
 import { navItems } from '@/components/layout/navigation';
@@ -25,6 +25,10 @@ export function AppSidebar({ open, collapsed, onClose, onLogout }: AppSidebarPro
     queryFn: labApi.getProfile,
     retry: false,
   });
+  const labStatusLabel = lab?.status === 'ACTIVE' ? 'Đang hoạt động' : lab?.status || 'Đang tải';
+  const labCode = lab?.labCode || 'IT-LAB';
+  const labCapacity = lab?.capacity || 40;
+  const labIsActive = lab?.status === 'ACTIVE';
 
   const allowed = navItems.filter((item) =>
     (!item.permission || hasPermission(item.permission))
@@ -97,39 +101,51 @@ export function AppSidebar({ open, collapsed, onClose, onLogout }: AppSidebarPro
           <nav className="space-y-1">{renderGroup('system')}</nav>
         </div>
 
-        <div className={cn('m-3 rounded-2xl border border-white/15 bg-[#061f3a]/65 p-3.5 shadow-inner', collapsed && 'lg:m-2 lg:p-2')}>
+        <div className={cn('m-3 rounded-2xl border border-white/15 bg-[#061f3a]/65 p-3.5 shadow-inner', collapsed && 'lg:hidden')}>
           <div className="mb-3 flex items-center justify-between">
-            <span className={cn('text-[10px] font-bold uppercase tracking-wider text-blue-200', collapsed && 'lg:hidden')}>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
               Thông tin phòng Lab
             </span>
             <CircleCheck className="h-4 w-4 shrink-0 text-emerald-400" />
           </div>
-          <div className={cn('space-y-2.5 text-xs', collapsed && 'lg:hidden')}>
+          <div className="space-y-2.5 text-xs">
             <div className="flex justify-between gap-3">
               <span className="text-blue-200/70">Trạng thái</span>
-              <span className="font-semibold text-emerald-400">{lab?.status === 'ACTIVE' ? 'Đang hoạt động' : lab?.status || 'Đang tải'}</span>
+              <span className="font-semibold text-emerald-400">{labStatusLabel}</span>
             </div>
             <div className="flex justify-between gap-3">
               <span className="text-blue-200/70">Mã phòng</span>
-              <span className="font-semibold">{lab?.labCode || 'IT-LAB'}</span>
+              <span className="font-semibold">{labCode}</span>
             </div>
             <div className="flex justify-between gap-3">
               <span className="text-blue-200/70">Sức chứa</span>
-              <span className="font-semibold">{lab?.capacity || 40} người</span>
+              <span className="font-semibold">{labCapacity} người</span>
             </div>
           </div>
           <Link
             href="/config"
-            title={collapsed ? 'Xem chi tiết' : undefined}
-            className={cn(
-              'mt-3 flex h-9 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/10 text-xs font-semibold hover:bg-white/15',
-              collapsed && 'lg:mt-0 lg:h-9 lg:w-9 lg:px-0',
-            )}
+            className="mt-3 flex h-9 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/10 text-xs font-semibold hover:bg-white/15"
           >
             <Eye className="h-3.5 w-3.5" />
-            <span className={collapsed ? 'lg:hidden' : undefined}>Xem chi tiết</span>
+            <span>Xem chi tiết</span>
           </Link>
         </div>
+
+        {collapsed && (
+          <Link
+            href="/config"
+            title={`${labCode} · ${labStatusLabel} · ${labCapacity} người`}
+            aria-label={`Xem thông tin phòng ${labCode}: ${labStatusLabel}, sức chứa ${labCapacity} người`}
+            className={cn(
+              'mx-auto mb-2 hidden h-10 w-10 items-center justify-center rounded-xl border transition-colors lg:flex',
+              labIsActive
+                ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-400 hover:bg-emerald-400/20'
+                : 'border-amber-400/25 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20',
+            )}
+          >
+            {labIsActive ? <CircleCheck className="h-[18px] w-[18px]" /> : <CircleAlert className="h-[18px] w-[18px]" />}
+          </Link>
+        )}
 
         <button
           onClick={onLogout}

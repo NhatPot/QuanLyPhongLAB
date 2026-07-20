@@ -30,3 +30,5 @@ Initializing Agent Skill Skeleton.md
 .next/
 *.tsbuildinfo
 
+# AI Agent folder
+.agent/
