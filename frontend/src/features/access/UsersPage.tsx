@@ -27,6 +27,11 @@ import {
 import { dataModeLabel, isMockDataMode } from "@/services/data-mode";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
+import {
   ROLE_DEFINITIONS,
   roleByCode,
   type RoleCode,
@@ -97,6 +102,7 @@ const apiUserToRecord = (item: UserApiRecord): UserRecord => ({
   email: item.email,
   phone: item.phone || "",
   department: item.department || "",
+  avatarUrl: item.avatarUrl,
   status: item.status,
   roles: item.roles.filter(isRoleCode),
   lastLoginAt: item.lastLoginAt,
@@ -467,14 +473,21 @@ export default function UsersPage() {
                   >
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        <span
-                          className={cn(
-                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-extrabold",
-                            avatarTone(index),
-                          )}
-                        >
-                          {initialsOf(item.fullName)}
-                        </span>
+                        <Avatar className="h-10 w-10 rounded-xl ring-1 ring-slate-200/80">
+                          <AvatarImage
+                            src={item.avatarUrl || undefined}
+                            alt={`Ảnh đại diện của ${item.fullName}`}
+                            className="rounded-xl"
+                          />
+                          <AvatarFallback
+                            className={cn(
+                              "rounded-xl text-xs font-extrabold",
+                              avatarTone(index),
+                            )}
+                          >
+                            {initialsOf(item.fullName)}
+                          </AvatarFallback>
+                        </Avatar>
                         <div className="min-w-0">
                           <p className="max-w-48 truncate text-sm font-extrabold text-slate-800">
                             {item.fullName}

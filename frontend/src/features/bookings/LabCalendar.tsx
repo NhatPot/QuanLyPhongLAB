@@ -454,8 +454,8 @@ function OperationPanel({
         <div>
           <CardTitle>Vận hành hôm nay</CardTitle>
           <p className="mt-1 text-xs text-slate-500">
-            Check-in chọn đúng máy; check-out chốt giờ sử dụng của từng máy vào
-            báo cáo.
+            Chọn đúng máy khi check-in. Hệ thống sẽ ghi nhận thời gian sử dụng
+            thực tế khi check-out.
           </p>
         </div>
         <CheckCircle2 className="h-5 w-5 text-blue-600" />

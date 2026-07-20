@@ -2,17 +2,43 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, ChevronDown, KeyRound, LogOut, Menu, Search, UserRound } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  AlertTriangle,
+  Bell,
+  ChevronDown,
+  ClipboardCheck,
+  KeyRound,
+  LogOut,
+  Menu,
+  Search,
+  UserRound,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useAuth } from '@/features/auth/AuthContext';
 import { navItems, pageNames } from '@/components/layout/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { bookingApi } from '@/services/booking-api';
+import { incidentApi } from '@/services/incident-api';
+import { maintenanceApi } from '@/services/maintenance-api';
 
 type AppHeaderProps = {
   onMenu: () => void;
   onToggleSidebar: () => void;
   sidebarCollapsed: boolean;
   onLogout: () => void;
+};
+
+type HeaderNotificationItem = {
+  id: string;
+  title: string;
+  description: string;
+  count: number;
+  href: string;
+  icon: LucideIcon;
+  tone: string;
 };
 
 export function AppHeader({ onMenu, onToggleSidebar, sidebarCollapsed, onLogout }: AppHeaderProps) {
@@ -23,6 +49,84 @@ export function AppHeader({ onMenu, onToggleSidebar, sidebarCollapsed, onLogout 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const canApproveBookings = hasPermission('BOOKING_APPROVE');
+  const canViewIncidents = ['INCIDENT_VIEW', 'INCIDENT_VIEW_OWN', 'INCIDENT_VIEW_ASSIGNED'].some(hasPermission);
+  const canViewMaintenance = hasPermission('MAINTENANCE_VIEW');
+
+  const pendingBookingsQuery = useQuery({
+    queryKey: ['header-notifications', 'pending-bookings'],
+    queryFn: bookingApi.pending,
+    enabled: canApproveBookings,
+    refetchInterval: 60_000,
+  });
+  const incidentSummaryQuery = useQuery({
+    queryKey: ['header-notifications', 'incident-summary'],
+    queryFn: incidentApi.summary,
+    enabled: canViewIncidents,
+    refetchInterval: 60_000,
+  });
+  const maintenanceSummaryQuery = useQuery({
+    queryKey: ['header-notifications', 'maintenance-summary'],
+    queryFn: maintenanceApi.summary,
+    enabled: canViewMaintenance,
+    refetchInterval: 60_000,
+  });
+
+  const notificationItems = useMemo<HeaderNotificationItem[]>(() => {
+    const items: HeaderNotificationItem[] = [];
+    const pendingBookings = pendingBookingsQuery.data?.length || 0;
+    const incidentSummary = incidentSummaryQuery.data;
+    const unresolvedIncidents = incidentSummary
+      ? incidentSummary.open + incidentSummary.assigned + incidentSummary.inProgress
+      : 0;
+    const maintenanceSummary = maintenanceSummaryQuery.data;
+    const maintenanceAttention = maintenanceSummary?.overdue || maintenanceSummary?.inProgress || 0;
+
+    if (pendingBookings > 0) {
+      items.push({
+        id: 'pending-bookings',
+        title: `${pendingBookings} yêu cầu đang chờ duyệt`,
+        description: 'Mở danh sách đăng ký để xem xét và phản hồi.',
+        count: pendingBookings,
+        href: '/bookings',
+        icon: ClipboardCheck,
+        tone: 'bg-amber-50 text-amber-600',
+      });
+    }
+    if (unresolvedIncidents > 0) {
+      items.push({
+        id: 'incidents',
+        title: `${unresolvedIncidents} sự cố chưa hoàn tất`,
+        description: incidentSummary?.criticalOpen
+          ? `Có ${incidentSummary.criticalOpen} sự cố khẩn cấp cần ưu tiên.`
+          : 'Theo dõi các sự cố đang mở hoặc đang được xử lý.',
+        count: unresolvedIncidents,
+        href: '/incidents',
+        icon: AlertTriangle,
+        tone: 'bg-red-50 text-red-600',
+      });
+    }
+    if (maintenanceAttention > 0) {
+      items.push({
+        id: 'maintenances',
+        title: maintenanceSummary?.overdue
+          ? `${maintenanceSummary.overdue} lịch bảo trì quá hạn`
+          : `${maintenanceSummary?.inProgress || 0} lịch bảo trì đang thực hiện`,
+        description: maintenanceSummary?.overdue
+          ? 'Cần cập nhật tiến độ hoặc hoàn tất lịch bảo trì.'
+          : 'Theo dõi tiến độ xử lý tài sản.',
+        count: maintenanceAttention,
+        href: '/maintenance',
+        icon: Wrench,
+        tone: 'bg-orange-50 text-orange-600',
+      });
+    }
+    return items;
+  }, [incidentSummaryQuery.data, maintenanceSummaryQuery.data, pendingBookingsQuery.data]);
+  const notificationCount = notificationItems.reduce((total, item) => total + item.count, 0);
+  const notificationLoading = pendingBookingsQuery.isLoading
+    || incidentSummaryQuery.isLoading
+    || maintenanceSummaryQuery.isLoading;
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -145,10 +249,75 @@ export function AppHeader({ onMenu, onToggleSidebar, sidebarCollapsed, onLogout 
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <button aria-label="Thông báo" className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-100">
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">3</span>
-        </button>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button
+              type="button"
+              aria-label={notificationCount ? `Thông báo, ${notificationCount} mục cần chú ý` : 'Thông báo'}
+              title="Thông báo"
+              className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200"
+            >
+              <Bell className="h-[18px] w-[18px]" />
+              {notificationCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-[19px] min-w-[19px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-extrabold leading-none text-white shadow-sm">
+                  {notificationCount > 99 ? '99+' : notificationCount}
+                </span>
+              )}
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              align="end"
+              sideOffset={10}
+              className="z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+                <div>
+                  <p className="text-sm font-extrabold text-slate-900">Thông báo</p>
+                  <p className="mt-0.5 text-[11px] text-slate-400">Dữ liệu vận hành cần bạn chú ý</p>
+                </div>
+                {notificationCount > 0 && (
+                  <span className="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-extrabold text-red-600">
+                    {notificationCount} mục
+                  </span>
+                )}
+              </div>
+              <div className="max-h-80 overflow-y-auto p-2">
+                {notificationItems.length ? (
+                  notificationItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenu.Item
+                        key={item.id}
+                        onSelect={() => router.push(item.href)}
+                        className="flex cursor-pointer items-start gap-3 rounded-xl px-3 py-3 outline-none transition hover:bg-slate-50 focus:bg-slate-50"
+                      >
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.tone}`}>
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <strong className="block text-xs font-extrabold text-slate-800">{item.title}</strong>
+                          <span className="mt-1 block text-[11px] leading-4 text-slate-500">{item.description}</span>
+                        </span>
+                        <ChevronDown className="mt-2 h-3.5 w-3.5 -rotate-90 text-slate-300" />
+                      </DropdownMenu.Item>
+                    );
+                  })
+                ) : (
+                  <div className="flex flex-col items-center px-4 py-8 text-center">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                      <Bell className="h-5 w-5" />
+                    </span>
+                    <p className="mt-3 text-sm font-bold text-slate-700">
+                      {notificationLoading ? 'Đang cập nhật thông báo...' : 'Không có mục nào cần xử lý'}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400">Hệ thống sẽ tự động cập nhật mỗi phút.</p>
+                  </div>
+                )}
+              </div>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
         <div className="mx-1 hidden h-7 w-px bg-slate-200 sm:block" />
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>

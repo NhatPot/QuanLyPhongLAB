@@ -8,12 +8,12 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: '/branding/lhu-favicon-v3.png',
-        type: 'image/png',
-        sizes: '64x64',
+        url: '/branding/lhu-official-favicon.ico?v=1.1.2',
+        type: 'image/x-icon',
+        sizes: '16x16',
       },
     ],
-    shortcut: '/branding/lhu-favicon-v3.png',
+    shortcut: '/branding/lhu-official-favicon.ico?v=1.1.2',
     apple: '/branding/lhu-symbol.png',
   },
 };

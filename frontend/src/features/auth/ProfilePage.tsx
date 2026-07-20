@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { AtSign, Building2, Camera, Mail, Phone, Save, ShieldCheck, Trash2 } from 'lucide-react';
@@ -31,6 +32,7 @@ type ProfileFields = z.infer<typeof profileSchema>;
 
 export default function ProfilePage() {
   const { user, updateProfile } = useAuth();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl || null);
   const [avatarProcessing, setAvatarProcessing] = useState(false);
@@ -106,6 +108,7 @@ export default function ProfilePage() {
         department: profile.department || '',
       });
       setAvatarUrl(profile.avatarUrl || null);
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success('Đã cập nhật hồ sơ cá nhân.');
     } catch (error: any) {
       setServerError(error.response?.data?.error?.message || 'Không thể cập nhật hồ sơ. Vui lòng thử lại.');

@@ -39,6 +39,7 @@ export type UserRecord = {
   email: string;
   phone: string;
   department: string;
+  avatarUrl?: string | null;
   status: UserStatus;
   roles: RoleCode[];
   lastLoginAt: string | null;
