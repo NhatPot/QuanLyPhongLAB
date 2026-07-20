@@ -49,6 +49,7 @@ let users: UserApiRecord[] = INITIAL_USERS.map((user, index) => ({
   username: user.username,
   phone: user.phone || null,
   department: user.department || null,
+  avatarUrl: null,
   status: user.status,
   roles: [...user.roles],
   mustChangePassword: false,
@@ -222,6 +223,7 @@ let auditLogs: AuditLogRecord[] = [
 
 const currentProfile = (): UserProfile => ({
   id: users[0]?.id || 'mock-admin', fullName: users[0]?.fullName || 'Mock Administrator', email: users[0]?.email || 'admin@example.edu.vn', username: users[0]?.username || 'admin',
+  phone: users[0]?.phone || null, department: users[0]?.department || null, avatarUrl: users[0]?.avatarUrl || null,
   roles: ['ADMIN'], permissions: permissionCatalog.map((permission) => permission.code), mustChangePassword: false,
 });
 
@@ -263,6 +265,24 @@ const mockAdapter: AxiosAdapter = async (config) => {
     return response(request, body({ accessToken: 'mock-access-token', mustChangePassword: false }));
   }
   if (path === '/auth/me' && method === 'GET') return response(request, body(currentProfile()));
+  if (path === '/auth/me' && method === 'PUT') {
+    const item = users[0];
+    if (!item) return errorResponse(request, 404, 'Không tìm thấy người dùng mock.');
+    const email = String(payload.email || '').trim();
+    if (users.some((user) => user.id !== item.id && user.email.toLowerCase() === email.toLowerCase())) {
+      return errorResponse(request, 409, 'Email đã được tài khoản khác sử dụng.');
+    }
+    Object.assign(item, {
+      fullName: String(payload.fullName || item.fullName).trim(),
+      email,
+      phone: payload.phone ? String(payload.phone).trim() : null,
+      department: payload.department ? String(payload.department).trim() : null,
+      avatarUrl: payload.avatarUrl ? String(payload.avatarUrl) : null,
+      updatedAt: now(),
+    });
+    auditLogs = [createMockAudit('USER_PROFILE_UPDATED', 'Users', item.id, null, { hasAvatar: Boolean(item.avatarUrl) }), ...auditLogs];
+    return response(request, body(currentProfile()));
+  }
   if (path === '/auth/refresh' && method === 'POST') return response(request, body({ accessToken: 'mock-access-token' }));
   if (path === '/auth/logout' && method === 'POST') return response(request, body(null));
   if (path === '/auth/change-password' && method === 'POST') return response(request, body(null));
@@ -279,7 +299,7 @@ const mockAdapter: AxiosAdapter = async (config) => {
   if (userIdMatch && method === 'PUT' && userIdMatch[2] === 'roles') { const item = matchUser(userIdMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy người dùng mock.'); item.roles = Array.isArray(payload.roleCodes) ? payload.roleCodes.map(String) : []; item.updatedAt = now(); return response(request, body(item)); }
   if (userIdMatch && method === 'POST' && userIdMatch[2] === 'reset-password') { const item = matchUser(userIdMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy người dùng mock.'); item.mustChangePassword = true; item.updatedAt = now(); return response(request, body(item)); }
   if (userMatch && method === 'PUT') { const item = matchUser(userMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy người dùng mock.'); Object.assign(item, { fullName: payload.fullName, email: payload.email, username: payload.username, phone: payload.phone || null, department: payload.department || null, updatedAt: now() }); return response(request, body(item)); }
-  if (path === '/users' && method === 'POST') { const created: UserApiRecord = { id: `mock-user-${Date.now()}`, fullName: String(payload.fullName || 'Người dùng mock'), email: String(payload.email || ''), username: String(payload.username || `mock${Date.now()}`), phone: payload.phone ? String(payload.phone) : null, department: payload.department ? String(payload.department) : null, status: String(payload.status || 'ACTIVE') as UserStatus, roles: Array.isArray(payload.roleCodes) ? payload.roleCodes.map(String) : [], mustChangePassword: true, lastLoginAt: null, createdAt: now(), updatedAt: now() }; users = [created, ...users]; return response(request, body(created), 201); }
+  if (path === '/users' && method === 'POST') { const created: UserApiRecord = { id: `mock-user-${Date.now()}`, fullName: String(payload.fullName || 'Người dùng mock'), email: String(payload.email || ''), username: String(payload.username || `mock${Date.now()}`), phone: payload.phone ? String(payload.phone) : null, department: payload.department ? String(payload.department) : null, avatarUrl: null, status: String(payload.status || 'ACTIVE') as UserStatus, roles: Array.isArray(payload.roleCodes) ? payload.roleCodes.map(String) : [], mustChangePassword: true, lastLoginAt: null, createdAt: now(), updatedAt: now() }; users = [created, ...users]; return response(request, body(created), 201); }
 
   if (path === '/roles' && method === 'GET') return response(request, body(roleRecords()));
   if (path === '/roles/catalog' && method === 'GET') return response(request, body({ roles: roleRecords(), permissions: permissionCatalog }));

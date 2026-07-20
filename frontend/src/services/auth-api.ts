@@ -19,9 +19,20 @@ export interface UserProfile {
   fullName: string;
   email: string;
   username: string;
+  phone: string | null;
+  department: string | null;
+  avatarUrl: string | null;
   roles: string[];
   permissions: string[];
   mustChangePassword: boolean;
+}
+
+export interface UpdateProfilePayload {
+  fullName: string;
+  email: string;
+  phone?: string;
+  department?: string;
+  avatarUrl?: string | null;
 }
 
 export const authApi = {
@@ -41,6 +52,11 @@ export const authApi = {
   
   getMe: async (): Promise<UserProfile> => {
     const response = await apiClient.get('/auth/me');
+    return response.data.data;
+  },
+
+  updateMe: async (payload: UpdateProfilePayload): Promise<UserProfile> => {
+    const response = await apiClient.put('/auth/me', payload);
     return response.data.data;
   },
 

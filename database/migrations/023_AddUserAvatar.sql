@@ -1,0 +1,11 @@
+-- UP
+IF COL_LENGTH('Users', 'AvatarUrl') IS NULL
+BEGIN
+    ALTER TABLE Users ADD AvatarUrl NVARCHAR(MAX) NULL;
+END;
+
+-- DOWN
+IF COL_LENGTH('Users', 'AvatarUrl') IS NOT NULL
+BEGIN
+    ALTER TABLE Users DROP COLUMN AvatarUrl;
+END;

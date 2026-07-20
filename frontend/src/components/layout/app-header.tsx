@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, ChevronDown, KeyRound, LogOut, Menu, Search } from 'lucide-react';
+import { Bell, ChevronDown, KeyRound, LogOut, Menu, Search, UserRound } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useAuth } from '@/features/auth/AuthContext';
 import { navItems, pageNames } from '@/components/layout/navigation';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 type AppHeaderProps = {
   onMenu: () => void;
@@ -153,7 +153,10 @@ export function AppHeader({ onMenu, onToggleSidebar, sidebarCollapsed, onLogout 
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button className="flex items-center gap-2 rounded-xl p-1.5 hover:bg-slate-100">
-              <Avatar className="h-9 w-9"><AvatarFallback>{initials}</AvatarFallback></Avatar>
+              <Avatar className="h-9 w-9 ring-2 ring-blue-100">
+                <AvatarImage src={user?.avatarUrl || undefined} alt={user?.fullName || 'Ảnh đại diện'} />
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
               <div className="hidden text-left lg:block">
                 <p className="max-w-32 truncate text-xs font-bold text-slate-900">{user?.fullName || 'Người dùng'}</p>
                 <p className="text-[10px] text-slate-500">{user?.roles[0] || 'Thành viên'}</p>
@@ -163,6 +166,9 @@ export function AppHeader({ onMenu, onToggleSidebar, sidebarCollapsed, onLogout 
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content align="end" sideOffset={8} className="z-50 min-w-48 rounded-xl border bg-white p-1.5 shadow-xl">
+              <DropdownMenu.Item onSelect={() => router.push('/profile')} className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none hover:bg-slate-100">
+                <UserRound className="h-4 w-4" /> Hồ sơ cá nhân
+              </DropdownMenu.Item>
               <DropdownMenu.Item onSelect={() => router.push('/change-password')} className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none hover:bg-slate-100">
                 <KeyRound className="h-4 w-4" /> Đổi mật khẩu
               </DropdownMenu.Item>

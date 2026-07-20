@@ -10,6 +10,7 @@ export interface UserProps {
   passwordHash: string;
   phone?: string;
   department?: string;
+  avatarUrl?: string;
   status: UserStatus;
   mustChangePassword: boolean;
   lastLoginAt?: Date;
@@ -32,6 +33,7 @@ export class User extends Entity<UserProps> {
   public get passwordHash(): string { return this.props.passwordHash; }
   public get phone(): string | undefined { return this.props.phone; }
   public get department(): string | undefined { return this.props.department; }
+  public get avatarUrl(): string | undefined { return this.props.avatarUrl; }
   public get status(): UserStatus { return this.props.status; }
   public get mustChangePassword(): boolean { return this.props.mustChangePassword; }
   public get lastLoginAt(): Date | undefined { return this.props.lastLoginAt; }
@@ -50,6 +52,21 @@ export class User extends Entity<UserProps> {
     this.props.username = input.username;
     this.props.phone = input.phone;
     this.props.department = input.department;
+    this.props.updatedAt = new Date();
+  }
+
+  public updatePersonalProfile(input: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    department?: string;
+    avatarUrl?: string;
+  }): void {
+    this.props.fullName = input.fullName;
+    this.props.email = input.email;
+    this.props.phone = input.phone;
+    this.props.department = input.department;
+    this.props.avatarUrl = input.avatarUrl;
     this.props.updatedAt = new Date();
   }
 

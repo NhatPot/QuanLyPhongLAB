@@ -92,6 +92,7 @@ export class SqlUserRepository implements IUserRepository {
           u.Username,
           u.UsernameNormalized,
           u.Phone,
+          u.AvatarUrl,
           u.PasswordHash,
           u.Department,
           u.Status,
@@ -106,7 +107,7 @@ export class SqlUserRepository implements IUserRepository {
         WHERE ${whereClause}
         GROUP BY
           u.Id, u.FullName, u.Email, u.EmailNormalized, u.Username, u.UsernameNormalized,
-          u.Phone, u.PasswordHash, u.Department, u.Status, u.MustChangePassword,
+          u.Phone, u.AvatarUrl, u.PasswordHash, u.Department, u.Status, u.MustChangePassword,
           u.LastLoginAt, u.CreatedAt, u.UpdatedAt
         ORDER BY u.CreatedAt DESC, u.FullName ASC
         OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
@@ -229,6 +230,7 @@ export class SqlUserRepository implements IUserRepository {
       .input('username', mssql.NVarChar, raw.Username)
       .input('usernameNorm', mssql.NVarChar, raw.UsernameNormalized)
       .input('phone', mssql.NVarChar, raw.Phone)
+      .input('avatarUrl', mssql.NVarChar(mssql.MAX), raw.AvatarUrl)
       .input('passwordHash', mssql.NVarChar, raw.PasswordHash)
       .input('department', mssql.NVarChar, raw.Department)
       .input('status', mssql.NVarChar, raw.Status)
@@ -247,6 +249,7 @@ export class SqlUserRepository implements IUserRepository {
             Username = @username,
             UsernameNormalized = @usernameNorm,
             Phone = @phone,
+            AvatarUrl = @avatarUrl,
             PasswordHash = @passwordHash,
             Department = @department,
             Status = @status,
@@ -254,8 +257,8 @@ export class SqlUserRepository implements IUserRepository {
             LastLoginAt = @lastLoginAt,
             UpdatedAt = @updatedAt
         WHEN NOT MATCHED THEN
-          INSERT (Id, FullName, Email, EmailNormalized, Username, UsernameNormalized, Phone, PasswordHash, Department, Status, MustChangePassword, LastLoginAt)
-          VALUES (@id, @fullName, @email, @emailNorm, @username, @usernameNorm, @phone, @passwordHash, @department, @status, @mustChangePassword, @lastLoginAt);
+          INSERT (Id, FullName, Email, EmailNormalized, Username, UsernameNormalized, Phone, AvatarUrl, PasswordHash, Department, Status, MustChangePassword, LastLoginAt)
+          VALUES (@id, @fullName, @email, @emailNorm, @username, @usernameNorm, @phone, @avatarUrl, @passwordHash, @department, @status, @mustChangePassword, @lastLoginAt);
       `);
   }
 
@@ -267,6 +270,7 @@ export class SqlUserRepository implements IUserRepository {
       passwordHash: raw.PasswordHash,
       phone: raw.Phone || undefined,
       department: raw.Department || undefined,
+      avatarUrl: raw.AvatarUrl || undefined,
       status: raw.Status,
       mustChangePassword: raw.MustChangePassword === true || raw.MustChangePassword === 1,
       lastLoginAt: raw.LastLoginAt || undefined,
@@ -284,6 +288,7 @@ export class SqlUserRepository implements IUserRepository {
       Username: user.username,
       UsernameNormalized: user.username.toLowerCase().trim(),
       Phone: user.phone || null,
+      AvatarUrl: user.avatarUrl || null,
       PasswordHash: user.passwordHash,
       Department: user.department || null,
       Status: user.status,

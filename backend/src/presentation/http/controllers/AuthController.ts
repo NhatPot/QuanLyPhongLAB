@@ -18,6 +18,23 @@ export const changePasswordSchema = z.object({
   })
 });
 
+const avatarDataUrlSchema = z.string()
+  .max(700_000, 'Ảnh đại diện vượt quá dung lượng cho phép.')
+  .regex(
+    /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/,
+    'Ảnh đại diện phải là tệp JPEG, PNG hoặc WebP hợp lệ.',
+  );
+
+export const updateCurrentUserProfileSchema = z.object({
+  body: z.object({
+    fullName: z.string().trim().min(2, 'Họ tên phải có ít nhất 2 ký tự.').max(255),
+    email: z.string().trim().email('Email không đúng định dạng.').max(255),
+    phone: z.string().trim().max(50).optional(),
+    department: z.string().trim().max(255).optional(),
+    avatarUrl: avatarDataUrlSchema.nullable().optional(),
+  }),
+});
+
 export class AuthController {
   public async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -115,6 +132,25 @@ export class AuthController {
       }
 
       res.status(200).json(ApiResponse.success(result.getValue(), "Lấy thông tin thành công."));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) throw new UnauthorizedError('Người dùng chưa được xác thực.');
+
+      const profile = await container.updateCurrentUserProfileUseCase.execute({
+        userId,
+        ...req.body,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        correlationId: req.correlationId,
+      });
+
+      res.status(200).json(ApiResponse.success(profile, 'Cập nhật hồ sơ cá nhân thành công.'));
     } catch (error) {
       next(error);
     }

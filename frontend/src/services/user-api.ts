@@ -9,6 +9,7 @@ export interface UserApiRecord {
   username: string;
   phone: string | null;
   department: string | null;
+  avatarUrl: string | null;
   status: UserStatus;
   roles: string[];
   mustChangePassword: boolean;
@@ -95,4 +96,3 @@ export const userApi = {
     return response.data.data;
   },
 };
-

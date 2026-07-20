@@ -82,7 +82,15 @@ export function AppSidebar({ open, collapsed, onClose, onLogout }: AppSidebarPro
         )}
       >
         <div className={cn('flex h-[68px] items-center border-b border-white/10 px-4', collapsed ? 'lg:justify-center lg:px-2' : 'justify-between')}>
-          <span className={collapsed ? 'lg:hidden' : undefined}><Brand /></span><span className={collapsed ? 'hidden lg:block' : 'hidden'}><Brand compact /></span>
+          <Link
+            href="/"
+            onClick={onClose}
+            title="Về trang tổng quan"
+            className="flex items-center gap-2 rounded-xl cursor-pointer transition-all hover:opacity-90 active:scale-95"
+          >
+            <span className={collapsed ? 'lg:hidden' : undefined}><Brand /></span>
+            <span className={collapsed ? 'hidden lg:block' : 'hidden'}><Brand compact /></span>
+          </Link>
           <button onClick={onClose} aria-label="Đóng menu" className="rounded-lg p-2 text-blue-100 hover:bg-white/10 lg:hidden">
             <X className="h-5 w-5" />
           </button>

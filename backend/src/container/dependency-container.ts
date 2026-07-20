@@ -45,6 +45,7 @@ import { RefreshSessionUseCase } from '../application/use-cases/auth/RefreshSess
 import { LogoutUseCase } from '../application/use-cases/auth/LogoutUseCase';
 import { GetCurrentUserUseCase } from '../application/use-cases/auth/GetCurrentUserUseCase';
 import { ChangePasswordUseCase } from '../application/use-cases/auth/ChangePasswordUseCase';
+import { UpdateCurrentUserProfileUseCase } from '../application/use-cases/auth/UpdateCurrentUserProfileUseCase';
 
 import { GetLabProfileUseCase } from '../application/use-cases/lab/GetLabProfileUseCase';
 import { UpdateLabProfileUseCase } from '../application/use-cases/lab/UpdateLabProfileUseCase';
@@ -193,6 +194,7 @@ class DependencyContainer {
   public readonly refreshSessionUseCase: RefreshSessionUseCase;
   public readonly logoutUseCase: LogoutUseCase;
   public readonly getCurrentUserUseCase: GetCurrentUserUseCase;
+  public readonly updateCurrentUserProfileUseCase: UpdateCurrentUserProfileUseCase;
   public readonly changePasswordUseCase: ChangePasswordUseCase;
   
   public readonly getLabProfileUseCase: GetLabProfileUseCase;
@@ -407,6 +409,12 @@ class DependencyContainer {
     this.getCurrentUserUseCase = new GetCurrentUserUseCase(
       this.userRepo,
       this.rolePermQuery
+    );
+    this.updateCurrentUserProfileUseCase = new UpdateCurrentUserProfileUseCase(
+      this.userRepo,
+      this.rolePermQuery,
+      this.uow,
+      this.auditLogRepo,
     );
     this.changePasswordUseCase = new ChangePasswordUseCase(
       this.userRepo,

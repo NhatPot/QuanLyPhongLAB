@@ -15,4 +15,8 @@ export const navItems:NavItem[]=[
  {label:'Cấu hình phòng Lab',href:'/config',icon:Settings2,permission:'LAB_PROFILE_VIEW',group:'system'},
  {label:'Nhật ký hệ thống',href:'/audit-log',icon:ScrollText,permission:'AUDIT_LOG_VIEW',group:'system'},
 ];
-export const pageNames=Object.fromEntries(navItems.map(item=>[item.href,item.label]));
+export const pageNames:Record<string,string>={
+ ...Object.fromEntries(navItems.map(item=>[item.href,item.label])),
+ '/profile':'Hồ sơ cá nhân',
+ '/change-password':'Đổi mật khẩu',
+};

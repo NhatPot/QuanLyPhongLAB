@@ -1,4 +1,4 @@
-# IT-LAB MANAGER — Website Quản Lý Phòng Lab CNTT
+# LHU IT LAB — Website Quản Lý Phòng Lab CNTT
 
 Dự án Website Quản Lý một Phòng Lab Công nghệ thông tin duy nhất cho Khoa/Trường, được xây dựng theo kiến trúc **Clean Architecture** sử dụng NodeJS + Express + SQL Server ở Backend, và React + Vite + Tailwind CSS ở Frontend.
 

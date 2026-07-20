@@ -7,6 +7,9 @@ export interface GetCurrentUserOutput {
   fullName: string;
   email: string;
   username: string;
+  phone: string | null;
+  department: string | null;
+  avatarUrl: string | null;
   roles: string[];
   permissions: string[];
   mustChangePassword: boolean;
@@ -32,6 +35,9 @@ export class GetCurrentUserUseCase {
         fullName: user.fullName,
         email: user.email,
         username: user.username,
+        phone: user.phone || null,
+        department: user.department || null,
+        avatarUrl: user.avatarUrl || null,
         roles,
         permissions,
         mustChangePassword: user.mustChangePassword

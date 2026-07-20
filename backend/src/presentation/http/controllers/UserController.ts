@@ -155,6 +155,7 @@ export class UserController {
       username: user.username,
       phone: user.phone || null,
       department: user.department || null,
+      avatarUrl: user.avatarUrl || null,
       status: user.status,
       roles,
       mustChangePassword: user.mustChangePassword,

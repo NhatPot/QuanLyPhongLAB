@@ -111,13 +111,13 @@ function applySheetDefaults(sheet: Worksheet, orientation: 'landscape' | 'portra
     fitToHeight: 0,
     margins: { left: 0.25, right: 0.25, top: 0.45, bottom: 0.45, header: 0.15, footer: 0.15 },
   };
-  sheet.headerFooter.oddFooter = 'IT-LAB Manager · Trang &P / &N';
+  sheet.headerFooter.oddFooter = 'LHU IT LAB · Trang &P / &N';
 }
 
 export async function buildReportWorkbook({ summary, computers, equipment, usage }: ReportWorkbookPayload) {
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'IT-LAB Manager';
+  workbook.creator = 'LHU IT LAB';
   workbook.created = new Date();
   workbook.modified = new Date();
 
