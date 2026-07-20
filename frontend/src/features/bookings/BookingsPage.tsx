@@ -6,11 +6,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { ColumnDef } from "@tanstack/react-table";
-import { CalendarPlus, Check, Clock3, Plus, XCircle } from "lucide-react";
+import { CalendarPlus, Check, Clock3, Plus, Search, UserRound, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
   bookingApi,
   type BookingData,
+  type BookingRequester,
   type CreateBookingPayload,
 } from "@/services/booking-api";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -74,15 +75,37 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export default function BookingsPage() {
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [tab, setTab] = useState<"mine" | "pending">("mine");
   const [rejectTarget, setRejectTarget] = useState<BookingData | null>(null);
   const [cancelTarget, setCancelTarget] = useState<BookingData | null>(null);
   const [actionError, setActionError] = useState("");
+  const [requesterKeyword, setRequesterKeyword] = useState("");
+  const [selectedRequester, setSelectedRequester] = useState<BookingRequester | null>(null);
   const canCreate = hasPermission("BOOKING_CREATE");
   const canApprove = hasPermission("BOOKING_APPROVE");
+  const canCreateForUser = hasPermission("BOOKING_CREATE_FOR_USER");
+
+  const currentRequester = useMemo<BookingRequester | null>(() => user ? ({
+    id: user.id,
+    fullName: user.fullName,
+    username: user.username,
+    email: user.email,
+    department: null,
+  }) : null, [user]);
+
+  const { data: requesterOptions = [], isLoading: loadingRequesters } = useQuery({
+    queryKey: ["booking-requester-options", requesterKeyword],
+    queryFn: () => bookingApi.requesterOptions(requesterKeyword),
+    enabled: createOpen && canCreateForUser,
+    staleTime: 30_000,
+  });
+  const visibleRequesterOptions = useMemo(() => {
+    const options = selectedRequester ? [selectedRequester, ...requesterOptions] : requesterOptions;
+    return options.filter((option, index) => options.findIndex((candidate) => candidate.id === option.id) === index);
+  }, [requesterOptions, selectedRequester]);
 
   const { data: mine = [], isLoading } = useQuery({
     queryKey: ["my-bookings"],
@@ -130,6 +153,8 @@ export default function BookingsPage() {
       toast.success("Đã gửi yêu cầu đăng ký");
       setCreateOpen(false);
       reset();
+      setRequesterKeyword("");
+      setSelectedRequester(currentRequester);
       refresh();
     },
     onError: (error: unknown) =>
@@ -165,6 +190,7 @@ export default function BookingsPage() {
   const submit = (value: FormValues) =>
     createMutation.mutate({
       ...value,
+      requesterId: canCreateForUser ? (selectedRequester?.id || user?.id) : undefined,
       startTime: new Date(value.startTime).toISOString(),
       endTime: new Date(value.endTime).toISOString(),
       equipments: [],
@@ -183,6 +209,21 @@ export default function BookingsPage() {
           <span className="font-bold text-blue-700">
             {row.original.requestCode}
           </span>
+        ),
+      },
+      {
+        id: "requester",
+        accessorFn: (booking) => `${booking.requester?.fullName || ""} ${booking.requester?.username || ""}`,
+        header: "Người đăng ký",
+        cell: ({ row }) => (
+          <div className="min-w-36">
+            <p className="truncate text-xs font-bold text-slate-800">
+              {row.original.requester?.fullName || "Chưa có thông tin"}
+            </p>
+            <p className="mt-0.5 truncate text-[10px] text-slate-400">
+              {row.original.requester?.username ? `@${row.original.requester.username}` : row.original.requesterId}
+            </p>
+          </div>
         ),
       },
       {
@@ -297,7 +338,11 @@ export default function BookingsPage() {
         description="Tạo, theo dõi và phê duyệt yêu cầu sử dụng phòng Lab."
       >
         {canCreate && (
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => {
+            setSelectedRequester(currentRequester);
+            setRequesterKeyword("");
+            setCreateOpen(true);
+          }}>
             <Plus />
             Tạo yêu cầu
           </Button>
@@ -355,7 +400,7 @@ export default function BookingsPage() {
             <DataTable
               columns={columns}
               data={data}
-              searchPlaceholder="Tìm theo mã hoặc mục đích..."
+              searchPlaceholder="Tìm theo mã, người đăng ký hoặc mục đích..."
               emptyMessage="Chưa có yêu cầu đăng ký."
             />
           )}
@@ -374,6 +419,61 @@ export default function BookingsPage() {
             onSubmit={handleSubmit(submit)}
             className="grid gap-4 sm:grid-cols-2"
           >
+            <div className="sm:col-span-2">
+              <span className="mb-1.5 block text-xs font-bold text-slate-700">
+                Người đăng ký
+              </span>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                    <UserRound className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-extrabold text-slate-900">
+                      {(selectedRequester || currentRequester)?.fullName || "Đang tải tài khoản..."}
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                      @{(selectedRequester || currentRequester)?.username || "--"}
+                      {(selectedRequester || currentRequester)?.email ? ` · ${(selectedRequester || currentRequester)?.email}` : ""}
+                    </p>
+                  </div>
+                  {!canCreateForUser && (
+                    <Badge variant="outline" className="bg-white">Tài khoản hiện tại</Badge>
+                  )}
+                </div>
+                {canCreateForUser && (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={requesterKeyword}
+                        onChange={(event) => setRequesterKeyword(event.target.value)}
+                        placeholder="Tìm họ tên, username..."
+                        className="bg-white pl-9"
+                      />
+                    </div>
+                    <select
+                      value={(selectedRequester || currentRequester)?.id || ""}
+                      onChange={(event) => {
+                        const next = visibleRequesterOptions.find((option) => option.id === event.target.value) || currentRequester;
+                        setSelectedRequester(next);
+                      }}
+                      disabled={loadingRequesters}
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    >
+                      {visibleRequesterOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.fullName} · {option.username}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-blue-700 sm:col-span-2">
+                      Bạn đang có quyền tạo yêu cầu thay cho một tài khoản đang hoạt động.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
             <Field label="Loại đăng ký" error={errors.bookingType?.message}>
               <select
                 {...register("bookingType")}

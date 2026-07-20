@@ -1,10 +1,13 @@
 import { IBookingRequestRepository } from '../../../domain/repositories/IBookingRequestRepository';
 import { IBookingEquipmentItemRepository } from '../../../domain/repositories/IBookingEquipmentItemRepository';
+import { IUserRepository } from '../../../domain/repositories/IUserRepository';
+import { attachBookingRequesters } from './BookingRequester';
 
 export class ListPendingBookingsUseCase {
   constructor(
     private bookingRepo: IBookingRequestRepository,
-    private equipmentItemRepo: IBookingEquipmentItemRepository
+    private equipmentItemRepo: IBookingEquipmentItemRepository,
+    private userRepo: IUserRepository,
   ) {}
 
   public async execute() {
@@ -16,6 +19,6 @@ export class ListPendingBookingsUseCase {
       b.props.equipmentItems = items;
     }
     
-    return bookings;
+    return attachBookingRequesters(bookings, this.userRepo);
   }
 }

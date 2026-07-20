@@ -14,6 +14,7 @@ describe('CreateBookingUseCase', () => {
   let availability: any;
   let unitOfWork: any;
   let auditLogRepo: any;
+  let userRepo: any;
   let useCase: CreateBookingUseCase;
 
   beforeEach(() => {
@@ -25,12 +26,21 @@ describe('CreateBookingUseCase', () => {
       getTransaction: vi.fn(() => transaction),
     };
     auditLogRepo = { save: vi.fn() };
-    useCase = new CreateBookingUseCase(bookingRepo, equipmentItemRepo, availability, unitOfWork, auditLogRepo);
+    userRepo = {
+      findById: vi.fn().mockResolvedValue({
+        id: { toString: () => requesterId },
+        fullName: 'Giảng viên Test',
+        status: 'ACTIVE',
+      }),
+    };
+    useCase = new CreateBookingUseCase(bookingRepo, equipmentItemRepo, availability, unitOfWork, auditLogRepo, userRepo);
   });
 
   it('tạo yêu cầu của giáo viên với UUID hợp lệ và chỉ lưu booking một lần', async () => {
     const booking = await useCase.execute({
-      requesterId,
+      actorUserId: requesterId,
+      actorRoles: ['TEACHER'],
+      actorPermissions: ['BOOKING_CREATE'],
       bookingType: 'COMPUTERS_ONLY',
       purpose: 'Thực hành mạng máy tính',
       startTime: new Date('2026-07-18T01:30:00.000Z'),
@@ -53,6 +63,80 @@ describe('CreateBookingUseCase', () => {
       }),
       transaction,
     );
+  });
+
+  it('không cho người dùng thường giả mạo người đăng ký khác', async () => {
+    await expect(useCase.execute({
+      actorUserId: requesterId,
+      actorRoles: ['TEACHER'],
+      actorPermissions: ['BOOKING_CREATE'],
+      requesterId: '99f91d27-91a3-45e2-9580-421dad7a7892',
+      bookingType: 'FULL_LAB',
+      purpose: 'Đăng ký trái phép',
+      startTime: new Date('2026-07-18T01:30:00.000Z'),
+      endTime: new Date('2026-07-18T03:30:00.000Z'),
+      numberOfPeople: 2,
+      numberOfComputers: 2,
+      equipments: [],
+    })).rejects.toMatchObject({ code: 'FORBIDDEN', statusCode: 403 });
+
+    expect(userRepo.findById).not.toHaveBeenCalled();
+    expect(bookingRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('cho phép nhân viên có quyền đăng ký thay và audit đúng người thao tác', async () => {
+    const targetId = '99f91d27-91a3-45e2-9580-421dad7a7892';
+    userRepo.findById.mockResolvedValue({
+      id: { toString: () => targetId },
+      fullName: 'Người dùng được đăng ký thay',
+      status: 'ACTIVE',
+    });
+
+    const booking = await useCase.execute({
+      actorUserId: requesterId,
+      actorRoles: ['LAB_STAFF'],
+      actorPermissions: ['BOOKING_CREATE', 'BOOKING_CREATE_FOR_USER'],
+      requesterId: targetId,
+      bookingType: 'FULL_LAB',
+      purpose: 'Đăng ký thay giảng viên',
+      startTime: new Date('2026-07-18T01:30:00.000Z'),
+      endTime: new Date('2026-07-18T03:30:00.000Z'),
+      numberOfPeople: 20,
+      numberOfComputers: 20,
+      equipments: [],
+    });
+
+    expect(booking.requesterId).toBe(targetId);
+    expect(auditLogRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: requesterId,
+        newValueJson: expect.stringContaining(targetId),
+      }),
+      transaction,
+    );
+  });
+
+  it('từ chối tạo booking cho tài khoản không hoạt động', async () => {
+    userRepo.findById.mockResolvedValue({
+      id: { toString: () => requesterId },
+      fullName: 'Tài khoản bị khóa',
+      status: 'LOCKED',
+    });
+
+    await expect(useCase.execute({
+      actorUserId: requesterId,
+      actorRoles: ['TEACHER'],
+      actorPermissions: ['BOOKING_CREATE'],
+      bookingType: 'COMPUTERS_ONLY',
+      purpose: 'Thực hành mạng máy tính',
+      startTime: new Date('2026-07-18T01:30:00.000Z'),
+      endTime: new Date('2026-07-18T03:30:00.000Z'),
+      numberOfPeople: 2,
+      numberOfComputers: 2,
+      equipments: [],
+    })).rejects.toMatchObject({ code: 'BOOKING_REQUESTER_INACTIVE', statusCode: 422 });
+
+    expect(availability.execute).not.toHaveBeenCalled();
   });
 });
 

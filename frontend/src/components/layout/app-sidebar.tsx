@@ -26,7 +26,10 @@ export function AppSidebar({ open, collapsed, onClose, onLogout }: AppSidebarPro
     retry: false,
   });
 
-  const allowed = navItems.filter((item) => !item.permission || hasPermission(item.permission));
+  const allowed = navItems.filter((item) =>
+    (!item.permission || hasPermission(item.permission))
+    && (!item.anyPermissions || item.anyPermissions.some(hasPermission)),
+  );
 
   const renderGroup = (group: 'main' | 'system') =>
     allowed

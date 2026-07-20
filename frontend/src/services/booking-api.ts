@@ -3,10 +3,19 @@ import { apiClient } from './api-client';
 export type BookingStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'CHECKED_IN' | 'COMPLETED';
 export type BookingType = 'FULL_LAB' | 'COMPUTERS_ONLY' | 'EQUIPMENT_ONLY';
 
+export interface BookingRequester {
+  id: string;
+  fullName: string;
+  username: string;
+  email: string;
+  department: string | null;
+}
+
 export interface BookingData {
   id: string;
   requestCode: string;
   requesterId?: string;
+  requester?: BookingRequester | null;
   bookingType: BookingType;
   purpose: string;
   startTime: string;
@@ -35,11 +44,13 @@ export interface CalendarEvent {
   type: BookingType;
   status: BookingStatus;
   requesterId?: string;
+  requester?: BookingRequester | null;
   numberOfPeople?: number;
   numberOfComputers?: number;
 }
 
 export interface CreateBookingPayload {
+  requesterId?: string;
   bookingType: BookingType;
   purpose: string;
   startTime: string;
@@ -143,6 +154,10 @@ export interface LabUsageStatistics {
 }
 
 export const bookingApi = {
+  requesterOptions: async (keyword?: string): Promise<BookingRequester[]> => {
+    const response = await apiClient.get('/bookings/requester-options', { params: { keyword: keyword || undefined } });
+    return response.data.data;
+  },
   calendar: async (start: Date, end: Date): Promise<CalendarEvent[]> => {
     const response = await apiClient.get('/bookings/calendar', { params: { start: start.toISOString(), end: end.toISOString() } });
     return response.data;

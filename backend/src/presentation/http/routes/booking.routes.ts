@@ -23,6 +23,8 @@ import { SqlUnitOfWork } from '../../../infrastructure/database/sqlserver/unit-o
 import { SqlAuditLogRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlAuditLogRepository';
 import { SqlCheckInOutLogRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlCheckInOutLogRepository';
 import { SqlComputerActivityRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlComputerActivityRepository';
+import { SqlUserRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlUserRepository';
+import { ListBookingRequesterOptionsUseCase } from '../../../application/use-cases/booking/ListBookingRequesterOptionsUseCase';
 import { authMiddleware, requirePermissions } from '../middlewares/authMiddleware';
 import { validateRequest } from '../middlewares/validateRequestMiddleware';
 
@@ -44,6 +46,26 @@ const checkOutSchema = z.object({
     note: z.string().trim().max(4000).optional(),
   }),
 });
+const createBookingSchema = z.object({
+  body: z.object({
+    requesterId: z.string().uuid('ID người đăng ký không hợp lệ.').optional(),
+    bookingType: z.enum(['FULL_LAB', 'COMPUTERS_ONLY', 'EQUIPMENT_ONLY']),
+    purpose: z.string().trim().min(5, 'Mục đích cần ít nhất 5 ký tự.').max(1000),
+    startTime: z.string().datetime('Thời gian bắt đầu không hợp lệ.'),
+    endTime: z.string().datetime('Thời gian kết thúc không hợp lệ.'),
+    expectedReturnTime: z.string().datetime().nullable().optional(),
+    numberOfPeople: z.number().int().min(1).max(1000),
+    numberOfComputers: z.number().int().min(0).max(1000),
+    equipments: z.array(z.object({
+      equipmentId: z.string().uuid('ID thiết bị không hợp lệ.'),
+      quantity: z.number().int().min(1).max(1000),
+    })).max(100).default([]),
+    note: z.string().trim().max(4000).optional(),
+  }),
+});
+const requesterOptionsSchema = z.object({
+  query: z.object({ keyword: z.string().trim().max(255).optional() }),
+});
 
 export function createBookingRouter(): Router {
   const router = Router();
@@ -59,6 +81,7 @@ export function createBookingRouter(): Router {
   const auditLogRepo = new SqlAuditLogRepository();
   const checkInOutLogRepo = new SqlCheckInOutLogRepository();
   const computerActivityRepo = new SqlComputerActivityRepository();
+  const userRepo = new SqlUserRepository();
 
   // Shared Use Cases
   const checkAvailabilityUseCase = new CheckAvailabilityUseCase(
@@ -74,19 +97,21 @@ export function createBookingRouter(): Router {
     equipmentItemRepo,
     checkAvailabilityUseCase,
     uow,
-    auditLogRepo
+    auditLogRepo,
+    userRepo,
   );
   
   const getBookingUseCase = new GetBookingUseCase(bookingRepo, equipmentItemRepo);
-  const getMyBookingsUseCase = new GetMyBookingsUseCase(bookingRepo, equipmentItemRepo);
-  const getBookingCalendarUseCase = new GetBookingCalendarUseCase(bookingRepo);
+  const getMyBookingsUseCase = new GetMyBookingsUseCase(bookingRepo, equipmentItemRepo, userRepo);
+  const getBookingCalendarUseCase = new GetBookingCalendarUseCase(bookingRepo, userRepo);
   const cancelBookingUseCase = new CancelBookingUseCase(bookingRepo, equipmentItemRepo, uow, auditLogRepo);
-  const listPendingBookingsUseCase = new ListPendingBookingsUseCase(bookingRepo, equipmentItemRepo);
+  const listPendingBookingsUseCase = new ListPendingBookingsUseCase(bookingRepo, equipmentItemRepo, userRepo);
   const approveBookingUseCase = new ApproveBookingUseCase(bookingRepo, equipmentItemRepo, checkAvailabilityUseCase, uow, auditLogRepo);
   const rejectBookingUseCase = new RejectBookingUseCase(bookingRepo, uow, auditLogRepo);
   const checkInBookingUseCase = new CheckInBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo);
   const checkOutBookingUseCase = new CheckOutBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo);
   const getLabUsageStatisticsUseCase = new GetLabUsageStatisticsUseCase(checkInOutLogRepo, computerActivityRepo);
+  const listBookingRequesterOptionsUseCase = new ListBookingRequesterOptionsUseCase(userRepo);
 
   // Controller
   const controller = new BookingController(
@@ -101,6 +126,7 @@ export function createBookingRouter(): Router {
     checkInBookingUseCase,
     checkOutBookingUseCase,
     getLabUsageStatisticsUseCase,
+    listBookingRequesterOptionsUseCase,
   );
 
   // Routes
@@ -109,7 +135,8 @@ export function createBookingRouter(): Router {
   router.get('/usage-statistics', authMiddleware, requirePermissions('REPORT_VIEW'), controller.getUsageStatistics.bind(controller));
 
   // User booking operations
-  router.post('/', authMiddleware, requirePermissions('BOOKING_CREATE'), controller.create.bind(controller));
+  router.get('/requester-options', authMiddleware, requirePermissions('BOOKING_CREATE', 'BOOKING_CREATE_FOR_USER'), validateRequest(requesterOptionsSchema), controller.listRequesterOptions.bind(controller));
+  router.post('/', authMiddleware, requirePermissions('BOOKING_CREATE'), validateRequest(createBookingSchema), controller.create.bind(controller));
   router.get('/my-bookings', authMiddleware, requirePermissions('BOOKING_CREATE'), controller.getMyBookings.bind(controller));
   router.get('/:id', authMiddleware, controller.getById.bind(controller)); // Detail access controlled inside UC
   router.post('/:id/cancel', authMiddleware, controller.cancel.bind(controller)); // Cancellation access controlled inside UC

@@ -168,6 +168,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     description: 'Tạo, duyệt và quản lý lịch sử dụng.',
     permissions: [
       { code: 'BOOKING_CREATE', name: 'Tạo đăng ký', description: 'Tạo yêu cầu sử dụng phòng Lab.' },
+      { code: 'BOOKING_CREATE_FOR_USER', name: 'Đăng ký thay người dùng', description: 'Tạo yêu cầu sử dụng thay cho một tài khoản đang hoạt động.' },
       { code: 'BOOKING_VIEW_OWN', name: 'Xem đăng ký cá nhân', description: 'Xem các yêu cầu do chính mình tạo.' },
       { code: 'BOOKING_VIEW_ALL', name: 'Xem tất cả đăng ký', description: 'Xem toàn bộ lịch và yêu cầu.' },
       { code: 'BOOKING_APPROVE', name: 'Phê duyệt đăng ký', description: 'Duyệt yêu cầu sử dụng phòng.' },
@@ -247,6 +248,9 @@ export const ROLE_PERMISSION_PRESETS: Record<RoleCode, string[]> = {
     'EQUIPMENT_VIEW',
     'EQUIPMENT_HANDOVER',
     'EQUIPMENT_RECEIVE',
+    'BOOKING_CREATE',
+    'BOOKING_CREATE_FOR_USER',
+    'BOOKING_VIEW_OWN',
     'BOOKING_VIEW_ALL',
     'BOOKING_CHECK_IN',
     'BOOKING_CHECK_OUT',

@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { CreateBookingUseCase } from '../../../application/use-cases/booking/CreateBookingUseCase';
 import { GetBookingUseCase } from '../../../application/use-cases/booking/GetBookingUseCase';
 import { GetMyBookingsUseCase } from '../../../application/use-cases/booking/GetMyBookingsUseCase';
@@ -10,6 +10,7 @@ import { RejectBookingUseCase } from '../../../application/use-cases/booking/Rej
 import { CheckInBookingUseCase } from '../../../application/use-cases/booking/CheckInBookingUseCase';
 import { CheckOutBookingUseCase } from '../../../application/use-cases/booking/CheckOutBookingUseCase';
 import { GetLabUsageStatisticsUseCase } from '../../../application/use-cases/booking/GetLabUsageStatisticsUseCase';
+import { ListBookingRequesterOptionsUseCase } from '../../../application/use-cases/booking/ListBookingRequesterOptionsUseCase';
 import { BookingType } from '../../../domain/entities/BookingRequest';
 
 function primaryBookingRole(user: any): string {
@@ -31,13 +32,17 @@ export class BookingController {
     private checkInBookingUseCase: CheckInBookingUseCase,
     private checkOutBookingUseCase: CheckOutBookingUseCase,
     private getLabUsageStatisticsUseCase: GetLabUsageStatisticsUseCase,
+    private listBookingRequesterOptionsUseCase: ListBookingRequesterOptionsUseCase,
   ) {}
 
-  public create = async (req: Request, res: Response): Promise<void> => {
+  public create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const user = (req as any).user;
       const input = {
-        requesterId: user.userId,
+        actorUserId: user.userId,
+        actorRoles: Array.isArray(user.roles) ? user.roles : [],
+        actorPermissions: Array.isArray(user.permissions) ? user.permissions : [],
+        requesterId: req.body.requesterId,
         bookingType: req.body.bookingType as BookingType,
         purpose: req.body.purpose,
         startTime: new Date(req.body.startTime),
@@ -46,7 +51,10 @@ export class BookingController {
         numberOfPeople: req.body.numberOfPeople || 1,
         numberOfComputers: req.body.numberOfComputers || 0,
         equipments: req.body.equipments || [],
-        note: req.body.note
+        note: req.body.note,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        correlationId: req.correlationId,
       };
 
       const booking = await this.createBookingUseCase.execute(input);
@@ -56,7 +64,17 @@ export class BookingController {
         status: booking.status
       });
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      next(error);
+    }
+  };
+
+  public listRequesterOptions = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const keyword = typeof req.query.keyword === 'string' ? req.query.keyword : undefined;
+      const requesters = await this.listBookingRequesterOptionsUseCase.execute(keyword);
+      res.status(200).json({ data: requesters });
+    } catch (error) {
+      next(error);
     }
   };
 
@@ -78,7 +96,7 @@ export class BookingController {
     try {
       const user = (req as any).user;
       const bookings = await this.getMyBookingsUseCase.execute(user.userId);
-      res.status(200).json(bookings.map(b => this.toDTO(b)));
+      res.status(200).json(bookings.map(detail => this.toDTO(detail)));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -110,7 +128,7 @@ export class BookingController {
   public listPending = async (req: Request, res: Response): Promise<void> => {
     try {
       const bookings = await this.listPendingBookingsUseCase.execute();
-      res.status(200).json(bookings.map(b => this.toDTO(b)));
+      res.status(200).json(bookings.map(detail => this.toDTO(detail)));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -186,11 +204,14 @@ export class BookingController {
     }
   };
 
-  private toDTO(booking: any): any {
+  private toDTO(detail: any): any {
+    const booking = detail.booking || detail;
+    const requester = detail.requester || null;
     return {
       id: booking.id.toString(),
       requestCode: booking.requestCode,
       requesterId: booking.requesterId,
+      requester,
       bookingType: booking.bookingType,
       purpose: booking.purpose,
       startTime: booking.startTime,

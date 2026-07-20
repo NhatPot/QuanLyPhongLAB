@@ -34,3 +34,14 @@ export function requirePermissions(...requiredPermissions: string[]) {
     next();
   };
 }
+
+export function requireAnyPermissions(...requiredPermissions: string[]) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const user = (req as any).user;
+    if (!user) throw new UnauthorizedError('Người dùng chưa được xác thực.');
+    const isAdministrator = Array.isArray(user.roles) && user.roles.includes('ADMIN');
+    const hasPermission = isAdministrator || requiredPermissions.some((permission) => user.permissions.includes(permission));
+    if (!hasPermission) throw new ForbiddenError('Bạn không có quyền thực hiện hành động này.');
+    next();
+  };
+}

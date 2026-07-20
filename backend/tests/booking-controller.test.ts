@@ -22,6 +22,7 @@ describe('BookingController authentication claims', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
     const request = {
       user: { userId: 'f8e749cf-3b73-48c7-9713-49696e308a93', roles: ['TEACHER'], permissions: ['BOOKING_CREATE'] },
@@ -34,15 +35,18 @@ describe('BookingController authentication claims', () => {
         numberOfComputers: 2,
         equipments: [],
       },
+      get: vi.fn(),
     };
     const response = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    const next = vi.fn();
 
-    await controller.create(request as any, response as any);
+    await controller.create(request as any, response as any, next);
 
     expect(createBookingUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
-      requesterId: request.user.userId,
+      actorUserId: request.user.userId,
+      requesterId: undefined,
     }));
-    expect(createBookingUseCase.execute).not.toHaveBeenCalledWith(expect.objectContaining({ requesterId: undefined }));
+    expect(next).not.toHaveBeenCalled();
     expect(response.status).toHaveBeenCalledWith(201);
   });
 });

@@ -23,6 +23,7 @@ import type {
   MaintenanceStatus,
   MaintenanceTargetType,
 } from './maintenance-api';
+import type { IncidentOptions, IncidentPayload, IncidentRecord } from './incident-api';
 
 type MockRequestConfig = InternalAxiosRequestConfig & { __mockHandled?: boolean };
 
@@ -96,6 +97,28 @@ let bookings: BookingData[] = [
   { id: id('booking', 2), requestCode: 'BK-MOCK-002', requesterId: users[2]?.id, bookingType: 'COMPUTERS_ONLY', purpose: 'Kiểm tra thiết bị', startTime: '2026-07-14T05:30:00.000Z', endTime: '2026-07-14T07:00:00.000Z', numberOfPeople: 8, numberOfComputers: 8, status: 'COMPLETED', isOverdue: false, hasIncident: false, note: null, createdAt: '2026-07-12T08:00:00.000Z', checkInTime: '2026-07-14T05:35:00.000Z', checkOutTime: '2026-07-14T06:50:00.000Z', actualPeopleCount: 8, actualComputerCount: 8 },
   { id: id('booking', 3), requestCode: 'BK-MOCK-003', requesterId: users[1]?.id, bookingType: 'FULL_LAB', purpose: 'Thực hành lập trình', startTime: '2026-07-16T08:00:00.000Z', endTime: '2026-07-16T10:00:00.000Z', numberOfPeople: 25, numberOfComputers: 20, status: 'APPROVED', isOverdue: false, hasIncident: false, note: 'Lớp CNTT K46', createdAt: '2026-07-10T08:00:00.000Z' },
   { id: id('booking', 4), requestCode: 'BK-MOCK-004', requesterId: users[2]?.id, bookingType: 'COMPUTERS_ONLY', purpose: 'Thực hành hệ điều hành', startTime: '2026-07-17T13:30:00.000Z', endTime: '2026-07-17T15:00:00.000Z', numberOfPeople: 8, numberOfComputers: 8, status: 'PENDING', isOverdue: false, hasIncident: false, note: null, createdAt: '2026-07-14T08:00:00.000Z' },
+];
+
+let incidents: IncidentRecord[] = [
+  {
+    id: id('incident', 1), code: 'SC-20260718-001', reporterId: users[0]?.id || id('user', 1),
+    reporterName: users[0]?.fullName || 'Administrator', reporterUsername: users[0]?.username || 'admin',
+    computerId: computers[18].id, equipmentId: null, bookingRequestId: null, assetType: 'COMPUTER',
+    assetCode: computers[18].code, assetName: computers[18].name,
+    title: 'Máy tính không khởi động', description: 'Nhấn nút nguồn nhưng máy không có tín hiệu và quạt không quay.',
+    severity: 'HIGH', status: 'IN_PROGRESS', imageUrl: null, assignedTo: users[1]?.id || null,
+    assignedToName: users[1]?.fullName || 'Nhân viên phòng Lab', assignedToUsername: users[1]?.username || 'labstaff',
+    resolvedAt: null, closedAt: null, resultNote: null, createdAt: '2026-07-18T01:30:00.000Z', updatedAt: now(),
+  },
+  {
+    id: id('incident', 2), code: 'SC-20260718-002', reporterId: users[0]?.id || id('user', 1),
+    reporterName: users[0]?.fullName || 'Administrator', reporterUsername: users[0]?.username || 'admin',
+    computerId: null, equipmentId: equipment[1].id, bookingRequestId: null, assetType: 'EQUIPMENT',
+    assetCode: equipment[1].code, assetName: equipment[1].name,
+    title: 'Máy chiếu bị nhòe hình', description: 'Hình ảnh bị mờ và màu sắc không ổn định sau khoảng 15 phút sử dụng.',
+    severity: 'MEDIUM', status: 'OPEN', imageUrl: null, assignedTo: null, assignedToName: null, assignedToUsername: null,
+    resolvedAt: null, closedAt: null, resultNote: null, createdAt: '2026-07-18T03:00:00.000Z', updatedAt: '2026-07-18T03:00:00.000Z',
+  },
 ];
 
 let maintenances: MaintenanceRecord[] = [
@@ -270,6 +293,54 @@ const mockAdapter: AxiosAdapter = async (config) => {
     return response(request, paginate(filtered, request));
   }
 
+  if (path === '/incidents/summary' && method === 'GET') return response(request, body(mockIncidentSummary()));
+  if (path === '/incidents/options' && method === 'GET') return response(request, body(mockIncidentOptions()));
+  if (path === '/incidents' && method === 'GET') {
+    const keyword = stringParam(params, 'keyword')?.toLocaleLowerCase('vi'); const status = stringParam(params, 'status');
+    const severity = stringParam(params, 'severity'); const assetType = stringParam(params, 'assetType');
+    const filtered = incidents.filter((item) => (!keyword || `${item.code} ${item.title} ${item.description} ${item.assetCode || ''} ${item.assetName || ''}`.toLocaleLowerCase('vi').includes(keyword))
+      && (!status || item.status === status) && (!severity || item.severity === severity) && (!assetType || item.assetType === assetType));
+    return response(request, paginate(filtered, request));
+  }
+  const incidentMatch = path.match(/^\/incidents\/([^/]+)$/); const incidentAction = path.match(/^\/incidents\/([^/]+)\/(assign|start|resolve|close)$/);
+  if (incidentMatch && method === 'GET') { const item = incidents.find((incident) => incident.id === incidentMatch[1]); return item ? response(request, body(item)) : errorResponse(request, 404, 'Không tìm thấy sự cố mock.'); }
+  if (path === '/incidents' && method === 'POST') {
+    const input = payload as unknown as IncidentPayload; const timestamp = now(); const target = mockIncidentTarget(input);
+    if (!input.title?.trim() || !input.description?.trim()) return errorResponse(request, 400, 'Tiêu đề và mô tả sự cố không được để trống.');
+    if ((input.computerId || input.equipmentId) && !target) return errorResponse(request, 404, 'Không tìm thấy tài sản mock.');
+    const item: IncidentRecord = {
+      id: `mock-incident-${Date.now()}`, code: nextIncidentCode(), reporterId: users[0]?.id || 'mock-admin',
+      reporterName: users[0]?.fullName || 'Administrator', reporterUsername: users[0]?.username || 'admin',
+      computerId: input.computerId || null, equipmentId: input.equipmentId || null, bookingRequestId: input.bookingRequestId || null,
+      assetType: input.computerId ? 'COMPUTER' : input.equipmentId ? 'EQUIPMENT' : input.bookingRequestId ? 'BOOKING' : 'GENERAL',
+      assetCode: target?.code || null, assetName: target?.name || null, title: input.title.trim(), description: input.description.trim(),
+      severity: input.severity, status: 'OPEN', imageUrl: input.imageUrl || null, assignedTo: null, assignedToName: null,
+      assignedToUsername: null, resolvedAt: null, closedAt: null, resultNote: null, createdAt: timestamp, updatedAt: timestamp,
+    };
+    const booking = bookings.find((value) => value.id === input.bookingRequestId); if (booking) booking.hasIncident = true;
+    incidents = [item, ...incidents]; auditLogs = [createMockAudit('INCIDENT_CREATED', 'IncidentReport', item.id, null, item), ...auditLogs];
+    return response(request, body(item), 201);
+  }
+  if (incidentMatch && method === 'PUT') {
+    const item = incidents.find((incident) => incident.id === incidentMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy sự cố mock.');
+    if (['RESOLVED', 'CLOSED'].includes(item.status)) return errorResponse(request, 422, 'Không thể sửa sự cố đã xử lý hoặc đã đóng.');
+    const input = payload as unknown as IncidentPayload; const target = mockIncidentTarget(input); const before = { ...item };
+    Object.assign(item, { title: input.title.trim(), description: input.description.trim(), severity: input.severity,
+      computerId: input.computerId || null, equipmentId: input.equipmentId || null, bookingRequestId: input.bookingRequestId || null,
+      assetType: input.computerId ? 'COMPUTER' : input.equipmentId ? 'EQUIPMENT' : input.bookingRequestId ? 'BOOKING' : 'GENERAL',
+      assetCode: target?.code || null, assetName: target?.name || null, imageUrl: input.imageUrl || null, updatedAt: now() });
+    auditLogs = [createMockAudit('INCIDENT_UPDATED', 'IncidentReport', item.id, before, item), ...auditLogs]; return response(request, body(item));
+  }
+  if (incidentAction && method === 'POST') {
+    const item = incidents.find((incident) => incident.id === incidentAction[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy sự cố mock.');
+    const action = incidentAction[2]; const before = { ...item }; const timestamp = now();
+    if (action === 'assign') { const assignee = matchUser(String(payload.assignedTo || '')); if (!assignee) return errorResponse(request, 400, 'Người xử lý không hợp lệ.'); item.assignedTo = assignee.id; item.assignedToName = assignee.fullName; item.assignedToUsername = assignee.username; if (item.status !== 'IN_PROGRESS') item.status = 'ASSIGNED'; }
+    if (action === 'start') { if (!['OPEN', 'ASSIGNED'].includes(item.status)) return errorResponse(request, 422, 'Sự cố không thể bắt đầu ở trạng thái hiện tại.'); item.status = 'IN_PROGRESS'; if (!item.assignedTo) { item.assignedTo = users[0]?.id || null; item.assignedToName = users[0]?.fullName || null; item.assignedToUsername = users[0]?.username || null; } }
+    if (action === 'resolve') { if (item.status !== 'IN_PROGRESS') return errorResponse(request, 422, 'Sự cố phải đang được xử lý.'); item.status = 'RESOLVED'; item.resultNote = String(payload.resultNote || '').trim(); item.resolvedAt = timestamp; }
+    if (action === 'close') { if (item.status !== 'RESOLVED') return errorResponse(request, 422, 'Chỉ sự cố đã xử lý mới có thể đóng.'); item.status = 'CLOSED'; item.closedAt = timestamp; if (payload.resultNote) item.resultNote = String(payload.resultNote); }
+    item.updatedAt = timestamp; auditLogs = [createMockAudit(`INCIDENT_${action.toUpperCase()}`, 'IncidentReport', item.id, before, item), ...auditLogs]; return response(request, body(item));
+  }
+
   if (path === '/computers/availability-summary' && method === 'GET') return response(request, body(computerSummary()));
   if (path === '/computers' && method === 'GET') { const keyword = stringParam(params, 'keyword')?.toLocaleLowerCase('vi'); const status = stringParam(params, 'status'); const position = stringParam(params, 'position'); const filtered = computers.filter((item) => (!keyword || `${item.code} ${item.name} ${item.ipAddress || ''}`.toLocaleLowerCase('vi').includes(keyword)) && (!status || item.status === status) && (!position || item.position === position)); return response(request, paginate(filtered, request)); }
   const computerMatch = path.match(/^\/computers\/([^/]+)$/); const computerStatusMatch = path.match(/^\/computers\/([^/]+)\/status$/);
@@ -407,14 +478,22 @@ const mockAdapter: AxiosAdapter = async (config) => {
     return response(request, body(null));
   }
 
-  if (path === '/bookings/my-bookings' && method === 'GET') return response(request, bookings.filter((item) => item.requesterId === users[0]?.id || item.requesterId === users[1]?.id));
-  if (path === '/bookings/admin/pending' && method === 'GET') return response(request, bookings.filter((item) => item.status === 'PENDING'));
+  if (path === '/bookings/requester-options' && method === 'GET') {
+    const keyword = stringParam(params, 'keyword')?.toLocaleLowerCase('vi');
+    const requesters = users
+      .filter((item) => item.status === 'ACTIVE' && (!keyword || `${item.fullName} ${item.username} ${item.email} ${item.department || ''}`.toLocaleLowerCase('vi').includes(keyword)))
+      .slice(0, 50)
+      .map(toBookingRequester);
+    return response(request, body(requesters));
+  }
+  if (path === '/bookings/my-bookings' && method === 'GET') return response(request, bookings.filter((item) => item.requesterId === users[0]?.id || item.requesterId === users[1]?.id).map(withBookingRequester));
+  if (path === '/bookings/admin/pending' && method === 'GET') return response(request, bookings.filter((item) => item.status === 'PENDING').map(withBookingRequester));
   if (path === '/bookings/usage-statistics' && method === 'GET') {
     const month = stringParam(params, 'month') || new Date().toISOString().slice(0, 7);
     try { return response(request, body(mockUsageStatistics(month))); } catch (error: any) { return errorResponse(request, 400, error.message); }
   }
-  if (path === '/bookings/calendar' && method === 'GET') { const start = new Date(String(params.start || 0)); const end = new Date(String(params.end || 8640000000000000)); return response(request, bookings.filter((item) => new Date(item.startTime) < end && new Date(item.endTime) > start).map((item) => ({ id: item.id, title: item.purpose, start: item.startTime, end: item.endTime, type: item.bookingType, status: item.status, requesterId: item.requesterId, numberOfPeople: item.numberOfPeople, numberOfComputers: item.numberOfComputers })) as CalendarEvent[]); }
-  if (path === '/bookings' && method === 'POST') { const input = payload as unknown as CreateBookingPayload; const item: BookingData = { id: `mock-booking-${Date.now()}`, requestCode: `BK-MOCK-${String(bookings.length + 1).padStart(3, '0')}`, requesterId: users[0]?.id, bookingType: input.bookingType, purpose: input.purpose, startTime: input.startTime, endTime: input.endTime, expectedReturnTime: input.expectedReturnTime, numberOfPeople: input.numberOfPeople, numberOfComputers: input.numberOfComputers, status: 'PENDING', isOverdue: false, hasIncident: false, note: input.note || null, createdAt: now() }; bookings = [item, ...bookings]; return response(request, item, 201); }
+  if (path === '/bookings/calendar' && method === 'GET') { const start = new Date(String(params.start || 0)); const end = new Date(String(params.end || 8640000000000000)); return response(request, bookings.filter((item) => new Date(item.startTime) < end && new Date(item.endTime) > start).map((item) => ({ id: item.id, title: item.purpose, start: item.startTime, end: item.endTime, type: item.bookingType, status: item.status, requesterId: item.requesterId, requester: bookingRequesterOf(item), numberOfPeople: item.numberOfPeople, numberOfComputers: item.numberOfComputers })) as CalendarEvent[]); }
+  if (path === '/bookings' && method === 'POST') { const input = payload as unknown as CreateBookingPayload; const requester = matchUser(input.requesterId || users[0]?.id || ''); if (!requester) return errorResponse(request, 404, 'Không tìm thấy người đăng ký mock.'); if (requester.status !== 'ACTIVE') return errorResponse(request, 422, 'Chỉ có thể tạo yêu cầu cho tài khoản đang hoạt động.'); const item: BookingData = { id: `mock-booking-${Date.now()}`, requestCode: `BK-MOCK-${String(bookings.length + 1).padStart(3, '0')}`, requesterId: requester.id, requester: toBookingRequester(requester), bookingType: input.bookingType, purpose: input.purpose, startTime: input.startTime, endTime: input.endTime, expectedReturnTime: input.expectedReturnTime, numberOfPeople: input.numberOfPeople, numberOfComputers: input.numberOfComputers, status: 'PENDING', isOverdue: false, hasIncident: false, note: input.note || null, createdAt: now() }; bookings = [item, ...bookings]; auditLogs = [createMockAudit('BOOKING_CREATED', 'BookingRequest', item.id, null, { requesterId: requester.id, createdForAnotherUser: requester.id !== users[0]?.id }), ...auditLogs]; return response(request, item, 201); }
   const bookingAction = path.match(/^\/bookings\/([^/]+)\/(approve|reject|cancel|check-in|check-out)$/);
   if (bookingAction && method === 'POST') {
     const item = bookings.find((booking) => booking.id === bookingAction[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy lịch mock.');
@@ -448,8 +527,59 @@ function roleRecords(): RoleApiRecord[] {
   return ROLE_DEFINITIONS.map((role) => ({ id: `mock-role-${role.code}`, code: role.code, name: role.name, description: role.description, userCount: users.filter((user) => user.roles.includes(role.code)).length, permissionCodes: [...(rolePermissionState[role.code] || [])] }));
 }
 
+function toBookingRequester(user: UserApiRecord) {
+  return { id: user.id, fullName: user.fullName, username: user.username, email: user.email, department: user.department };
+}
+
+function bookingRequesterOf(booking: BookingData) {
+  const requester = users.find((user) => user.id === booking.requesterId);
+  return requester ? toBookingRequester(requester) : null;
+}
+
+function withBookingRequester(booking: BookingData): BookingData {
+  return { ...booking, requester: bookingRequesterOf(booking) };
+}
+
 function computerSummary() {
   return { total: computers.length, active: computers.filter((item) => item.status === 'ACTIVE').length, inUse: computers.filter((item) => item.status === 'IN_USE').length, broken: computers.filter((item) => item.status === 'BROKEN').length, maintenance: computers.filter((item) => item.status === 'MAINTENANCE').length, locked: computers.filter((item) => item.status === 'LOCKED').length, inactive: computers.filter((item) => item.status === 'INACTIVE').length };
+}
+
+function mockIncidentSummary() {
+  const brokenComputers = computers.filter((item) => item.status === 'BROKEN').length;
+  const equipmentWithIssues = equipment.filter((item) => item.brokenQuantity > 0 || item.lostQuantity > 0);
+  return {
+    total: incidents.length,
+    open: incidents.filter((item) => item.status === 'OPEN').length,
+    assigned: incidents.filter((item) => item.status === 'ASSIGNED').length,
+    inProgress: incidents.filter((item) => item.status === 'IN_PROGRESS').length,
+    resolved: incidents.filter((item) => item.status === 'RESOLVED').length,
+    closed: incidents.filter((item) => item.status === 'CLOSED').length,
+    criticalOpen: incidents.filter((item) => item.severity === 'CRITICAL' && !['RESOLVED', 'CLOSED'].includes(item.status)).length,
+    brokenComputers,
+    equipmentTypesWithIssues: equipmentWithIssues.length,
+    totalAssetAlerts: brokenComputers + equipmentWithIssues.reduce((sum, item) => sum + item.brokenQuantity + item.lostQuantity, 0),
+  };
+}
+
+function mockIncidentOptions(): IncidentOptions {
+  return {
+    computers: computers.map((item) => ({ id: item.id, code: item.code, name: item.name, status: item.status })),
+    equipments: equipment.map((item) => ({ id: item.id, code: item.code, name: item.name, brokenQuantity: item.brokenQuantity, lostQuantity: item.lostQuantity })),
+    bookings: bookings.slice(0, 100).map((item) => ({ id: item.id, code: item.requestCode, purpose: item.purpose, status: item.status })),
+    assignees: users.filter((item) => item.status === 'ACTIVE' && item.roles.some((role) => ['ADMIN', 'LAB_STAFF', 'COLLABORATOR'].includes(role))).map((item) => ({ id: item.id, fullName: item.fullName, username: item.username })),
+  };
+}
+
+function mockIncidentTarget(input: IncidentPayload): { code: string; name: string } | null {
+  if (input.computerId) { const item = matchComputer(input.computerId); return item ? { code: item.code, name: item.name } : null; }
+  if (input.equipmentId) { const item = matchEquipment(input.equipmentId); return item ? { code: item.code, name: item.name } : null; }
+  if (input.bookingRequestId) { const item = bookings.find((booking) => booking.id === input.bookingRequestId); return item ? { code: item.requestCode, name: item.purpose } : null; }
+  return null;
+}
+
+function nextIncidentCode(): string {
+  const date = new Date(); const prefix = `SC-${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, '0')}${String(date.getUTCDate()).padStart(2, '0')}-`;
+  return `${prefix}${String(incidents.filter((item) => item.code.startsWith(prefix)).length + 1).padStart(3, '0')}`;
 }
 
 function closeMockComputerActivity(computerId: string, occurredAt: string) {

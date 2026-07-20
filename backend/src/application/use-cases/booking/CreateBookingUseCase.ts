@@ -5,9 +5,14 @@ import { IAuditLogRepository } from '../../../domain/repositories/IAuditLogRepos
 import { BookingRequest, BookingType } from '../../../domain/entities/BookingRequest';
 import { BookingEquipmentItem } from '../../../domain/entities/BookingEquipmentItem';
 import { CheckAvailabilityUseCase } from './CheckAvailabilityUseCase';
+import { IUserRepository } from '../../../domain/repositories/IUserRepository';
+import { BusinessRuleError, ForbiddenError, NotFoundError } from '../../../shared/errors/AppError';
 
 export type CreateBookingInput = {
-  requesterId: string;
+  actorUserId: string;
+  actorRoles: string[];
+  actorPermissions: string[];
+  requesterId?: string;
   bookingType: BookingType;
   purpose: string;
   startTime: Date;
@@ -20,6 +25,9 @@ export type CreateBookingInput = {
     quantity: number;
   }>;
   note?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  correlationId?: string;
 };
 
 export class CreateBookingUseCase {
@@ -28,10 +36,31 @@ export class CreateBookingUseCase {
     private bookingEqItemRepo: IBookingEquipmentItemRepository,
     private checkAvailabilityUseCase: CheckAvailabilityUseCase,
     private uow: IUnitOfWork,
-    private auditLogRepo: IAuditLogRepository
+    private auditLogRepo: IAuditLogRepository,
+    private userRepo: IUserRepository,
   ) {}
 
   public async execute(input: CreateBookingInput): Promise<BookingRequest> {
+    const requesterId = input.requesterId || input.actorUserId;
+    const isCreatingForAnotherUser = requesterId !== input.actorUserId;
+    const canCreateForUser = input.actorRoles.includes('ADMIN')
+      || input.actorPermissions.includes('BOOKING_CREATE_FOR_USER');
+
+    if (isCreatingForAnotherUser && !canCreateForUser) {
+      throw new ForbiddenError('Bạn không có quyền đăng ký sử dụng thay cho người khác.');
+    }
+
+    const requester = await this.userRepo.findById(requesterId);
+    if (!requester) {
+      throw new NotFoundError('Không tìm thấy người đăng ký được chọn.');
+    }
+    if (requester.status !== 'ACTIVE') {
+      throw new BusinessRuleError(
+        'Chỉ có thể tạo yêu cầu cho tài khoản đang hoạt động.',
+        'BOOKING_REQUESTER_INACTIVE',
+      );
+    }
+
     // 1. Check availability
     const availResult = await this.checkAvailabilityUseCase.execute({
       bookingType: input.bookingType,
@@ -43,7 +72,10 @@ export class CreateBookingUseCase {
     });
 
     if (!availResult.available) {
-      throw new Error("Không thể đặt lịch: " + availResult.reasons.map(r => r.message).join(', '));
+      throw new BusinessRuleError(
+        'Không thể đặt lịch: ' + availResult.reasons.map(r => r.message).join(', '),
+        availResult.reasons[0]?.code || 'BOOKING_UNAVAILABLE',
+      );
     }
 
     // 2. Generate RequestCode (e.g., BR-YYYYMMDD-XXXX)
@@ -54,7 +86,7 @@ export class CreateBookingUseCase {
     // 3. Create Entities
     const booking = BookingRequest.create({
       requestCode,
-      requesterId: input.requesterId,
+      requesterId,
       bookingType: input.bookingType,
       purpose: input.purpose,
       startTime: input.startTime,
@@ -85,7 +117,15 @@ export class CreateBookingUseCase {
         action: 'BOOKING_CREATED',
         entityName: 'BookingRequest',
         entityId: booking.id.toString(),
-        userId: input.requesterId
+        userId: input.actorUserId,
+        newValueJson: JSON.stringify({
+          requesterId,
+          requesterName: requester.fullName,
+          createdForAnotherUser: isCreatingForAnotherUser,
+        }),
+        ipAddress: input.ipAddress,
+        userAgent: input.userAgent,
+        correlationId: input.correlationId,
       }, transaction);
     });
 

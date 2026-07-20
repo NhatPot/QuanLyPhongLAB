@@ -13,6 +13,7 @@ import {
   LogOut,
   Monitor,
   Search,
+  UserRound,
   UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -245,7 +246,7 @@ export default function LabCalendar() {
         }}
         title="Xác nhận check-out"
         description="Ghi nhận tình trạng phòng sau khi bàn giao. Bạn có thể để trống nếu không có ghi chú."
-        reference={checkOutEvent ? checkOutEvent.title : undefined}
+        reference={checkOutEvent ? `${checkOutEvent.title}${checkOutEvent.requester?.fullName ? ` · ${checkOutEvent.requester.fullName}` : ""}` : undefined}
         label="Tình trạng sau bàn giao"
         placeholder="Ví dụ: Phòng đã được kiểm tra, không có bất thường..."
         confirmLabel="Xác nhận check-out"
@@ -317,7 +318,7 @@ function CheckInComputerDialog({
         <DialogHeader>
           <DialogTitle>Check-in và chọn máy sử dụng</DialogTitle>
           <DialogDescription>
-            {event?.title} · yêu cầu {requested} máy. Mỗi máy được chọn sẽ có
+            {event?.title}{event?.requester?.fullName ? ` · Người đăng ký: ${event.requester.fullName}` : ""} · yêu cầu {requested} máy. Mỗi máy được chọn sẽ có
             giờ vào và giờ rời riêng.
           </DialogDescription>
         </DialogHeader>
@@ -474,6 +475,12 @@ function OperationPanel({
                   {formatTime(event.start)} – {formatTime(event.end)} ·{" "}
                   {event.numberOfComputers ?? 0} máy
                 </p>
+                {event.requester?.fullName && (
+                  <p className="mt-1 truncate text-[11px] font-semibold text-blue-700">
+                    <UserRound className="mr-1 inline h-3 w-3" />
+                    {event.requester.fullName} · @{event.requester.username}
+                  </p>
+                )}
               </div>
               <Badge
                 variant={event.status === "CHECKED_IN" ? "success" : "outline"}
@@ -656,6 +663,7 @@ function EventRow({
 }) {
   return (
     <div
+      title={`${event.title}${event.requester?.fullName ? ` · ${event.requester.fullName}` : ""}`}
       className={`rounded-lg border ${eventClass[event.type]} ${compact ? "px-2 py-1.5" : "p-3"}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -672,6 +680,12 @@ function EventRow({
           </Badge>
         )}
       </div>
+      {event.requester?.fullName && (
+        <p className={`${compact ? "text-[8px]" : "mt-1 text-[10px]"} truncate font-semibold opacity-80`}>
+          <UserRound className="mr-1 inline h-3 w-3" />
+          {event.requester.fullName}
+        </p>
+      )}
       <p
         className={`${compact ? "text-[8px]" : "mt-2 text-[10px]"} opacity-75`}
       >

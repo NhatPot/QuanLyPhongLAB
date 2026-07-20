@@ -46,7 +46,10 @@ export function AppHeader({ onMenu, onToggleSidebar, sidebarCollapsed, onLogout 
 
   const quickSearchItems = useMemo(
     () => navItems
-      .filter((item) => !item.permission || hasPermission(item.permission))
+      .filter((item) =>
+        (!item.permission || hasPermission(item.permission))
+        && (!item.anyPermissions || item.anyPermissions.some(hasPermission)),
+      )
       .map((item) => ({
         ...item,
         keywords: `${item.label} ${item.href} ${pageNames[item.href] || ''}`.toLocaleLowerCase('vi'),

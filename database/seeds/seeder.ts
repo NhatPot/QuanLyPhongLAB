@@ -63,6 +63,7 @@ const permissions = [
   { code: 'MAINTENANCE_DELETE', name: 'Xóa lịch bảo trì', desc: 'Xóa mềm lịch bảo trì hợp lệ' },
   // Booking
   { code: 'BOOKING_CREATE', name: 'Tạo booking', desc: 'Tạo yêu cầu sử dụng phòng/thiết bị' },
+  { code: 'BOOKING_CREATE_FOR_USER', name: 'Đăng ký thay người dùng', desc: 'Tạo yêu cầu sử dụng phòng Lab thay cho tài khoản đang hoạt động' },
   { code: 'BOOKING_VIEW_OWN', name: 'Xem booking cá nhân', desc: 'Xem booking của chính mình' },
   { code: 'BOOKING_VIEW_ALL', name: 'Xem tất cả booking', desc: 'Xem tất cả booking hệ thống' },
   { code: 'BOOKING_APPROVE', name: 'Duyệt booking', desc: 'Phê duyệt booking' },
@@ -105,7 +106,8 @@ const rolePermissionsMap: Record<string, string[]> = {
   ],
   LAB_STAFF: [
     'LAB_PROFILE_VIEW', 'LAB_CALENDAR_VIEW', 'COMPUTER_VIEW', 'EQUIPMENT_VIEW',
-    'EQUIPMENT_HANDOVER', 'EQUIPMENT_RECEIVE', 'BOOKING_VIEW_ALL',
+    'EQUIPMENT_HANDOVER', 'EQUIPMENT_RECEIVE', 'BOOKING_CREATE',
+    'BOOKING_CREATE_FOR_USER', 'BOOKING_VIEW_OWN', 'BOOKING_VIEW_ALL',
     'BOOKING_CHECK_IN', 'BOOKING_CHECK_OUT', 'INCIDENT_CREATE',
     'INCIDENT_VIEW_ASSIGNED', 'INCIDENT_UPDATE', 'DASHBOARD_VIEW_OPERATION',
     'MAINTENANCE_VIEW', 'MAINTENANCE_CREATE', 'MAINTENANCE_UPDATE',
