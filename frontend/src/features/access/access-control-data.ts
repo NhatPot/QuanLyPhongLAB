@@ -181,6 +181,23 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    id: 'expenses',
+    name: 'Chi phí phòng Lab',
+    description: 'Chi phí đầu tư, vận hành, duyệt và thanh toán.',
+    permissions: [
+      { code: 'EXPENSE_VIEW', name: 'Xem chi phí', description: 'Xem danh sách, chi tiết và thống kê chi phí.' },
+      { code: 'EXPENSE_CREATE', name: 'Tạo phiếu chi', description: 'Tạo phiếu chi phí mới.' },
+      { code: 'EXPENSE_UPDATE', name: 'Cập nhật phiếu chi', description: 'Chỉnh sửa phiếu chi ở trạng thái cho phép.' },
+      { code: 'EXPENSE_SUBMIT', name: 'Gửi duyệt phiếu chi', description: 'Gửi phiếu chi để người quản lý duyệt.' },
+      { code: 'EXPENSE_APPROVE', name: 'Duyệt phiếu chi', description: 'Duyệt hoặc từ chối phiếu chi.' },
+      { code: 'EXPENSE_MARK_PAID', name: 'Xác nhận thanh toán', description: 'Xác nhận phiếu đã thanh toán và nhận hàng.' },
+      { code: 'EXPENSE_CANCEL', name: 'Hủy phiếu chi', description: 'Hủy phiếu chi hợp lệ.' },
+      { code: 'EXPENSE_DELETE', name: 'Xóa phiếu chi', description: 'Xóa mềm phiếu nháp hoặc bị từ chối.' },
+      { code: 'EXPENSE_EXPORT', name: 'Xuất báo cáo chi phí', description: 'Xuất dữ liệu chi phí theo bộ lọc.' },
+      { code: 'EXPENSE_CATEGORY_MANAGE', name: 'Quản lý danh mục chi phí', description: 'Tạo và khóa/mở danh mục chi phí.' },
+    ],
+  },
+  {
     id: 'incidents',
     name: 'Sự cố',
     description: 'Báo cáo, phân công và xử lý sự cố.',
@@ -265,6 +282,11 @@ export const ROLE_PERMISSION_PRESETS: Record<RoleCode, string[]> = {
     'MAINTENANCE_START',
     'MAINTENANCE_COMPLETE',
     'MAINTENANCE_CANCEL',
+    'EXPENSE_VIEW',
+    'EXPENSE_CREATE',
+    'EXPENSE_UPDATE',
+    'EXPENSE_SUBMIT',
+    'EXPENSE_EXPORT',
   ],
   STUDENT: [
     'LAB_PROFILE_VIEW',
@@ -280,6 +302,11 @@ export const ROLE_PERMISSION_PRESETS: Record<RoleCode, string[]> = {
     'REPORT_VIEW',
     'REPORT_EXPORT',
     'MAINTENANCE_VIEW',
+    'EXPENSE_VIEW',
+    'EXPENSE_APPROVE',
+    'EXPENSE_MARK_PAID',
+    'EXPENSE_CANCEL',
+    'EXPENSE_EXPORT',
   ],
 };
 

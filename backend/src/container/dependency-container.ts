@@ -19,6 +19,7 @@ import { IRolePermissionRepository } from '../domain/repositories/IRolePermissio
 import { IMaintenanceScheduleRepository } from '../domain/repositories/IMaintenanceScheduleRepository';
 import { IComputerActivityRepository } from '../domain/repositories/IComputerActivityRepository';
 import { IIncidentReportRepository } from '../domain/repositories/IIncidentReportRepository';
+import { IExpenseRepository } from '../domain/repositories/IExpenseRepository';
 
 import { SqlUserRepository } from '../infrastructure/database/sqlserver/repositories/SqlUserRepository';
 import { SqlAuthSessionRepository } from '../infrastructure/database/sqlserver/repositories/SqlAuthSessionRepository';
@@ -38,6 +39,7 @@ import { SqlAvailabilityQueryService } from '../infrastructure/database/sqlserve
 import { SqlMaintenanceScheduleRepository } from '../infrastructure/database/sqlserver/repositories/SqlMaintenanceScheduleRepository';
 import { SqlComputerActivityRepository } from '../infrastructure/database/sqlserver/repositories/SqlComputerActivityRepository';
 import { SqlIncidentReportRepository } from '../infrastructure/database/sqlserver/repositories/SqlIncidentReportRepository';
+import { SqlExpenseRepository } from '../infrastructure/database/sqlserver/repositories/SqlExpenseRepository';
 
 import { GetHealthUseCase } from '../application/use-cases/GetHealthUseCase';
 import { LoginUseCase } from '../application/use-cases/auth/LoginUseCase';
@@ -137,6 +139,24 @@ import {
   UpdateIncidentUseCase,
 } from '../application/use-cases/incident/IncidentManagementUseCases';
 import { IncidentController } from '../presentation/http/controllers/IncidentController';
+import {
+  ApproveExpenseUseCase,
+  CancelExpenseUseCase,
+  CreateExpenseCategoryUseCase,
+  CreateExpenseUseCase,
+  DeleteExpenseUseCase,
+  GetExpenseOptionsUseCase,
+  GetExpenseSummaryUseCase,
+  GetExpenseUseCase,
+  ListExpenseCategoriesUseCase,
+  ListExpensesUseCase,
+  MarkExpensePaidUseCase,
+  RejectExpenseUseCase,
+  SubmitExpenseUseCase,
+  UpdateExpenseCategoryUseCase,
+  UpdateExpenseUseCase,
+} from '../application/use-cases/expense/ExpenseManagementUseCases';
+import { ExpenseController } from '../presentation/http/controllers/ExpenseController';
 
 import { ILabProfileRepository } from '../domain/repositories/ILabProfileRepository';
 import { IComputerRepository } from '../domain/repositories/IComputerRepository';
@@ -173,6 +193,7 @@ class DependencyContainer {
   public readonly maintenanceRepo: IMaintenanceScheduleRepository;
   public readonly computerActivityRepo: IComputerActivityRepository;
   public readonly incidentRepo: IIncidentReportRepository;
+  public readonly expenseRepo: IExpenseRepository;
   public readonly maintenanceProposalService: ComputerMaintenanceProposalService;
 
   // Controllers
@@ -187,6 +208,7 @@ class DependencyContainer {
   public readonly auditLogController: AuditLogController;
   public readonly maintenanceController: MaintenanceController;
   public readonly incidentController: IncidentController;
+  public readonly expenseController: ExpenseController;
 
   // Use cases
   public readonly getHealthUseCase: GetHealthUseCase;
@@ -266,6 +288,21 @@ class DependencyContainer {
   public readonly startIncidentUseCase: StartIncidentUseCase;
   public readonly resolveIncidentUseCase: ResolveIncidentUseCase;
   public readonly closeIncidentUseCase: CloseIncidentUseCase;
+  public readonly listExpensesUseCase: ListExpensesUseCase;
+  public readonly getExpenseSummaryUseCase: GetExpenseSummaryUseCase;
+  public readonly getExpenseOptionsUseCase: GetExpenseOptionsUseCase;
+  public readonly getExpenseUseCase: GetExpenseUseCase;
+  public readonly createExpenseUseCase: CreateExpenseUseCase;
+  public readonly updateExpenseUseCase: UpdateExpenseUseCase;
+  public readonly submitExpenseUseCase: SubmitExpenseUseCase;
+  public readonly approveExpenseUseCase: ApproveExpenseUseCase;
+  public readonly rejectExpenseUseCase: RejectExpenseUseCase;
+  public readonly markExpensePaidUseCase: MarkExpensePaidUseCase;
+  public readonly cancelExpenseUseCase: CancelExpenseUseCase;
+  public readonly deleteExpenseUseCase: DeleteExpenseUseCase;
+  public readonly listExpenseCategoriesUseCase: ListExpenseCategoriesUseCase;
+  public readonly createExpenseCategoryUseCase: CreateExpenseCategoryUseCase;
+  public readonly updateExpenseCategoryUseCase: UpdateExpenseCategoryUseCase;
 
   constructor() {
     this.clock = new SystemClock();
@@ -292,6 +329,7 @@ class DependencyContainer {
     this.maintenanceRepo = new SqlMaintenanceScheduleRepository();
     this.computerActivityRepo = new SqlComputerActivityRepository();
     this.incidentRepo = new SqlIncidentReportRepository();
+    this.expenseRepo = new SqlExpenseRepository();
     this.maintenanceProposalService = new ComputerMaintenanceProposalService(
       this.maintenanceRepo,
       this.idGenerator,
@@ -494,6 +532,8 @@ class DependencyContainer {
       equipmentTxRepo: this.equipmentTxRepo,
       uow: this.uow,
       auditLogRepo: this.auditLogRepo,
+      expenseRepo: this.expenseRepo,
+      idGenerator: this.idGenerator,
     };
     this.listMaintenancesUseCase = new ListMaintenancesUseCase(this.maintenanceRepo);
     this.getMaintenanceSummaryUseCase = new GetMaintenanceSummaryUseCase(this.maintenanceRepo);
@@ -555,6 +595,58 @@ class DependencyContainer {
       this.startIncidentUseCase,
       this.resolveIncidentUseCase,
       this.closeIncidentUseCase,
+    );
+
+    const expenseDependencies = {
+      expenseRepo: this.expenseRepo,
+      equipmentRepo: this.equipmentRepo,
+      equipmentTxRepo: this.equipmentTxRepo,
+      computerRepo: this.computerRepo,
+      labRepo: this.labProfileRepo,
+      uow: this.uow,
+      auditLogRepo: this.auditLogRepo,
+      idGenerator: this.idGenerator,
+    };
+    this.listExpensesUseCase = new ListExpensesUseCase(this.expenseRepo);
+    this.getExpenseSummaryUseCase = new GetExpenseSummaryUseCase(this.expenseRepo);
+    this.getExpenseOptionsUseCase = new GetExpenseOptionsUseCase(
+      this.expenseRepo,
+      this.equipmentRepo,
+      this.computerRepo,
+      this.labProfileRepo,
+    );
+    this.getExpenseUseCase = new GetExpenseUseCase(this.expenseRepo);
+    this.createExpenseUseCase = new CreateExpenseUseCase(expenseDependencies);
+    this.updateExpenseUseCase = new UpdateExpenseUseCase(expenseDependencies);
+    this.submitExpenseUseCase = new SubmitExpenseUseCase(expenseDependencies);
+    this.approveExpenseUseCase = new ApproveExpenseUseCase(expenseDependencies);
+    this.rejectExpenseUseCase = new RejectExpenseUseCase(expenseDependencies);
+    this.markExpensePaidUseCase = new MarkExpensePaidUseCase(expenseDependencies);
+    this.cancelExpenseUseCase = new CancelExpenseUseCase(expenseDependencies);
+    this.deleteExpenseUseCase = new DeleteExpenseUseCase(expenseDependencies);
+    this.listExpenseCategoriesUseCase = new ListExpenseCategoriesUseCase(this.expenseRepo);
+    this.createExpenseCategoryUseCase = new CreateExpenseCategoryUseCase(
+      this.expenseRepo, this.uow, this.auditLogRepo, this.idGenerator,
+    );
+    this.updateExpenseCategoryUseCase = new UpdateExpenseCategoryUseCase(
+      this.expenseRepo, this.uow, this.auditLogRepo,
+    );
+    this.expenseController = new ExpenseController(
+      this.listExpensesUseCase,
+      this.getExpenseSummaryUseCase,
+      this.getExpenseOptionsUseCase,
+      this.getExpenseUseCase,
+      this.createExpenseUseCase,
+      this.updateExpenseUseCase,
+      this.submitExpenseUseCase,
+      this.approveExpenseUseCase,
+      this.rejectExpenseUseCase,
+      this.markExpensePaidUseCase,
+      this.cancelExpenseUseCase,
+      this.deleteExpenseUseCase,
+      this.listExpenseCategoriesUseCase,
+      this.createExpenseCategoryUseCase,
+      this.updateExpenseCategoryUseCase,
     );
   }
 }

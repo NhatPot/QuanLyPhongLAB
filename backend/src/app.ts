@@ -15,6 +15,7 @@ import { createRoleRouter } from './presentation/http/routes/role.routes';
 import { createAuditLogRouter } from './presentation/http/routes/audit-log.routes';
 import { createMaintenanceRouter } from './presentation/http/routes/maintenance.routes';
 import { createIncidentRouter } from './presentation/http/routes/incident.routes';
+import { createExpenseRouter } from './presentation/http/routes/expense.routes';
 import { container } from './container/dependency-container';
 import { correlationIdMiddleware } from './presentation/http/middlewares/correlationIdMiddleware';
 import { errorHandlerMiddleware } from './presentation/http/middlewares/errorHandlerMiddleware';
@@ -69,6 +70,7 @@ export function createExpressApp(): Express {
   app.use('/api/audit-log', createAuditLogRouter(container.auditLogController));
   app.use('/api/maintenances', createMaintenanceRouter(container.maintenanceController));
   app.use('/api/incidents', createIncidentRouter(container.incidentController));
+  app.use('/api/expenses', createExpenseRouter(container.expenseController));
   // 404 handler
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.status(404).json(

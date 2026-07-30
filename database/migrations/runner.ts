@@ -67,7 +67,11 @@ async function run() {
           await transaction.commit();
           console.log(`[Migration] Successfully applied ${file}.`);
         } catch (err) {
-          await transaction.rollback();
+          try {
+            await transaction.rollback();
+          } catch {
+            // SQL Server may already have aborted and rolled back the transaction.
+          }
           console.error(`[Migration] Failed to apply ${file}. Transaction rolled back.`);
           throw err;
         }
@@ -96,7 +100,11 @@ async function run() {
         await transaction.commit();
         console.log(`[Migration] Successfully rolled back ${lastFile}.`);
       } catch (err) {
-        await transaction.rollback();
+        try {
+          await transaction.rollback();
+        } catch {
+          // SQL Server may already have aborted and rolled back the transaction.
+        }
         console.error(`[Migration] Failed to rollback ${lastFile}. Transaction rolled back.`);
         throw err;
       }

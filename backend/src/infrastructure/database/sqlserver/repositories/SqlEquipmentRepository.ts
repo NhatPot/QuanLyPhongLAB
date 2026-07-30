@@ -5,9 +5,9 @@ import { UniqueEntityId } from '../../../../domain/value-objects/UniqueEntityId'
 import { SqlConnectionFactory } from '../connection';
 
 export class SqlEquipmentRepository implements IEquipmentRepository {
-  public async findById(id: string): Promise<Equipment | null> {
-    const pool = await SqlConnectionFactory.getPool();
-    const result = await pool.request()
+  public async findById(id: string, transaction?: mssql.Transaction): Promise<Equipment | null> {
+    const request = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
+    const result = await request
       .input('id', mssql.UniqueIdentifier, id)
       .query('SELECT * FROM Equipments WHERE Id = @id AND DeletedAt IS NULL');
 

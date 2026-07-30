@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, CalendarDays, ClipboardCheck, Monitor, PackageOpen, AlertTriangle, Users, Settings2, ScrollText, ChartNoAxesCombined, Wrench, UserRoundCog } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, ClipboardCheck, Monitor, PackageOpen, AlertTriangle, Users, Settings2, ScrollText, ChartNoAxesCombined, Wrench, UserRoundCog, WalletCards } from 'lucide-react';
 export type NavItem={label:string;href:string;icon:LucideIcon;permission?:string;anyPermissions?:string[];group:'main'|'system'};
 export const navItems:NavItem[]=[
  {label:'Tổng quan',href:'/',icon:LayoutDashboard,group:'main'},
@@ -9,6 +9,7 @@ export const navItems:NavItem[]=[
  {label:'Thiết bị',href:'/equipments',icon:PackageOpen,permission:'EQUIPMENT_VIEW',group:'main'},
  {label:'Sự cố',href:'/incidents',icon:AlertTriangle,anyPermissions:['INCIDENT_VIEW','INCIDENT_VIEW_OWN','INCIDENT_VIEW_ASSIGNED'],group:'main'},
  {label:'Bảo trì',href:'/maintenance',icon:Wrench,permission:'MAINTENANCE_VIEW',group:'main'},
+ {label:'Chi phí phòng Lab',href:'/expenses',icon:WalletCards,permission:'EXPENSE_VIEW',group:'main'},
  {label:'Báo cáo thống kê',href:'/reports',icon:ChartNoAxesCombined,permission:'REPORT_VIEW',group:'main'},
  {label:'Người dùng',href:'/users',icon:Users,permission:'USER_VIEW',group:'system'},
  {label:'Phân quyền',href:'/roles',icon:UserRoundCog,permission:'PERMISSION_MANAGE',group:'system'},

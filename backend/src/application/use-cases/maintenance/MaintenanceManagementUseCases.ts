@@ -14,6 +14,8 @@ import {
 } from '../../../domain/repositories/IMaintenanceScheduleRepository';
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
+import { IExpenseRepository } from '../../../domain/repositories/IExpenseRepository';
+import { recordMaintenanceExpense } from '../expense/ExpenseManagementUseCases';
 import {
   MaintenanceOutcome,
   MaintenanceSchedule,
@@ -56,6 +58,8 @@ interface MaintenanceDependencies {
   equipmentTxRepo: IEquipmentInventoryTransactionRepository;
   uow: IUnitOfWork;
   auditLogRepo: IAuditLogRepository;
+  expenseRepo: IExpenseRepository;
+  idGenerator: IIdGenerator;
 }
 
 export class ListMaintenancesUseCase {
@@ -264,6 +268,11 @@ export class CompleteMaintenanceUseCase {
         }), transaction);
       }
       await this.deps.maintenanceRepo.save(maintenance, transaction);
+      await recordMaintenanceExpense(maintenance, input, {
+        expenseRepo: this.deps.expenseRepo,
+        auditLogRepo: this.deps.auditLogRepo,
+        idGenerator: this.deps.idGenerator,
+      }, transaction);
       await saveAudit(this.deps.auditLogRepo, transaction, input, 'MAINTENANCE_COMPLETED', maintenance, before);
     });
     return (await this.deps.maintenanceRepo.getDetailById(id))!;

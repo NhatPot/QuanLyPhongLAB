@@ -46,8 +46,9 @@ export class SqlRolePermissionRepository implements IRolePermissionRepository {
           WHEN Code LIKE 'EQUIPMENT_%' THEN 3
           WHEN Code LIKE 'BOOKING_%' THEN 4
           WHEN Code LIKE 'INCIDENT_%' THEN 5
-          WHEN Code LIKE 'DASHBOARD_%' OR Code LIKE 'REPORT_%' THEN 6
-          ELSE 7
+          WHEN Code LIKE 'EXPENSE_%' THEN 6
+          WHEN Code LIKE 'DASHBOARD_%' OR Code LIKE 'REPORT_%' THEN 7
+          ELSE 8
         END,
         Code ASC
     `);
@@ -150,5 +151,6 @@ export function permissionGroupOf(code: string): string {
   if (code.startsWith('MAINTENANCE_')) return 'maintenance';
   if (code.startsWith('BOOKING_')) return 'bookings';
   if (code.startsWith('INCIDENT_')) return 'incidents';
+  if (code.startsWith('EXPENSE_')) return 'expenses';
   return 'reports';
 }

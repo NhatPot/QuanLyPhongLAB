@@ -24,6 +24,14 @@ import type {
   MaintenanceTargetType,
 } from './maintenance-api';
 import type { IncidentOptions, IncidentPayload, IncidentRecord } from './incident-api';
+import type {
+  ExpenseCategory,
+  ExpenseClass,
+  ExpensePayload,
+  ExpenseRecord,
+  ExpenseStatus,
+  FundingSource,
+} from './expense-api';
 
 type MockRequestConfig = InternalAxiosRequestConfig & { __mockHandled?: boolean };
 
@@ -165,6 +173,51 @@ let maintenances: MaintenanceRecord[] = [
     cancellationReason: 'Phòng có lịch thi bù.', triggerSource: 'MANUAL', triggeredAt: null, createdBy: users[0]?.id || null, createdByName: users[0]?.fullName || 'Administrator',
     createdAt: '2026-07-05T01:00:00.000Z', updatedAt: '2026-07-09T08:00:00.000Z', isOverdue: false,
   },
+];
+
+let expenseCategories: ExpenseCategory[] = [
+  { id: id('expense-category', 1), code: 'COMPUTER_PURCHASE', name: 'Mua máy tính', expenseClass: 'CAPEX', description: 'Mua mới hoặc nâng cấp máy tính', isActive: true, isSystem: true },
+  { id: id('expense-category', 2), code: 'EQUIPMENT_PURCHASE', name: 'Mua thiết bị', expenseClass: 'CAPEX', description: 'Mua thiết bị và hạ tầng phòng Lab', isActive: true, isSystem: true },
+  { id: id('expense-category', 3), code: 'FURNITURE', name: 'Nội thất phòng Lab', expenseClass: 'CAPEX', description: 'Bàn, ghế, tủ và nội thất', isActive: true, isSystem: true },
+  { id: id('expense-category', 4), code: 'REPLACEMENT_PARTS', name: 'Linh kiện thay thế', expenseClass: 'OPEX', description: 'Linh kiện phục vụ sửa chữa', isActive: true, isSystem: true },
+  { id: id('expense-category', 5), code: 'CONSUMABLES', name: 'Vật tư tiêu hao', expenseClass: 'OPEX', description: 'Vật tư sử dụng trong vận hành', isActive: true, isSystem: true },
+  { id: id('expense-category', 6), code: 'MAINTENANCE_REPAIR', name: 'Bảo trì, sửa chữa', expenseClass: 'OPEX', description: 'Chi phí bảo trì tài sản', isActive: true, isSystem: true },
+  { id: id('expense-category', 7), code: 'UTILITIES', name: 'Điện, nước', expenseClass: 'OPEX', description: 'Chi phí điện và nước', isActive: true, isSystem: true },
+  { id: id('expense-category', 8), code: 'INTERNET', name: 'Internet', expenseClass: 'OPEX', description: 'Đường truyền và dịch vụ mạng', isActive: true, isSystem: true },
+  { id: id('expense-category', 9), code: 'SOFTWARE_LICENSE', name: 'Phần mềm và bản quyền', expenseClass: 'OPEX', description: 'Phần mềm và dịch vụ số', isActive: true, isSystem: true },
+  { id: id('expense-category', 10), code: 'OTHER', name: 'Chi phí khác', expenseClass: 'OPEX', description: 'Khoản chi hợp lệ khác', isActive: true, isSystem: true },
+];
+
+let expenses: ExpenseRecord[] = [
+  makeMockExpense({
+    id: id('expense', 1), code: 'CP-2026-MOCK0001', expenseDate: '2026-07-03',
+    categoryCode: 'EQUIPMENT_PURCHASE', title: 'Mua bổ sung bàn phím và chuột',
+    vendorName: 'Công ty Thiết bị Tin học Lạc Hồng', invoiceNumber: 'HD-0703-01',
+    fundingSource: 'CENTER', status: 'PAID', paymentStatus: 'PAID', paymentMethod: 'Chuyển khoản',
+    paymentDate: '2026-07-04', sourceType: 'MANUAL',
+    items: [
+      { description: 'Bộ bàn phím chuột', quantity: 10, unit: 'bộ', unitPrice: 350000, discountAmount: 0, taxAmount: 350000, targetType: 'EQUIPMENT', targetId: equipment[0]?.id || null, note: 'Bổ sung thiết bị dự phòng' },
+    ],
+  }),
+  makeMockExpense({
+    id: id('expense', 2), code: 'CP-2026-MOCK0002', expenseDate: '2026-07-08',
+    categoryCode: 'MAINTENANCE_REPAIR', title: 'Chi phí bảo dưỡng máy chiếu',
+    vendorName: null, invoiceNumber: null, fundingSource: 'CENTER', status: 'APPROVED',
+    paymentStatus: 'UNPAID', paymentMethod: null, paymentDate: null, sourceType: 'MAINTENANCE',
+    sourceId: maintenances[2]?.id || null,
+    items: [
+      { description: 'Bảo dưỡng và thay bộ lọc máy chiếu', quantity: 1, unit: 'lần', unitPrice: 420000, discountAmount: 0, taxAmount: 0, targetType: 'MAINTENANCE', targetId: maintenances[2]?.id || null, note: 'Bộ lọc máy chiếu' },
+    ],
+  }),
+  makeMockExpense({
+    id: id('expense', 3), code: 'CP-2026-MOCK0003', expenseDate: '2026-07-15',
+    categoryCode: 'UTILITIES', title: 'Tiền điện phòng Lab tháng 7',
+    vendorName: 'Điện lực Đồng Nai', invoiceNumber: 'EVN-072026', fundingSource: 'UNIVERSITY',
+    status: 'SUBMITTED', paymentStatus: 'UNPAID', paymentMethod: null, paymentDate: null, sourceType: 'MANUAL',
+    items: [
+      { description: 'Điện năng tiêu thụ phòng Lab', quantity: 1, unit: 'tháng', unitPrice: 6750000, discountAmount: 0, taxAmount: 540000, targetType: 'LAB', targetId: lab.id, note: null },
+    ],
+  }),
 ];
 
 type MockComputerActivity = Omit<ComputerActivityRecord, 'durationHours' | 'isActive'>;
@@ -313,6 +366,135 @@ const mockAdapter: AxiosAdapter = async (config) => {
     return response(request, paginate(filtered, request));
   }
 
+  if (path === '/expenses/summary' && method === 'GET') {
+    return response(request, body(mockExpenseSummary(stringParam(params, 'fromDate'), stringParam(params, 'toDate'))));
+  }
+  if (path === '/expenses/options' && method === 'GET') {
+    return response(request, body({
+      categories: expenseCategories.filter((item) => item.isActive),
+      equipments: equipment.map((item) => ({ id: item.id, code: item.code, name: item.name, status: item.status })),
+      computers: computers.map((item) => ({ id: item.id, code: item.code, name: item.name, status: item.status })),
+      lab: { id: lab.id, code: lab.labCode, name: lab.labName, status: lab.status },
+    }));
+  }
+  if (path === '/expenses/categories' && method === 'GET') {
+    const includeInactive = params.includeInactive === true || params.includeInactive === 'true';
+    return response(request, body(expenseCategories.filter((item) => includeInactive || item.isActive)));
+  }
+  if (path === '/expenses/categories' && method === 'POST') {
+    const code = String(payload.code || '').trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    const name = String(payload.name || '').trim();
+    if (!code || !name) return errorResponse(request, 400, 'Mã và tên danh mục không được để trống.');
+    if (expenseCategories.some((item) => item.code === code)) return errorResponse(request, 409, 'Mã danh mục chi phí đã tồn tại.');
+    const item: ExpenseCategory = {
+      id: `mock-expense-category-${Date.now()}`, code, name,
+      expenseClass: String(payload.expenseClass || 'OPEX') as ExpenseClass,
+      description: payload.description ? String(payload.description) : null,
+      isActive: true, isSystem: false,
+    };
+    expenseCategories = [...expenseCategories, item];
+    auditLogs = [createMockAudit('EXPENSE_CATEGORY_CREATED', 'ExpenseCategory', item.id, null, item), ...auditLogs];
+    return response(request, body(item), 201);
+  }
+  const expenseCategoryMatch = path.match(/^\/expenses\/categories\/([^/]+)$/);
+  if (expenseCategoryMatch && method === 'PUT') {
+    const item = expenseCategories.find((category) => category.id === expenseCategoryMatch[1]);
+    if (!item) return errorResponse(request, 404, 'Không tìm thấy danh mục chi phí mock.');
+    const before = { ...item };
+    item.name = String(payload.name || item.name).trim();
+    item.expenseClass = String(payload.expenseClass || item.expenseClass) as ExpenseClass;
+    item.description = payload.description ? String(payload.description) : null;
+    item.isActive = Boolean(payload.isActive);
+    auditLogs = [createMockAudit('EXPENSE_CATEGORY_UPDATED', 'ExpenseCategory', item.id, before, item), ...auditLogs];
+    return response(request, body(item));
+  }
+  if (path === '/expenses' && method === 'GET') {
+    const keyword = stringParam(params, 'keyword')?.toLocaleLowerCase('vi');
+    const status = stringParam(params, 'status'); const expenseClass = stringParam(params, 'expenseClass');
+    const categoryId = stringParam(params, 'categoryId'); const fundingSource = stringParam(params, 'fundingSource');
+    const fromDate = stringParam(params, 'fromDate'); const toDate = stringParam(params, 'toDate');
+    const filtered = expenses
+      .filter((item) => (!keyword || `${item.code} ${item.title} ${item.vendorName || ''} ${item.invoiceNumber || ''}`.toLocaleLowerCase('vi').includes(keyword))
+        && (!status || item.status === status) && (!expenseClass || item.expenseClass === expenseClass)
+        && (!categoryId || item.categoryId === categoryId) && (!fundingSource || item.fundingSource === fundingSource)
+        && (!fromDate || item.expenseDate.slice(0, 10) >= fromDate) && (!toDate || item.expenseDate.slice(0, 10) <= toDate))
+      .sort((a, b) => b.expenseDate.localeCompare(a.expenseDate));
+    return response(request, paginate(filtered, request));
+  }
+  if (path === '/expenses' && method === 'POST') {
+    const input = payload as unknown as ExpensePayload;
+    const validation = validateMockExpense(input); if (validation) return errorResponse(request, 422, validation);
+    const item = makeMockExpense({
+      id: `mock-expense-${Date.now()}`, code: nextExpenseCode(), expenseDate: input.expenseDate,
+      categoryId: input.categoryId, title: input.title, description: input.description || null,
+      vendorName: input.vendorName || null, invoiceNumber: input.invoiceNumber || null,
+      fundingSource: input.fundingSource, status: 'DRAFT', paymentStatus: 'UNPAID',
+      paymentMethod: input.paymentMethod || null, paymentDate: null, currency: input.currency,
+      attachmentUrl: input.attachmentUrl || null, sourceType: 'MANUAL', items: input.items,
+    });
+    expenses = [item, ...expenses];
+    auditLogs = [createMockAudit('EXPENSE_CREATED', 'Expense', item.id, null, item), ...auditLogs];
+    return response(request, body(item), 201);
+  }
+  const expenseAction = path.match(/^\/expenses\/([^/]+)\/(submit|approve|reject|mark-paid|cancel)$/);
+  if (expenseAction && method === 'POST') {
+    const item = expenses.find((expense) => expense.id === expenseAction[1]);
+    if (!item) return errorResponse(request, 404, 'Không tìm thấy phiếu chi mock.');
+    const action = expenseAction[2]; const before = structuredClone(item); const timestamp = now();
+    if (action === 'submit') {
+      if (item.status !== 'DRAFT') return errorResponse(request, 422, 'Chỉ phiếu nháp mới có thể gửi duyệt.');
+      item.status = 'SUBMITTED';
+    } else if (action === 'approve') {
+      if (item.status !== 'SUBMITTED') return errorResponse(request, 422, 'Chỉ phiếu đã gửi mới có thể được duyệt.');
+      item.status = 'APPROVED'; item.approvedBy = users[0]?.id || null; item.approvedByName = users[0]?.fullName || 'Administrator'; item.approvedAt = timestamp;
+    } else if (action === 'reject') {
+      if (item.status !== 'SUBMITTED') return errorResponse(request, 422, 'Chỉ phiếu đã gửi mới có thể bị từ chối.');
+      const reason = String(payload.reason || '').trim(); if (!reason) return errorResponse(request, 422, 'Lý do từ chối không được để trống.');
+      item.status = 'REJECTED'; item.rejectedAt = timestamp; item.rejectionReason = reason;
+    } else if (action === 'mark-paid') {
+      if (item.status !== 'APPROVED') return errorResponse(request, 422, 'Chỉ phiếu đã duyệt mới có thể xác nhận thanh toán.');
+      const paymentMethod = String(payload.paymentMethod || '').trim(); if (!paymentMethod) return errorResponse(request, 422, 'Phương thức thanh toán không được để trống.');
+      if (payload.postInventory) {
+        const inventoryError = postMockExpenseInventory(item); if (inventoryError) return errorResponse(request, 422, inventoryError);
+        item.inventoryPostedAt = timestamp;
+      }
+      item.status = 'PAID'; item.paymentStatus = 'PAID'; item.paymentMethod = paymentMethod; item.paymentDate = String(payload.paymentDate || timestamp);
+    } else {
+      if (!['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'].includes(item.status)) return errorResponse(request, 422, 'Phiếu không thể hủy ở trạng thái hiện tại.');
+      const reason = String(payload.reason || '').trim(); if (!reason) return errorResponse(request, 422, 'Lý do hủy không được để trống.');
+      item.status = 'CANCELLED'; item.cancelledAt = timestamp; item.cancellationReason = reason;
+    }
+    item.updatedAt = timestamp;
+    auditLogs = [createMockAudit(`EXPENSE_${action.toUpperCase().replace('-', '_')}`, 'Expense', item.id, before, item), ...auditLogs];
+    return response(request, body(item));
+  }
+  const expenseMatch = path.match(/^\/expenses\/([^/]+)$/);
+  if (expenseMatch && method === 'GET') {
+    const item = expenses.find((expense) => expense.id === expenseMatch[1]);
+    return item ? response(request, body(item)) : errorResponse(request, 404, 'Không tìm thấy phiếu chi mock.');
+  }
+  if (expenseMatch && method === 'PUT') {
+    const index = expenses.findIndex((expense) => expense.id === expenseMatch[1]);
+    if (index < 0) return errorResponse(request, 404, 'Không tìm thấy phiếu chi mock.');
+    const current = expenses[index]; if (!['DRAFT', 'REJECTED'].includes(current.status) || current.sourceType !== 'MANUAL') return errorResponse(request, 422, 'Phiếu chi không được chỉnh sửa.');
+    const input = payload as unknown as ExpensePayload; const validation = validateMockExpense(input); if (validation) return errorResponse(request, 422, validation);
+    const updated = makeMockExpense({
+      ...current, expenseDate: input.expenseDate, categoryId: input.categoryId, title: input.title,
+      description: input.description || null, vendorName: input.vendorName || null, invoiceNumber: input.invoiceNumber || null,
+      fundingSource: input.fundingSource, currency: input.currency, attachmentUrl: input.attachmentUrl || null,
+      status: 'DRAFT', rejectionReason: null, rejectedAt: null, items: input.items,
+    });
+    expenses[index] = updated; auditLogs = [createMockAudit('EXPENSE_UPDATED', 'Expense', current.id, current, updated), ...auditLogs];
+    return response(request, body(updated));
+  }
+  if (expenseMatch && method === 'DELETE') {
+    const index = expenses.findIndex((expense) => expense.id === expenseMatch[1]);
+    if (index < 0) return errorResponse(request, 404, 'Không tìm thấy phiếu chi mock.');
+    if (!['DRAFT', 'REJECTED', 'CANCELLED'].includes(expenses[index].status) || expenses[index].sourceType !== 'MANUAL') return errorResponse(request, 422, 'Phiếu chi không được xóa.');
+    const [removed] = expenses.splice(index, 1); auditLogs = [createMockAudit('EXPENSE_DELETED', 'Expense', removed.id, removed, null), ...auditLogs];
+    return response(request, body(null));
+  }
+
   if (path === '/incidents/summary' && method === 'GET') return response(request, body(mockIncidentSummary()));
   if (path === '/incidents/options' && method === 'GET') return response(request, body(mockIncidentOptions()));
   if (path === '/incidents' && method === 'GET') {
@@ -454,6 +636,7 @@ const mockAdapter: AxiosAdapter = async (config) => {
       item.status = 'COMPLETED'; item.completedAt = now(); item.updatedAt = item.completedAt; item.resultNote = resultNote;
       item.actualCost = actualCost; item.completionOutcome = outcome; item.partsNote = String(payload.partsNote || '').trim() || item.partsNote;
       if (item.targetType === 'COMPUTER') { const computer = matchComputer(item.targetId); if (computer) transitionMockComputerActivity(computer, outcome === 'BROKEN' ? 'BROKEN' : 'ACTIVE', item.completedAt, { maintenance: item, note: resultNote }); }
+      ensureMockMaintenanceExpense(item);
       auditLogs = [createMockAudit('MAINTENANCE_COMPLETED', 'MaintenanceSchedule', item.id, before, item), ...auditLogs];
     } else {
       if (!['PENDING', 'SCHEDULED'].includes(item.status)) return errorResponse(request, 422, 'Chỉ lịch chưa bắt đầu mới có thể hủy.');
@@ -860,6 +1043,160 @@ function completeMockMaintenanceTarget(item: MaintenanceRecord, outcome: Mainten
     referenceType: 'MAINTENANCE', referenceId: item.id, performedBy: users[0]?.id, note: item.resultNote || undefined, createdAt: timestamp,
   }, ...equipmentTransactions];
   return null;
+}
+
+type MockExpenseItemInput = Partial<ExpenseRecord['items'][number]> & Pick<ExpenseRecord['items'][number], 'description' | 'quantity' | 'unit' | 'unitPrice' | 'targetType'>;
+type MockExpenseInput = Omit<Partial<ExpenseRecord>, 'items' | 'id' | 'code' | 'expenseDate' | 'title' | 'fundingSource' | 'status' | 'paymentStatus' | 'sourceType'> & Pick<ExpenseRecord,
+  'id' | 'code' | 'expenseDate' | 'title' | 'fundingSource' | 'status' | 'paymentStatus' | 'sourceType'
+> & { categoryCode?: string; categoryId?: string; items: MockExpenseItemInput[] };
+
+function makeMockExpense(input: MockExpenseInput): ExpenseRecord {
+  const category = expenseCategories.find((item) => item.id === input.categoryId || item.code === input.categoryCode) || expenseCategories[expenseCategories.length - 1];
+  const timestamp = input.updatedAt || now();
+  const items = input.items.map((item, index) => {
+    const quantity = Number(item.quantity);
+    const unitPrice = Number(item.unitPrice);
+    const discountAmount = Number(item.discountAmount || 0);
+    const taxAmount = Number(item.taxAmount || 0);
+    return {
+      id: item.id || `${input.id}-item-${index + 1}`,
+      description: item.description,
+      quantity,
+      unit: item.unit,
+      unitPrice,
+      discountAmount,
+      taxAmount,
+      lineTotal: quantity * unitPrice - discountAmount + taxAmount,
+      targetType: item.targetType,
+      targetId: item.targetId || null,
+      note: item.note || null,
+    };
+  });
+  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const discountAmount = items.reduce((sum, item) => sum + item.discountAmount, 0);
+  const taxAmount = items.reduce((sum, item) => sum + item.taxAmount, 0);
+  return {
+    id: input.id,
+    code: input.code,
+    expenseDate: input.expenseDate,
+    categoryId: category.id,
+    categoryCode: category.code,
+    categoryName: category.name,
+    expenseClass: category.expenseClass,
+    title: input.title,
+    description: input.description || null,
+    vendorName: input.vendorName || null,
+    invoiceNumber: input.invoiceNumber || null,
+    fundingSource: input.fundingSource,
+    status: input.status,
+    paymentStatus: input.paymentStatus,
+    paymentMethod: input.paymentMethod || null,
+    paymentDate: input.paymentDate || null,
+    subtotal,
+    discountAmount,
+    taxAmount,
+    totalAmount: subtotal - discountAmount + taxAmount,
+    currency: input.currency || 'VND',
+    attachmentUrl: input.attachmentUrl || null,
+    sourceType: input.sourceType,
+    sourceId: input.sourceId || null,
+    createdBy: input.createdBy || users[0]?.id || null,
+    createdByName: input.createdByName || users[0]?.fullName || 'Administrator',
+    approvedBy: input.approvedBy || (['APPROVED', 'PAID'].includes(input.status) ? users[0]?.id || null : null),
+    approvedByName: input.approvedByName || (['APPROVED', 'PAID'].includes(input.status) ? users[0]?.fullName || 'Administrator' : null),
+    approvedAt: input.approvedAt || (['APPROVED', 'PAID'].includes(input.status) ? timestamp : null),
+    rejectedAt: input.rejectedAt || null,
+    rejectionReason: input.rejectionReason || null,
+    cancelledAt: input.cancelledAt || null,
+    cancellationReason: input.cancellationReason || null,
+    inventoryPostedAt: input.inventoryPostedAt || null,
+    items,
+    createdAt: input.createdAt || timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function validateMockExpense(input: ExpensePayload): string | null {
+  if (!input || !input.expenseDate || !input.categoryId || !input.title?.trim()) return 'Ngày, danh mục và nội dung phiếu chi không được để trống.';
+  const category = expenseCategories.find((item) => item.id === input.categoryId && item.isActive);
+  if (!category) return 'Danh mục chi phí không tồn tại hoặc đã bị khóa.';
+  if (!input.items?.length) return 'Phiếu chi phải có ít nhất một dòng chi tiết.';
+  for (const item of input.items) {
+    if (!item.description?.trim() || !item.unit?.trim() || Number(item.quantity) <= 0 || Number(item.unitPrice) < 0) return 'Dòng chi phí không hợp lệ.';
+    if (Number(item.discountAmount || 0) < 0 || Number(item.taxAmount || 0) < 0 || Number(item.quantity) * Number(item.unitPrice) - Number(item.discountAmount || 0) + Number(item.taxAmount || 0) < 0) return 'Giá trị tiền của dòng chi phí không hợp lệ.';
+    if (item.targetType !== 'OTHER' && !item.targetId) return 'Dòng liên kết tài sản phải chọn đối tượng.';
+    if (item.targetType === 'EQUIPMENT' && !matchEquipment(item.targetId || '')) return 'Không tìm thấy thiết bị liên kết.';
+    if (item.targetType === 'COMPUTER' && !matchComputer(item.targetId || '')) return 'Không tìm thấy máy tính liên kết.';
+    if (item.targetType === 'LAB' && item.targetId !== lab.id) return 'Không tìm thấy phòng Lab liên kết.';
+  }
+  return null;
+}
+
+function nextExpenseCode(): string {
+  const prefix = `CP-${new Date().getFullYear()}-`;
+  return `${prefix}MOCK${String(expenses.filter((item) => item.code.startsWith(prefix)).length + 1).padStart(4, '0')}`;
+}
+
+function mockExpenseSummary(fromDate?: string, toDate?: string) {
+  const records = expenses.filter((item) => ['APPROVED', 'PAID'].includes(item.status)
+    && (!fromDate || item.expenseDate.slice(0, 10) >= fromDate) && (!toDate || item.expenseDate.slice(0, 10) <= toDate));
+  const monthlyMap = new Map<string, { month: string; capex: number; opex: number }>();
+  const categoryMap = new Map<string, { categoryId: string; categoryName: string; expenseClass: ExpenseClass; amount: number }>();
+  for (const item of records) {
+    const month = item.expenseDate.slice(0, 7);
+    const monthRow = monthlyMap.get(month) || { month, capex: 0, opex: 0 };
+    if (item.expenseClass === 'CAPEX') monthRow.capex += item.totalAmount; else monthRow.opex += item.totalAmount;
+    monthlyMap.set(month, monthRow);
+    const categoryRow = categoryMap.get(item.categoryId) || { categoryId: item.categoryId, categoryName: item.categoryName, expenseClass: item.expenseClass, amount: 0 };
+    categoryRow.amount += item.totalAmount; categoryMap.set(item.categoryId, categoryRow);
+  }
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  return {
+    totalSpending: records.reduce((sum, item) => sum + item.totalAmount, 0),
+    capex: records.filter((item) => item.expenseClass === 'CAPEX').reduce((sum, item) => sum + item.totalAmount, 0),
+    opex: records.filter((item) => item.expenseClass === 'OPEX').reduce((sum, item) => sum + item.totalAmount, 0),
+    paid: records.filter((item) => item.paymentStatus === 'PAID').reduce((sum, item) => sum + item.totalAmount, 0),
+    outstanding: records.filter((item) => item.paymentStatus === 'UNPAID').reduce((sum, item) => sum + item.totalAmount, 0),
+    thisMonth: records.filter((item) => item.expenseDate.startsWith(thisMonth)).reduce((sum, item) => sum + item.totalAmount, 0),
+    count: records.length,
+    monthly: Array.from(monthlyMap.values()).sort((a, b) => a.month.localeCompare(b.month)),
+    byCategory: Array.from(categoryMap.values()).sort((a, b) => b.amount - a.amount),
+  };
+}
+
+function postMockExpenseInventory(item: ExpenseRecord): string | null {
+  if (item.categoryCode !== 'EQUIPMENT_PURCHASE') return 'Chỉ phiếu mua thiết bị mới có thể ghi tăng tồn kho.';
+  if (item.inventoryPostedAt) return 'Phiếu chi đã được ghi tăng tồn kho.';
+  const linked = item.items.filter((line) => line.targetType === 'EQUIPMENT');
+  if (!linked.length) return 'Phiếu chưa có dòng liên kết thiết bị.';
+  for (const line of linked) {
+    if (!Number.isInteger(line.quantity)) return 'Số lượng nhập kho thiết bị phải là số nguyên.';
+    const asset = matchEquipment(line.targetId || ''); if (!asset) return 'Không tìm thấy thiết bị cần nhập kho.';
+  }
+  for (const line of linked) {
+    const asset = matchEquipment(line.targetId!)!;
+    asset.totalQuantity += line.quantity; asset.availableQuantity += line.quantity; asset.updatedAt = now();
+    equipmentTransactions = [{
+      id: `mock-equipment-tx-${Date.now()}-${line.id}`, equipmentId: asset.id, transactionType: 'ADJUSTMENT',
+      deltaTotal: line.quantity, deltaAvailable: line.quantity, deltaReserved: 0, deltaBorrowed: 0, deltaBroken: 0,
+      deltaMaintenance: 0, deltaLost: 0, referenceType: 'EXPENSE', referenceId: item.id,
+      performedBy: users[0]?.id, note: `Nhập kho từ phiếu chi ${item.code}`, createdAt: now(),
+    }, ...equipmentTransactions];
+  }
+  return null;
+}
+
+function ensureMockMaintenanceExpense(item: MaintenanceRecord): void {
+  if (!item.actualCost || item.actualCost <= 0 || expenses.some((expense) => expense.sourceType === 'MAINTENANCE' && expense.sourceId === item.id)) return;
+  const expense = makeMockExpense({
+    id: `mock-expense-maintenance-${item.id}`, code: nextExpenseCode(), expenseDate: item.completedAt || now(),
+    categoryCode: 'MAINTENANCE_REPAIR', title: `Chi phí ${item.title}`, description: item.resultNote,
+    vendorName: null, invoiceNumber: null, fundingSource: 'CENTER', status: 'APPROVED', paymentStatus: 'UNPAID',
+    paymentMethod: null, paymentDate: null, sourceType: 'MAINTENANCE', sourceId: item.id,
+    items: [{ description: item.title, quantity: 1, unit: 'lần', unitPrice: item.actualCost, discountAmount: 0, taxAmount: 0, targetType: 'MAINTENANCE', targetId: item.id, note: item.partsNote }],
+  });
+  expenses = [expense, ...expenses];
+  auditLogs = [createMockAudit('EXPENSE_CREATED_FROM_MAINTENANCE', 'Expense', expense.id, null, expense), ...auditLogs];
 }
 
 function createMockAudit(action: string, entityName: string, entityId: string | null, oldValue: unknown, newValue: unknown): AuditLogRecord {

@@ -2,6 +2,7 @@ import type { Row, Worksheet } from 'exceljs';
 import type { LabUsageStatistics } from '@/services/booking-api';
 import type { ComputerData, ComputerSummary, ComputerStatus } from '@/services/computer-api';
 import type { EquipmentData } from '@/services/equipment-api';
+import type { ExpenseSummary } from '@/services/expense-api';
 import { COMPUTER_STATUS_THEME } from '@/features/computers/computer-status-theme';
 
 type ReportWorkbookPayload = {
@@ -9,6 +10,7 @@ type ReportWorkbookPayload = {
   computers: ComputerData[];
   equipment: EquipmentData[];
   usage: LabUsageStatistics;
+  expenseSummary?: ExpenseSummary;
 };
 
 const COLORS = {
@@ -114,7 +116,7 @@ function applySheetDefaults(sheet: Worksheet, orientation: 'landscape' | 'portra
   sheet.headerFooter.oddFooter = 'LHU IT LAB · Trang &P / &N';
 }
 
-export async function buildReportWorkbook({ summary, computers, equipment, usage }: ReportWorkbookPayload) {
+export async function buildReportWorkbook({ summary, computers, equipment, usage, expenseSummary }: ReportWorkbookPayload) {
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'LHU IT LAB';
@@ -226,6 +228,38 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
   overview.getCell('A25').fill = solidFill(COLORS.lightBlue);
   overview.getCell('A25').alignment = { vertical: 'middle', wrapText: true };
   overview.getRow(25).height = 28;
+
+  if (expenseSummary) {
+    const expenseSheet = workbook.addWorksheet('Chi phí', { properties: { tabColor: { argb: COLORS.amber } } });
+    applySheetDefaults(expenseSheet, 'portrait');
+    expenseSheet.columns = [{ width: 34 }, { width: 18 }, { width: 18 }];
+    styleTitle(expenseSheet, 1, `TỔNG HỢP CHI PHÍ THÁNG ${usage.month}`, 3);
+    expenseSheet.getRow(3).values = ['Chỉ tiêu', 'Giá trị', 'Ghi chú'];
+    styleHeader(expenseSheet.getRow(3));
+    const metrics: Array<[string, number, string]> = [
+      ['Tổng chi đã duyệt', expenseSummary.totalSpending, `${expenseSummary.count} phiếu`],
+      ['Chi phí đầu tư (CAPEX)', expenseSummary.capex, 'Mua sắm tài sản dài hạn'],
+      ['Chi phí vận hành (OPEX)', expenseSummary.opex, 'Chi phí hoạt động thường xuyên'],
+      ['Đã thanh toán', expenseSummary.paid, 'Khoản đã xác nhận chi tiền'],
+      ['Chưa thanh toán', expenseSummary.outstanding, 'Phiếu đã duyệt còn công nợ'],
+    ];
+    metrics.forEach(([label, value, note]) => {
+      const row = expenseSheet.addRow([label, value, note]);
+      row.getCell(2).numFmt = '#,##0 [$₫-vi-VN]';
+    });
+    styleDataRange(expenseSheet, 4, 8, 3);
+    styleSection(expenseSheet, 10, 1, 3, 'CHI PHÍ THEO DANH MỤC');
+    expenseSheet.getRow(11).values = ['Danh mục', 'Phân loại', 'Số tiền'];
+    styleHeader(expenseSheet.getRow(11));
+    expenseSummary.byCategory.forEach((item) => {
+      const row = expenseSheet.addRow([item.categoryName, item.expenseClass, item.amount]);
+      row.getCell(3).numFmt = '#,##0 [$₫-vi-VN]';
+    });
+    const expenseLastRow = Math.max(12, expenseSheet.rowCount);
+    if (!expenseSummary.byCategory.length) expenseSheet.getCell('A12').value = 'Chưa có chi phí đã duyệt trong kỳ.';
+    styleDataRange(expenseSheet, 12, expenseLastRow, 3);
+    expenseSheet.views = [{ state: 'frozen', ySplit: 3 }];
+  }
 
   const equipmentSheet = workbook.addWorksheet('Thiết bị', { properties: { tabColor: { argb: 'FF14B8A6' } } });
   applySheetDefaults(equipmentSheet);

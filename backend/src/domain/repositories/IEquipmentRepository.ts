@@ -9,7 +9,7 @@ export interface EquipmentFilter {
 }
 
 export interface IEquipmentRepository {
-  findById(id: string): Promise<Equipment | null>;
+  findById(id: string, transaction?: any): Promise<Equipment | null>;
   findByCode(code: string): Promise<Equipment | null>;
   list(filter: EquipmentFilter): Promise<{ data: Equipment[]; total: number }>;
   save(equipment: Equipment, transaction?: any): Promise<void>;

@@ -100,3 +100,11 @@ Module `/maintenance` quản lý bảo trì phòng Lab, máy tính và thiết b
 Trạng thái `MAINTENANCE` của máy tính chỉ được điều khiển từ thao tác bắt đầu/hoàn tất lịch bảo trì. Khi hoàn tất, hệ thống lưu lại ngày bảo trì làm mốc cho chu kỳ 270 ngày tiếp theo. Trạng thái tài sản và số lượng tồn kho liên quan được cập nhật trong cùng transaction; mọi thao tác đều được ghi audit log.
 
 Các API chính nằm dưới `/api/maintenances`, gồm danh sách, thống kê, dữ liệu lựa chọn, chi tiết, tạo/cập nhật/xóa lịch và các hành động `start`, `complete`, `cancel`. Chạy `npm run db:migrate --workspace backend` để tạo bảng `MaintenanceSchedules` và bảy quyền `MAINTENANCE_*` trên cơ sở dữ liệu mới.
+
+---
+
+## 8. Module chi phí phòng Lab
+
+Module `/expenses` quản lý chi phí đầu tư (CAPEX) và vận hành (OPEX), gồm phiếu nhiều dòng chi tiết, danh mục, nguồn kinh phí, duyệt, từ chối, thanh toán, hủy, audit log, biểu đồ và xuất Excel.
+
+Chi phí thực tế khi hoàn tất bảo trì được tự động ghi vào sổ chi phí đúng một lần. Phiếu mua thiết bị có thể đồng thời ghi tăng tồn kho khi xác nhận thanh toán. Xem [docs/20-expense-management.md](docs/20-expense-management.md) để biết API, phân quyền và yêu cầu migration.
