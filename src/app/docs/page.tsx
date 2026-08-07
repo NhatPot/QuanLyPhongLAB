@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, BookOpen, Download, ShieldCheck } from 'lucide-react';
 import { PermissionGate } from '@/components/auth/permission-gate';
+import { apiClient } from '@/services/api-client';
 
 export default function SwaggerDocsPage() {
   return (
@@ -11,6 +12,20 @@ export default function SwaggerDocsPage() {
       <SwaggerDocsContent />
     </PermissionGate>
   );
+}
+
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const authHeader = (apiClient.defaults.headers.common.Authorization as string) || '';
+  if (authHeader.startsWith('Bearer ')) return authHeader.substring(7);
+
+  const localToken = localStorage.getItem('accessToken');
+  if (localToken) return localToken;
+
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; accessToken=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
 }
 
 function SwaggerDocsContent() {
@@ -41,6 +56,13 @@ function SwaggerDocsContent() {
           filter: true,
           defaultModelsExpandDepth: 1,
           defaultModelExpandDepth: 1,
+          requestInterceptor: (req: any) => {
+            const token = getAuthToken();
+            if (token) {
+              req.headers.Authorization = `Bearer ${token}`;
+            }
+            return req;
+          },
         });
       }
     };
@@ -98,7 +120,7 @@ function SwaggerDocsContent() {
           <div className="flex items-center gap-2 text-slate-300">
             <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
             <span>
-              Khu vực quản trị API hệ thống. Hỗ trợ kiểm thử trực tiếp bằng nút <strong>Authorize</strong> (Nhập JWT Access Token hoặc dùng Cookie phiên).
+              Khu vực quản trị API hệ thống. Hỗ trợ kiểm thử trực tiếp bằng nút <strong>Authorize</strong> (Tự động đính kèm token phiên Admin hiện tại).
             </span>
           </div>
           <div className="flex items-center gap-4 text-slate-400 text-[11px]">

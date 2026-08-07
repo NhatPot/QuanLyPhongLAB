@@ -53,6 +53,13 @@ export class AuthController {
 
       const { accessToken, refreshToken, mustChangePassword } = result.getValue();
 
+      res.cookie('accessToken', accessToken, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000
+      });
+
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -90,6 +97,13 @@ export class AuthController {
 
       const { accessToken, refreshToken: newRefreshToken } = result.getValue();
 
+      res.cookie('accessToken', accessToken, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000
+      });
+
       res.cookie('refreshToken', newRefreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -112,6 +126,7 @@ export class AuthController {
         await container.logoutUseCase.execute({ refreshToken });
       }
 
+      res.clearCookie('accessToken');
       res.clearCookie('refreshToken');
       res.status(200).json(ApiResponse.success(null, "Đăng xuất thành công."));
     } catch (error) {
