@@ -3,7 +3,7 @@ import path from 'path';
 import mssql from 'mssql';
 import dotenv from 'dotenv';
 
-dotenv.config({ path: path.join(__dirname, '../../backend/.env') });
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const dbConfig: mssql.config = {
   user: process.env.DB_USER || 'sa',
@@ -121,7 +121,7 @@ async function run() {
         try {
           await pool.request().batch(downSql);
         } catch (err) {
-          console.warn(`[Migration] Warning while rolling back ${file}:`, err.message);
+          console.warn(`[Migration] Warning while rolling back ${file}:`, (err as any).message);
         }
       }
       await pool.request().query('DROP TABLE IF EXISTS _MigrationHistory');

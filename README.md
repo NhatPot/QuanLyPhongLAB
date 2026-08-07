@@ -1,6 +1,6 @@
 # LHU IT LAB — Website Quản Lý Phòng Lab CNTT
 
-Dự án Website Quản Lý một Phòng Lab Công nghệ thông tin duy nhất cho Khoa/Trường, được xây dựng theo kiến trúc **Clean Architecture** sử dụng NodeJS + Express + SQL Server ở Backend, và React + Vite + Tailwind CSS ở Frontend.
+Dự án Website Quản Lý một Phòng Lab Công nghệ thông tin duy nhất cho Khoa/Trường, được xây dựng theo kiến trúc **Unified Fullstack Next.js** (Next.js App Router + Clean Architecture + SQL Server).
 
 ---
 
@@ -14,15 +14,14 @@ Dự án Website Quản Lý một Phòng Lab Công nghệ thông tin duy nhất 
 
 ## 2. Cài Đặt Ban Đầu
 
-Dự án sử dụng cơ chế **NPM Workspaces** để quản lý đồng thời Backend và Frontend trong một Repository duy nhất.
+Ứng dụng chạy trực tiếp ở thư mục gốc (root) dự án:
 
 1. Clone mã nguồn dự án.
 2. Sao chép và cấu hình file môi trường:
    ```bash
-   cp backend/.env.example backend/.env
-   cp frontend/.env.example frontend/.env
+   cp .env.example .env
    ```
-3. Cài đặt toàn bộ dependencies cho cả hai workspace từ thư mục root:
+3. Cài đặt dependencies từ thư mục root:
    ```bash
    npm install
    ```
@@ -41,7 +40,13 @@ docker compose up -d
 ### Cách 2: Sử dụng SQL Server Cài Local
 * Đảm bảo SQL Server đang hoạt động trên cổng `1433`.
 * Tạo mới cơ sở dữ liệu có tên là `ItLabManagerDb`.
-* Điều chỉnh các thông số kết nối trong tệp `backend/.env`.
+* Điều chỉnh các thông số kết nối trong tệp `.env`.
+
+### Migration & Seeding Data:
+```bash
+npm run db:migrate
+npm run db:seed
+```
 
 ---
 
@@ -50,14 +55,9 @@ docker compose up -d
 Tất cả các lệnh dưới đây đều được chạy từ thư mục gốc (root) của dự án:
 
 * **Chạy môi trường phát triển (Development)**:
-  * Backend: `npm run dev:backend`
-  * Frontend: `npm run dev:frontend`
+  * `npm run dev` (Truy cập ứng dụng tại `http://localhost:3000`)
 * **Kiểm tra kiểu dữ liệu (TypeScript Type Check)**:
   * `npm run typecheck`
-* **Kiểm tra cú pháp code (Linting)**:
-  * `npm run lint`
-* **Chạy kiểm thử (Testing)**:
-  * `npm run test`
 * **Định dạng code (Formatter)**:
   * `npm run format`
 * **Biên dịch sản phẩm (Build Production)**:
@@ -65,46 +65,28 @@ Tất cả các lệnh dưới đây đều được chạy từ thư mục gố
 
 ---
 
-## 5. Kiến Trúc Backend
+## 5. Kiến Trúc Ứng Dụng (Unified Fullstack Next.js)
 
-Ứng dụng Backend tuân thủ nghiêm ngặt **Clean Architecture** gồm 4 lớp chính:
-1. **Domain Layer**: Thực thể nghiệp vụ (`Entities`), các đối tượng giá trị (`Value Objects`) và các giao diện lưu trữ (`Repositories`).
-2. **Application Layer**: Điều phối luồng nghiệp vụ cụ thể (`Use Cases`), cấu trúc truyền tải (`DTOs`) và cổng dịch vụ ngoại vi (`Ports`).
-3. **Infrastructure Layer**: Triển khai công nghệ chi tiết (kết nối SQL Server, Logger, Auth, Services...).
-4. **Presentation Layer**: Nhận yêu cầu mạng và trả kết quả (Express Controllers, Routes, Middlewares).
-
-Dòng phụ thuộc một chiều hướng vào lõi: `Presentation -> Application -> Domain` và `Infrastructure -> Application/Domain`.
----
-
-## 6. Frontend mock data mode
-
-SQL mode remains the default. To run the frontend without calling the backend or SQL Server:
-
-```powershell
-Copy-Item frontend/.env.example frontend/.env.local
-npm run dev:frontend
-```
-
-Trước khi chạy, mở `frontend/.env.local` và đổi `NEXT_PUBLIC_DATA_MODE=sql` thành `NEXT_PUBLIC_DATA_MODE=mock`.
-
-The mock login is `admin` / `admin123`. Mock users, roles, permissions, audit logs, computers, equipment, lab profile, bookings and maintenance schedules are kept in browser memory and reset after a full reload or restart. The dashboard shows an amber `Mock data` banner while this mode is active.
-
-To return to SQL Server mode, set `NEXT_PUBLIC_DATA_MODE=sql` (or remove it) in `frontend/.env.local` and restart Next.js.
+Hệ thống được thiết kế theo kiến trúc **Clean Architecture** được tích hợp trực tiếp vào **Next.js App Router Route Handlers**:
+1. **Domain Layer (`src/server/domain`)**: Thực thể nghiệp vụ (`Entities`), các đối tượng giá trị (`Value Objects`) và các giao diện lưu trữ (`Repositories`).
+2. **Application Layer (`src/server/application`)**: Điều phối luồng nghiệp vụ cụ thể (`Use Cases`), cấu trúc truyền tải (`DTOs`) và cổng dịch vụ ngoại vi (`Ports`).
+3. **Infrastructure Layer (`src/server/infrastructure`)**: Triển khai công nghệ chi tiết (kết nối SQL Server, Logger, Auth, Services...).
+4. **API Route Handlers (`src/app/api/...`)**: Nhận HTTP request từ Next.js App Router và xử lý thông qua Container use-cases.
 
 ---
 
-## 7. Module bảo trì tài sản
+## 6. Frontend Mock Data Mode
 
-Module `/maintenance` quản lý bảo trì phòng Lab, máy tính và thiết bị theo vòng đời `PENDING -> SCHEDULED -> IN_PROGRESS -> COMPLETED`, đồng thời hỗ trợ hủy lịch chưa bắt đầu. Máy tính chuyển sang `BROKEN` sẽ tự sinh đề xuất `PENDING`; máy đã ở `MAINTENANCE` được liên kết với hồ sơ đang thực hiện; máy quá 270 ngày kể từ lần bảo trì gần nhất (hoặc ngày tạo nếu chưa từng bảo trì) được nhắc xếp lịch. Cơ chế đồng bộ chống tạo trùng hồ sơ đang mở.
+Mặc định ứng dụng sẽ sử dụng SQL Server. Nếu muốn chạy giao diện thử nghiệm độc lập mà không cần kết nối SQL Server:
 
-Trạng thái `MAINTENANCE` của máy tính chỉ được điều khiển từ thao tác bắt đầu/hoàn tất lịch bảo trì. Khi hoàn tất, hệ thống lưu lại ngày bảo trì làm mốc cho chu kỳ 270 ngày tiếp theo. Trạng thái tài sản và số lượng tồn kho liên quan được cập nhật trong cùng transaction; mọi thao tác đều được ghi audit log.
+1. Mở `.env` và đổi `NEXT_PUBLIC_DATA_MODE=sql` thành `NEXT_PUBLIC_DATA_MODE=mock`.
+2. Khởi chạy `npm run dev`.
 
-Các API chính nằm dưới `/api/maintenances`, gồm danh sách, thống kê, dữ liệu lựa chọn, chi tiết, tạo/cập nhật/xóa lịch và các hành động `start`, `complete`, `cancel`. Chạy `npm run db:migrate --workspace backend` để tạo bảng `MaintenanceSchedules` và bảy quyền `MAINTENANCE_*` trên cơ sở dữ liệu mới.
+Tài khoản mock mặc định: `admin` / `admin123`.
 
 ---
 
-## 8. Module chi phí phòng Lab
+## 7. Module Bảo Trì & Chi Phí
 
-Module `/expenses` quản lý chi phí đầu tư (CAPEX) và vận hành (OPEX), gồm phiếu nhiều dòng chi tiết, danh mục, nguồn kinh phí, duyệt, từ chối, thanh toán, hủy, audit log, biểu đồ và xuất Excel.
-
-Chi phí thực tế khi hoàn tất bảo trì được tự động ghi vào sổ chi phí đúng một lần. Phiếu mua thiết bị có thể đồng thời ghi tăng tồn kho khi xác nhận thanh toán. Xem [docs/20-expense-management.md](docs/20-expense-management.md) để biết API, phân quyền và yêu cầu migration.
+- `/maintenance`: Quản lý bảo trì phòng Lab, máy tính và thiết bị theo vòng đời `PENDING -> SCHEDULED -> IN_PROGRESS -> COMPLETED`.
+- `/expenses`: Quản lý chi phí đầu tư (CAPEX) và vận hành (OPEX), phiếu chi tiết, duyệt, thanh toán, audit log, biểu đồ và xuất Excel.
