@@ -1,5 +1,6 @@
 import { Entity } from './Entity';
 import { UniqueEntityId } from '../value-objects/UniqueEntityId';
+import { isValidMacAddress, normalizeMacAddress } from '../../shared/utils/deviceIdentity';
 
 export type ComputerStatus = 'ACTIVE' | 'IN_USE' | 'BROKEN' | 'MAINTENANCE' | 'LOCKED' | 'INACTIVE';
 
@@ -43,7 +44,7 @@ export class Computer extends Entity<ComputerProps> {
     }
     
     if (props.macAddress) {
-      props.macAddress = props.macAddress.toUpperCase().replace(/[-:]/g, '');
+      props.macAddress = normalizeMacAddress(props.macAddress);
     }
 
     return new Computer(props, id);
@@ -90,8 +91,8 @@ export class Computer extends Entity<ComputerProps> {
     this.props.operatingSystem = info.operatingSystem !== undefined ? info.operatingSystem : this.props.operatingSystem;
     this.props.installedSoftware = info.installedSoftware !== undefined ? info.installedSoftware : this.props.installedSoftware;
     this.props.ipAddress = info.ipAddress !== undefined ? info.ipAddress : this.props.ipAddress;
-    this.props.macAddress = info.macAddress !== undefined 
-      ? (info.macAddress ? info.macAddress.toUpperCase().replace(/[-:]/g, '') : undefined) 
+    this.props.macAddress = info.macAddress !== undefined
+      ? (info.macAddress ? normalizeMacAddress(info.macAddress) : undefined)
       : this.props.macAddress;
     this.props.position = info.position !== undefined ? info.position : this.props.position;
     this.props.status = info.status ?? this.props.status;
@@ -131,7 +132,6 @@ export class Computer extends Entity<ComputerProps> {
   }
 
   private static isValidMac(mac: string): boolean {
-    const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$|^([0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$|^[0-9A-Fa-f]{12}$/;
-    return macRegex.test(mac);
+    return isValidMacAddress(mac);
   }
 }

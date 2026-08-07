@@ -72,7 +72,7 @@ export function createExpressApp(): Express {
   app.use('/api/maintenances', createMaintenanceRouter(container.maintenanceController));
   app.use('/api/incidents', createIncidentRouter(container.incidentController));
   app.use('/api/expenses', createExpenseRouter(container.expenseController));
-  app.use('/api/devices', createDeviceRouter(container.deviceController));
+  app.use('/api/devices', createDeviceRouter(container.deviceController, container.deviceAgentRepo));
   // 404 handler
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.status(404).json(

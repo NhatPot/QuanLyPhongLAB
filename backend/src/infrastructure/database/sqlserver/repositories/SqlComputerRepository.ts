@@ -2,6 +2,7 @@ import mssql from 'mssql';
 import { IComputerRepository, ComputerFilter } from '../../../../domain/repositories/IComputerRepository';
 import { Computer } from '../../../../domain/entities/Computer';
 import { UniqueEntityId } from '../../../../domain/value-objects/UniqueEntityId';
+import { normalizeMacAddress } from '../../../../shared/utils/deviceIdentity';
 import { SqlConnectionFactory } from '../connection';
 
 export class SqlComputerRepository implements IComputerRepository {
@@ -36,7 +37,7 @@ export class SqlComputerRepository implements IComputerRepository {
   public async findByMacAddress(macAddress: string): Promise<Computer | null> {
     const pool = await SqlConnectionFactory.getPool();
     const result = await pool.request()
-      .input('macAddress', mssql.NVarChar, macAddress.trim())
+      .input('macAddress', mssql.NVarChar, normalizeMacAddress(macAddress))
       .query('SELECT * FROM Computers WHERE MacAddress = @macAddress AND DeletedAt IS NULL');
 
     if (result.recordset.length === 0) {

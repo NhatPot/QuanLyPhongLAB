@@ -20,6 +20,7 @@ import { IMaintenanceScheduleRepository } from '../domain/repositories/IMaintena
 import { IComputerActivityRepository } from '../domain/repositories/IComputerActivityRepository';
 import { IIncidentReportRepository } from '../domain/repositories/IIncidentReportRepository';
 import { IExpenseRepository } from '../domain/repositories/IExpenseRepository';
+import { IDeviceAgentRepository } from '../domain/repositories/IDeviceAgentRepository';
 
 import { SqlUserRepository } from '../infrastructure/database/sqlserver/repositories/SqlUserRepository';
 import { SqlAuthSessionRepository } from '../infrastructure/database/sqlserver/repositories/SqlAuthSessionRepository';
@@ -40,6 +41,7 @@ import { SqlMaintenanceScheduleRepository } from '../infrastructure/database/sql
 import { SqlComputerActivityRepository } from '../infrastructure/database/sqlserver/repositories/SqlComputerActivityRepository';
 import { SqlIncidentReportRepository } from '../infrastructure/database/sqlserver/repositories/SqlIncidentReportRepository';
 import { SqlExpenseRepository } from '../infrastructure/database/sqlserver/repositories/SqlExpenseRepository';
+import { SqlDeviceAgentRepository } from '../infrastructure/database/sqlserver/repositories/SqlDeviceAgentRepository';
 
 import { GetHealthUseCase } from '../application/use-cases/GetHealthUseCase';
 import { LoginUseCase } from '../application/use-cases/auth/LoginUseCase';
@@ -162,6 +164,7 @@ import { ExpenseController } from '../presentation/http/controllers/ExpenseContr
 import { RegisterDeviceUseCase } from '../application/use-cases/device/RegisterDeviceUseCase';
 import { UpdateDeviceMetricsUseCase } from '../application/use-cases/device/UpdateDeviceMetricsUseCase';
 import { ReportHardwareChangeUseCase } from '../application/use-cases/device/ReportHardwareChangeUseCase';
+import { GetAllDeviceMetricsUseCase } from '../application/use-cases/device/GetAllDeviceMetricsUseCase';
 import { DeviceController } from '../presentation/http/controllers/DeviceController';
 
 import { ILabProfileRepository } from '../domain/repositories/ILabProfileRepository';
@@ -200,6 +203,7 @@ class DependencyContainer {
   public readonly computerActivityRepo: IComputerActivityRepository;
   public readonly incidentRepo: IIncidentReportRepository;
   public readonly expenseRepo: IExpenseRepository;
+  public readonly deviceAgentRepo: IDeviceAgentRepository;
   public readonly maintenanceProposalService: ComputerMaintenanceProposalService;
 
   // Controllers
@@ -316,6 +320,7 @@ class DependencyContainer {
   public readonly registerDeviceUseCase: RegisterDeviceUseCase;
   public readonly updateDeviceMetricsUseCase: UpdateDeviceMetricsUseCase;
   public readonly reportHardwareChangeUseCase: ReportHardwareChangeUseCase;
+  public readonly getAllDeviceMetricsUseCase: GetAllDeviceMetricsUseCase;
 
   constructor() {
     this.clock = new SystemClock();
@@ -343,6 +348,7 @@ class DependencyContainer {
     this.computerActivityRepo = new SqlComputerActivityRepository();
     this.incidentRepo = new SqlIncidentReportRepository();
     this.expenseRepo = new SqlExpenseRepository();
+    this.deviceAgentRepo = new SqlDeviceAgentRepository();
     this.maintenanceProposalService = new ComputerMaintenanceProposalService(
       this.maintenanceRepo,
       this.idGenerator,
@@ -671,13 +677,15 @@ class DependencyContainer {
       this.updateExpenseCategoryUseCase,
     );
 
-    this.registerDeviceUseCase = new RegisterDeviceUseCase(this.computerRepo, this.uow);
-    this.updateDeviceMetricsUseCase = new UpdateDeviceMetricsUseCase(this.computerRepo, this.uow);
+    this.registerDeviceUseCase = new RegisterDeviceUseCase(this.computerRepo, this.deviceAgentRepo, this.uow);
+    this.updateDeviceMetricsUseCase = new UpdateDeviceMetricsUseCase(this.computerRepo, this.deviceAgentRepo, this.uow);
     this.reportHardwareChangeUseCase = new ReportHardwareChangeUseCase(this.computerRepo, this.incidentRepo, this.uow);
+    this.getAllDeviceMetricsUseCase = new GetAllDeviceMetricsUseCase(this.deviceAgentRepo);
     this.deviceController = new DeviceController(
       this.registerDeviceUseCase,
       this.updateDeviceMetricsUseCase,
-      this.reportHardwareChangeUseCase
+      this.reportHardwareChangeUseCase,
+      this.getAllDeviceMetricsUseCase,
     );
   }
 }

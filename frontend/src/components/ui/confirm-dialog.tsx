@@ -45,10 +45,12 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="max-w-md"
-        onEscapeKeyDown={(event: React.SyntheticEvent) => {
+        onEscapeKeyDown={(event: KeyboardEvent) => {
           if (pending) event.preventDefault();
         }}
-        onPointerDownOutside={(event: React.SyntheticEvent) => {
+        onPointerDownOutside={(
+          event: CustomEvent<{ originalEvent: PointerEvent }>,
+        ) => {
           if (pending) event.preventDefault();
         }}
       >

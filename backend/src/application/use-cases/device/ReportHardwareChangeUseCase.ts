@@ -1,73 +1,67 @@
-import { Result } from '../../../shared/result/Result';
+import crypto from 'crypto';
+import { IncidentReport } from '../../../domain/entities/IncidentReport';
 import { IComputerRepository } from '../../../domain/repositories/IComputerRepository';
 import { IIncidentReportRepository } from '../../../domain/repositories/IIncidentReportRepository';
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
-import { IncidentReport } from '../../../domain/entities/IncidentReport';
+import { Result } from '../../../shared/result/Result';
+import { normalizeMacAddress } from '../../../shared/utils/deviceIdentity';
+
+const SYSTEM_DEVICE_REPORTER_ID = '00000000-0000-0000-0000-000000000000';
 
 export interface ReportHardwareChangeInput {
-  device_id: string; // The UUID of the computer in our DB
-  alert_type: string;
+  device_id: string;
+  alert_type: 'HARDWARE_CHANGED';
   timestamp?: string;
-  changes?: Array<{ field: string; old: any; new: any }>;
-  previous_hardware?: any;
-  current_hardware?: any;
+  changes?: Array<{ field: string; old: unknown; new: unknown }>;
+  previous_hardware?: unknown;
+  current_hardware?: unknown;
+}
+
+export interface ReportHardwareChangeOutput {
+  alert_time: string;
 }
 
 export class ReportHardwareChangeUseCase {
   constructor(
     private computerRepo: IComputerRepository,
     private incidentRepo: IIncidentReportRepository,
-    private uow: IUnitOfWork
+    private uow: IUnitOfWork,
   ) {}
 
-  public async execute(input: ReportHardwareChangeInput): Promise<Result<void>> {
+  public async execute(input: ReportHardwareChangeInput): Promise<Result<ReportHardwareChangeOutput>> {
     try {
-      let computer = await this.computerRepo.findByMacAddress(input.device_id);
-      
-      if (!computer && input.device_id.length === 36) {
-        computer = await this.computerRepo.findById(input.device_id);
-      }
-
+      const deviceId = normalizeMacAddress(input.device_id);
+      const computer = await this.computerRepo.findByMacAddress(deviceId);
       if (!computer) {
-        return Result.fail(`Không tìm thấy thiết bị có ID '${input.device_id}'.`);
+        return Result.fail(`Không tìm thấy thiết bị có MAC '${input.device_id}'.`);
       }
 
-      // Generate a description from changes
       let description = `Hệ thống phát hiện thay đổi phần cứng trên máy tính ${computer.code}.\n`;
-      if (input.changes && input.changes.length > 0) {
+      if (input.changes?.length) {
         description += 'Các thay đổi:\n';
-        input.changes.forEach(change => {
+        for (const change of input.changes) {
           description += `- ${change.field}: ${JSON.stringify(change.old)} -> ${JSON.stringify(change.new)}\n`;
-        });
+        }
       } else {
         description += 'Không có chi tiết thay đổi cụ thể được cung cấp.\n';
       }
 
-      // Auto-generated incident code
-      const incidentCode = `INC-HW-${Date.now().toString().slice(-6)}`;
-
+      const incidentCode = `INC-HW-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
       const incident = IncidentReport.create({
         code: incidentCode,
-        // Using SYSTEM user id (assuming null or a specific UUID is acceptable, 
-        // we might need a generic SYSTEM user id. For now, use the computer ID as reporter or a constant system UUID.
-        // Wait, reporterId is string, we'll use "SYSTEM" or a dummy UUID.)
-        reporterId: '00000000-0000-0000-0000-000000000000', // SYSTEM ID
+        reporterId: SYSTEM_DEVICE_REPORTER_ID,
         computerId: computer.id.toString(),
         title: `[CẢNH BÁO] Thay đổi phần cứng máy ${computer.code}`,
         description,
         severity: 'HIGH',
-        status: 'OPEN'
+        status: 'OPEN',
       });
 
       await this.uow.complete(async () => {
-        const transaction = this.uow.getTransaction();
-        await this.incidentRepo.save(incident, transaction);
-        
-        // Maybe also lock the computer or set status to BROKEN?
-        // Let's keep it simple and just create an incident for now, as requested.
+        await this.incidentRepo.save(incident, this.uow.getTransaction());
       });
 
-      return Result.ok(undefined);
+      return Result.ok({ alert_time: input.timestamp || new Date().toISOString() });
     } catch (error: any) {
       return Result.fail(error.message || 'Lỗi khi báo cáo thay đổi phần cứng.');
     }

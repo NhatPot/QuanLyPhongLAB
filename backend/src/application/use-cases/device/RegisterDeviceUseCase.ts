@@ -1,11 +1,16 @@
-import { Result } from '../../../shared/result/Result';
-import { IComputerRepository } from '../../../domain/repositories/IComputerRepository';
-import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { Computer } from '../../../domain/entities/Computer';
-import crypto from 'crypto';
+import { IComputerRepository } from '../../../domain/repositories/IComputerRepository';
+import { IDeviceAgentRepository } from '../../../domain/repositories/IDeviceAgentRepository';
+import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
+import { Result } from '../../../shared/result/Result';
+import {
+  generateDeviceApiKey,
+  hashDeviceApiKey,
+  normalizeMacAddress,
+} from '../../../shared/utils/deviceIdentity';
 
 export interface RegisterDeviceInput {
-  device_id: string; // The MAC address or unique ID sent by the agent
+  device_id: string;
   hostname: string;
   os?: string;
   os_version?: string;
@@ -23,62 +28,66 @@ export interface RegisterDeviceInput {
 export class RegisterDeviceUseCase {
   constructor(
     private computerRepo: IComputerRepository,
-    private uow: IUnitOfWork
+    private deviceAgentRepo: IDeviceAgentRepository,
+    private uow: IUnitOfWork,
   ) {}
 
   public async execute(input: RegisterDeviceInput): Promise<Result<{ device_id: string; api_key: string }>> {
     try {
-      // Find computer by mac address
-      let computer = await this.computerRepo.findByMacAddress(input.mac_address);
-      
-      // If not found, find by hostname as fallback (or code)
+      const deviceId = normalizeMacAddress(input.device_id);
+      const macAddress = normalizeMacAddress(input.mac_address);
+      if (deviceId !== macAddress) {
+        return Result.fail('device_id và mac_address phải cùng xác định một thiết bị.');
+      }
+
+      let computer = await this.computerRepo.findByMacAddress(macAddress);
       if (!computer) {
         computer = await this.computerRepo.findByCode(input.hostname);
       }
 
+      const apiKey = generateDeviceApiKey();
+      const registeredAt = input.registered_at ? new Date(input.registered_at) : new Date();
+
       await this.uow.complete(async () => {
         const transaction = this.uow.getTransaction();
-        
+
         if (!computer) {
-          // Auto-create computer as INACTIVE if it doesn't exist
           computer = Computer.create({
-            code: input.hostname,
-            name: input.hostname,
+            code: input.hostname.trim(),
+            name: input.hostname.trim(),
             cpu: input.cpu_model,
             ram: input.total_ram_gb ? `${input.total_ram_gb}GB` : undefined,
             operatingSystem: input.os ? `${input.os} ${input.os_version || ''}`.trim() : undefined,
-            macAddress: input.mac_address,
+            macAddress,
             ipAddress: input.ip_address,
             status: 'INACTIVE',
-            note: 'Tự động đăng ký qua Agent.'
+            note: 'Tự động đăng ký qua Agent.',
           });
         } else {
-          // Update existing computer with latest specs
           computer.updateInformation({
             cpu: input.cpu_model,
             ram: input.total_ram_gb ? `${input.total_ram_gb}GB` : undefined,
             operatingSystem: input.os ? `${input.os} ${input.os_version || ''}`.trim() : undefined,
-            macAddress: input.mac_address,
-            ipAddress: input.ip_address
+            macAddress,
+            ipAddress: input.ip_address,
           });
         }
 
         await this.computerRepo.save(computer, transaction);
+        await this.deviceAgentRepo.upsertRegistration({
+          computerId: computer.id.toString(),
+          deviceId,
+          apiKeyHash: hashDeviceApiKey(apiKey),
+          hostname: input.hostname,
+          agentUuid: input.uuid,
+          platform: input.platform,
+          architecture: input.arch,
+          cpuCores: input.cpu_cores,
+          registeredAt,
+        }, transaction);
       });
 
-      if (!computer) {
-        return Result.fail('Không thể tạo hoặc lấy thông tin máy tính.');
-      }
-
-      // Generate a persistent or temporary API key
-      // For this project, we can just return a fixed prefix + computer id to validate later
-      const apiKey = `sk_live_${computer.id.toString()}`;
-      
-      return Result.ok({
-        device_id: input.mac_address,
-        api_key: apiKey
-      });
-
+      return Result.ok({ device_id: input.device_id.trim(), api_key: apiKey });
     } catch (error: any) {
       return Result.fail(error.message || 'Lỗi khi đăng ký thiết bị.');
     }
