@@ -236,6 +236,7 @@ export class SqlUserRepository implements IUserRepository {
       .input('status', mssql.NVarChar, raw.Status)
       .input('mustChangePassword', mssql.Bit, raw.MustChangePassword)
       .input('lastLoginAt', mssql.DateTime2, raw.LastLoginAt)
+      .input('deletedAt', mssql.DateTime2, raw.DeletedAt)
       .input('updatedAt', mssql.DateTime2, raw.UpdatedAt)
       .query(`
         MERGE INTO Users AS target
@@ -255,10 +256,11 @@ export class SqlUserRepository implements IUserRepository {
             Status = @status,
             MustChangePassword = @mustChangePassword,
             LastLoginAt = @lastLoginAt,
+            DeletedAt = @deletedAt,
             UpdatedAt = @updatedAt
         WHEN NOT MATCHED THEN
-          INSERT (Id, FullName, Email, EmailNormalized, Username, UsernameNormalized, Phone, AvatarUrl, PasswordHash, Department, Status, MustChangePassword, LastLoginAt)
-          VALUES (@id, @fullName, @email, @emailNorm, @username, @usernameNorm, @phone, @avatarUrl, @passwordHash, @department, @status, @mustChangePassword, @lastLoginAt);
+          INSERT (Id, FullName, Email, EmailNormalized, Username, UsernameNormalized, Phone, AvatarUrl, PasswordHash, Department, Status, MustChangePassword, LastLoginAt, DeletedAt)
+          VALUES (@id, @fullName, @email, @emailNorm, @username, @usernameNorm, @phone, @avatarUrl, @passwordHash, @department, @status, @mustChangePassword, @lastLoginAt, @deletedAt);
       `);
   }
 
@@ -276,6 +278,7 @@ export class SqlUserRepository implements IUserRepository {
       lastLoginAt: raw.LastLoginAt || undefined,
       createdAt: raw.CreatedAt,
       updatedAt: raw.UpdatedAt,
+      deletedAt: raw.DeletedAt || undefined,
     }, new UniqueEntityId(raw.Id));
   }
 
@@ -294,6 +297,7 @@ export class SqlUserRepository implements IUserRepository {
       Status: user.status,
       MustChangePassword: user.mustChangePassword ? 1 : 0,
       LastLoginAt: user.lastLoginAt || null,
+      DeletedAt: user.deletedAt || null,
       UpdatedAt: new Date()
     };
   }

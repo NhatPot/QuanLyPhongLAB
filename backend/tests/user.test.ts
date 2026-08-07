@@ -103,7 +103,7 @@ describe('User management API', () => {
         department: 'Khoa Công nghệ thông tin',
         status: 'ACTIVE',
         roleCodes: ['TEACHER'],
-        temporaryPassword: 'ChangeMe123',
+        temporaryPassword: 'a',
       });
 
     expect(response.status).toBe(201);
@@ -174,11 +174,89 @@ describe('User management API', () => {
     const response = await request(app)
       .post(`/api/users/${teacherId}/reset-password`)
       .set('Authorization', 'Bearer admin-token')
-      .send({ temporaryPassword: 'ResetPass123' });
+      .send({ temporaryPassword: 'x' });
 
     expect(response.status).toBe(200);
     expect(response.body.data.mustChangePassword).toBe(true);
     expect(revokeSpy).toHaveBeenCalledWith(teacherId, expect.anything());
   });
-});
 
+  it('DELETE /api/users/:id protects the last active administrator', async () => {
+    vi.spyOn(container.tokenService, 'verifyAccessToken').mockReturnValue({
+      userId: teacherId,
+      roles: ['ADMIN'],
+      permissions: [],
+    });
+    vi.spyOn(container.userRepo, 'findByIdWithRoles').mockResolvedValue({
+      user: adminUser,
+      roles: ['ADMIN'],
+    });
+    vi.spyOn(container.userRepo, 'countActiveUsersByRole').mockResolvedValue(1);
+
+    const response = await request(app)
+      .delete(`/api/users/${adminId}`)
+      .set('Authorization', 'Bearer admin-token');
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('LAST_ACTIVE_ADMIN');
+  });
+
+  it('DELETE /api/users/:id prevents deleting the current account', async () => {
+    vi.spyOn(container.tokenService, 'verifyAccessToken').mockReturnValue({
+      userId: adminId,
+      roles: ['ADMIN'],
+      permissions: [],
+    });
+    vi.spyOn(container.userRepo, 'findByIdWithRoles').mockResolvedValue({
+      user: adminUser,
+      roles: ['ADMIN'],
+    });
+
+    const response = await request(app)
+      .delete(`/api/users/${adminId}`)
+      .set('Authorization', 'Bearer admin-token');
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('FORBIDDEN');
+  });
+
+  it('DELETE /api/users/:id rejects users without the delete permission', async () => {
+    vi.spyOn(container.tokenService, 'verifyAccessToken').mockReturnValue({
+      userId: teacherId,
+      roles: ['TEACHER'],
+      permissions: [],
+    });
+
+    const response = await request(app)
+      .delete(`/api/users/${adminId}`)
+      .set('Authorization', 'Bearer teacher-token');
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('FORBIDDEN');
+  });
+
+  it('DELETE /api/users/:id soft deletes the account and revokes sessions', async () => {
+    vi.spyOn(container.tokenService, 'verifyAccessToken').mockReturnValue({
+      userId: adminId,
+      roles: ['ADMIN'],
+      permissions: [],
+    });
+    vi.spyOn(container.userRepo, 'findByIdWithRoles').mockResolvedValue({
+      user: teacherUser,
+      roles: ['TEACHER'],
+    });
+    const saveSpy = vi.spyOn(container.userRepo, 'save').mockResolvedValue();
+    const revokeSpy = vi.spyOn(container.sessionRepo, 'revokeByUserId').mockResolvedValue();
+    vi.spyOn(container.auditLogRepo, 'save').mockResolvedValue();
+
+    const response = await request(app)
+      .delete(`/api/users/${teacherId}`)
+      .set('Authorization', 'Bearer admin-token');
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(saveSpy).toHaveBeenCalledWith(teacherUser, expect.anything());
+    expect(teacherUser.deletedAt).toBeInstanceOf(Date);
+    expect(revokeSpy).toHaveBeenCalledWith(teacherId, expect.anything());
+  });
+});

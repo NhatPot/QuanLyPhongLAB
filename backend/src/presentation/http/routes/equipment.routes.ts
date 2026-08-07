@@ -14,7 +14,8 @@ export const createCategorySchema = z.object({
 
 export const createEquipmentSchema = z.object({
   body: z.object({
-    code: z.string().min(1, 'Mã thiết bị không được trống.'),
+    quantity: z.coerce.number().int().min(1, 'Số lượng thiết bị tối thiểu là 1.').default(1),
+    code: z.string().trim().max(50, 'Mã thiết bị tối đa 50 ký tự.').optional().default(''),
     name: z.string().min(1, 'Tên thiết bị không được trống.'),
     categoryId: z.string().min(1, 'Mã danh mục không được trống.'),
     location: z.string().optional(),
@@ -73,7 +74,11 @@ export function createEquipmentRouter(controller: EquipmentController): Router {
   });
 
   router.get('/categories', authMiddleware, (req, res) => {
-    if (req.user?.roles.includes('ADMIN') || req.user?.permissions.includes('EQUIPMENT_CATEGORY_VIEW')) {
+    if (
+      req.user?.roles.includes('ADMIN')
+      || req.user?.permissions.includes('EQUIPMENT_VIEW')
+      || req.user?.permissions.includes('EQUIPMENT_CATEGORY_VIEW')
+    ) {
       return controller.listCategories(req, res);
     }
     res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Bạn không có quyền.' } });
@@ -103,6 +108,13 @@ export function createEquipmentRouter(controller: EquipmentController): Router {
   router.put('/:id', authMiddleware, validateRequest(updateEquipmentSchema), (req, res) => {
     if (req.user?.roles.includes('ADMIN') || req.user?.permissions.includes('EQUIPMENT_UPDATE')) {
       return controller.update(req, res);
+    }
+    res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Bạn không có quyền.' } });
+  });
+
+  router.delete('/:id', authMiddleware, (req, res) => {
+    if (req.user?.roles.includes('ADMIN') || req.user?.permissions.includes('EQUIPMENT_DELETE')) {
+      return controller.delete(req, res);
     }
     res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Bạn không có quyền.' } });
   });

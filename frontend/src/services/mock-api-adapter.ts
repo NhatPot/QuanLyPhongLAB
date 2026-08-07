@@ -11,7 +11,7 @@ import type { RoleApiRecord, PermissionApiRecord } from './role-api';
 import type { AuditLogRecord } from './audit-log-api';
 import type { ComputerData, ComputerStatus } from './computer-api';
 import type { EquipmentCategoryData, EquipmentData, EquipmentTxData } from './equipment-api';
-import type { BookingData, BookingStatus, CalendarEvent, ComputerActivityRecord, CreateBookingPayload } from './booking-api';
+import type { BookingData, BookingPurposeOption, BookingStatus, CalendarEvent, ComputerActivityRecord, CreateBookingPayload } from './booking-api';
 import type { LabProfileData } from './lab-api';
 import type { UserProfile } from './auth-api';
 import type {
@@ -107,6 +107,9 @@ let bookings: BookingData[] = [
   { id: id('booking', 3), requestCode: 'BK-MOCK-003', requesterId: users[1]?.id, bookingType: 'FULL_LAB', purpose: 'Thực hành lập trình', startTime: '2026-07-16T08:00:00.000Z', endTime: '2026-07-16T10:00:00.000Z', numberOfPeople: 25, numberOfComputers: 20, status: 'APPROVED', isOverdue: false, hasIncident: false, note: 'Lớp CNTT K46', createdAt: '2026-07-10T08:00:00.000Z' },
   { id: id('booking', 4), requestCode: 'BK-MOCK-004', requesterId: users[2]?.id, bookingType: 'COMPUTERS_ONLY', purpose: 'Thực hành hệ điều hành', startTime: '2026-07-17T13:30:00.000Z', endTime: '2026-07-17T15:00:00.000Z', numberOfPeople: 8, numberOfComputers: 8, status: 'PENDING', isOverdue: false, hasIncident: false, note: null, createdAt: '2026-07-14T08:00:00.000Z' },
 ];
+
+type MockPurposeGroup = { id: string; name: string; normalizedKey: string };
+let purposeGroups: MockPurposeGroup[] = [];
 
 let incidents: IncidentRecord[] = [
   {
@@ -307,6 +310,29 @@ const matchUser = (idValue: string) => users.find((item) => item.id === idValue)
 const matchComputer = (idValue: string) => computers.find((item) => item.id === idValue);
 const matchEquipment = (idValue: string) => equipment.find((item) => item.id === idValue);
 
+function nextMockEquipmentCode(categoryCode: string, categoryId: string): string {
+  const prefix = normalizeEquipmentCodePrefix(categoryCode);
+  const sequencePattern = new RegExp(`^${prefix}-(\\d+)$`, 'i');
+  const highestSequence = equipment
+    .filter((item) => item.categoryId === categoryId)
+    .reduce((highest, item) => {
+      const match = item.code.match(sequencePattern);
+      return match ? Math.max(highest, Number(match[1])) : highest;
+    }, 0);
+  let nextSequence = highestSequence + 1;
+  let candidate = `${prefix}-${String(nextSequence).padStart(3, '0')}`;
+  while (equipment.some((item) => item.code.toUpperCase() === candidate.toUpperCase())) {
+    nextSequence += 1;
+    candidate = `${prefix}-${String(nextSequence).padStart(3, '0')}`;
+  }
+  return candidate;
+}
+
+function normalizeEquipmentCodePrefix(value: string): string {
+  const prefix = value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return prefix || 'EQUIPMENT';
+}
+
 const mockAdapter: AxiosAdapter = async (config) => {
   const request = config as MockRequestConfig; const method = methodOf(request); const path = pathOf(request);
   const payload = typeof request.data === 'string' ? JSON.parse(request.data || '{}') as Record<string, unknown> : (request.data || {}) as Record<string, unknown>;
@@ -348,6 +374,17 @@ const mockAdapter: AxiosAdapter = async (config) => {
   }
   const userMatch = path.match(/^\/users\/([^/]+)$/); const userIdMatch = path.match(/^\/users\/([^/]+)\/(status|roles|reset-password)$/);
   if (userMatch && method === 'GET') { const item = matchUser(userMatch[1]); return item ? response(request, body(item)) : errorResponse(request, 404, 'Không tìm thấy người dùng mock.'); }
+  if (userMatch && method === 'DELETE') {
+    const item = matchUser(userMatch[1]);
+    if (!item) return errorResponse(request, 404, 'Không tìm thấy người dùng mock.');
+    if (item.id === users[0]?.id) return errorResponse(request, 403, 'Bạn không thể xóa tài khoản đang đăng nhập.');
+    if (item.status === 'ACTIVE' && item.roles.includes('ADMIN') && users.filter((user) => user.status === 'ACTIVE' && user.roles.includes('ADMIN')).length <= 1) {
+      return errorResponse(request, 422, 'Không thể xóa quản trị viên đang hoạt động cuối cùng.');
+    }
+    users = users.filter((user) => user.id !== item.id);
+    auditLogs = [createMockAudit('USER_DELETED', 'Users', item.id, item, { deletedAt: now() }), ...auditLogs];
+    return response(request, body(null));
+  }
   if (userIdMatch && method === 'PATCH' && userIdMatch[2] === 'status') { const item = matchUser(userIdMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy người dùng mock.'); item.status = String(payload.status) as UserStatus; item.updatedAt = now(); return response(request, body(item)); }
   if (userIdMatch && method === 'PUT' && userIdMatch[2] === 'roles') { const item = matchUser(userIdMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy người dùng mock.'); item.roles = Array.isArray(payload.roleCodes) ? payload.roleCodes.map(String) : []; item.updatedAt = now(); return response(request, body(item)); }
   if (userIdMatch && method === 'POST' && userIdMatch[2] === 'reset-password') { const item = matchUser(userIdMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy người dùng mock.'); item.mustChangePassword = true; item.updatedAt = now(); return response(request, body(item)); }
@@ -556,11 +593,47 @@ const mockAdapter: AxiosAdapter = async (config) => {
   if (path === '/equipments/categories' && method === 'POST') { const category = { ...(payload as unknown as EquipmentCategoryData), id: `mock-category-${Date.now()}` }; categories.push(category); return response(request, body(category), 201); }
   if (path === '/equipments' && method === 'GET') { const keyword = stringParam(params, 'keyword')?.toLocaleLowerCase('vi'); const categoryId = stringParam(params, 'categoryId'); const filtered = equipment.filter((item) => (!keyword || `${item.code} ${item.name}`.toLocaleLowerCase('vi').includes(keyword)) && (!categoryId || item.categoryId === categoryId)); return response(request, paginate(filtered, request)); }
   const equipmentMatch = path.match(/^\/equipments\/([^/]+)(?:\/(adjust|report-broken|transactions))?$/);
+  if (equipmentMatch && method === 'DELETE') {
+    const item = matchEquipment(equipmentMatch[1]);
+    if (!item) return errorResponse(request, 404, 'Không tìm thấy thiết bị mock.');
+    if (item.borrowedQuantity > 0 || item.reservedQuantity > 0) return errorResponse(request, 400, 'Không thể xóa thiết bị đang được mượn hoặc đặt trước.');
+    equipment = equipment.filter((value) => value.id !== item.id);
+    auditLogs = [createMockAudit('EQUIPMENT_DELETED', 'Equipments', item.id, item, { deletedAt: now() }), ...auditLogs];
+    return response(request, body(null));
+  }
   if (equipmentMatch && method === 'GET') { const item = matchEquipment(equipmentMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy thiết bị mock.'); if (equipmentMatch[2] === 'transactions') return response(request, body(equipmentTransactions.filter((tx) => tx.equipmentId === item.id))); return response(request, body(item)); }
   if (equipmentMatch && method === 'PUT') { const item = matchEquipment(equipmentMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy thiết bị mock.'); Object.assign(item, payload, { id: item.id, updatedAt: now() }); return response(request, body(item)); }
   if (equipmentMatch && method === 'POST' && equipmentMatch[2] === 'adjust') { const item = matchEquipment(equipmentMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy thiết bị mock.'); const delta = Number(payload.delta || 0); item.totalQuantity += delta; item.availableQuantity += delta; item.updatedAt = now(); return response(request, body(item)); }
   if (equipmentMatch && method === 'POST' && equipmentMatch[2] === 'report-broken') { const item = matchEquipment(equipmentMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy thiết bị mock.'); const quantity = Number(payload.quantity || 0); item.brokenQuantity += quantity; item.availableQuantity = Math.max(0, item.availableQuantity - quantity); item.updatedAt = now(); return response(request, body(item)); }
-  if (path === '/equipments' && method === 'POST') { const item: EquipmentData = { ...(payload as unknown as EquipmentData), id: `mock-equipment-${Date.now()}`, totalQuantity: 0, availableQuantity: 0, reservedQuantity: 0, borrowedQuantity: 0, brokenQuantity: 0, maintenanceQuantity: 0, lostQuantity: 0, createdAt: now(), updatedAt: now() }; equipment.unshift(item); return response(request, body(item), 201); }
+  if (path === '/equipments' && method === 'POST') {
+    const category = categories.find((item) => item.id === String(payload.categoryId));
+    if (!category) return errorResponse(request, 422, 'Danh mục thiết bị không tồn tại.');
+    const requestedQuantity = Number(payload.quantity ?? 1);
+    const quantity = Number.isInteger(requestedQuantity) && requestedQuantity > 0 ? requestedQuantity : 1;
+    const requestedCode = String(payload.code || '').trim();
+    const code = requestedCode || nextMockEquipmentCode(category.code, category.id);
+    if (equipment.some((item) => item.code.toUpperCase() === code.toUpperCase())) {
+      return errorResponse(request, 422, `Mã thiết bị '${code}' đã tồn tại.`);
+    }
+    const { quantity: _quantity, code: _code, ...equipmentPayload } = payload;
+    const item: EquipmentData = {
+      ...(equipmentPayload as unknown as EquipmentData),
+      id: `mock-equipment-${Date.now()}`,
+      code,
+      totalQuantity: quantity,
+      availableQuantity: quantity,
+      reservedQuantity: 0,
+      borrowedQuantity: 0,
+      brokenQuantity: 0,
+      maintenanceQuantity: 0,
+      lostQuantity: 0,
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    equipment.unshift(item);
+    auditLogs = [createMockAudit('EQUIPMENT_CREATED', 'Equipments', item.id, null, item), ...auditLogs];
+    return response(request, body(item), 201);
+  }
 
   if (path === '/lab-profile' && method === 'GET') return response(request, body(lab));
   if (path === '/lab-profile' && method === 'PUT') { lab = { ...lab, ...(payload as Partial<LabProfileData>), updatedAt: now() }; return response(request, body(lab)); }
@@ -681,6 +754,34 @@ const mockAdapter: AxiosAdapter = async (config) => {
     return response(request, body(null));
   }
 
+  if (path === '/bookings/purpose-options' && method === 'GET') {
+    const grouped = new Map<string, BookingPurposeOption>();
+    purposeGroups.forEach((group) => grouped.set(group.id, { id: group.id, name: group.name, usageCount: 0, source: 'GROUP' }));
+    const legacy = new Map<string, BookingPurposeOption>();
+    bookings.forEach((booking) => {
+      if (booking.purposeGroupId && grouped.has(booking.purposeGroupId)) {
+        grouped.get(booking.purposeGroupId)!.usageCount += 1;
+      } else {
+        const key = booking.purpose.trim().toLocaleLowerCase('vi');
+        const option = legacy.get(key) || { id: null, name: booking.purpose, usageCount: 0, source: 'LEGACY' as const };
+        option.usageCount += 1;
+        legacy.set(key, option);
+      }
+    });
+    const canonicalKeys = new Set(Array.from(grouped.values()).map((option) => normalizeMockPurposeKey(option.name)));
+    const mergedLegacy = new Map<string, BookingPurposeOption>();
+    legacy.forEach((option) => {
+      const key = normalizeMockPurposeKey(option.name);
+      if (canonicalKeys.has(key)) return;
+      const existing = mergedLegacy.get(key);
+      if (!existing || option.usageCount > existing.usageCount) {
+        mergedLegacy.set(key, existing ? { ...option, usageCount: existing.usageCount + option.usageCount } : option);
+      } else {
+        existing.usageCount += option.usageCount;
+      }
+    });
+    return response(request, body([...grouped.values(), ...mergedLegacy.values()].sort((left, right) => right.usageCount - left.usageCount)));
+  }
   if (path === '/bookings/requester-options' && method === 'GET') {
     const keyword = stringParam(params, 'keyword')?.toLocaleLowerCase('vi');
     const requesters = users
@@ -696,7 +797,51 @@ const mockAdapter: AxiosAdapter = async (config) => {
     try { return response(request, body(mockUsageStatistics(month))); } catch (error: any) { return errorResponse(request, 400, error.message); }
   }
   if (path === '/bookings/calendar' && method === 'GET') { const start = new Date(String(params.start || 0)); const end = new Date(String(params.end || 8640000000000000)); return response(request, bookings.filter((item) => new Date(item.startTime) < end && new Date(item.endTime) > start).map((item) => ({ id: item.id, title: item.purpose, start: item.startTime, end: item.endTime, type: item.bookingType, status: item.status, requesterId: item.requesterId, requester: bookingRequesterOf(item), numberOfPeople: item.numberOfPeople, numberOfComputers: item.numberOfComputers })) as CalendarEvent[]); }
-  if (path === '/bookings' && method === 'POST') { const input = payload as unknown as CreateBookingPayload; const requester = matchUser(input.requesterId || users[0]?.id || ''); if (!requester) return errorResponse(request, 404, 'Không tìm thấy người đăng ký mock.'); if (requester.status !== 'ACTIVE') return errorResponse(request, 422, 'Chỉ có thể tạo yêu cầu cho tài khoản đang hoạt động.'); const item: BookingData = { id: `mock-booking-${Date.now()}`, requestCode: `BK-MOCK-${String(bookings.length + 1).padStart(3, '0')}`, requesterId: requester.id, requester: toBookingRequester(requester), bookingType: input.bookingType, purpose: input.purpose, startTime: input.startTime, endTime: input.endTime, expectedReturnTime: input.expectedReturnTime, numberOfPeople: input.numberOfPeople, numberOfComputers: input.numberOfComputers, status: 'PENDING', isOverdue: false, hasIncident: false, note: input.note || null, createdAt: now() }; bookings = [item, ...bookings]; auditLogs = [createMockAudit('BOOKING_CREATED', 'BookingRequest', item.id, null, { requesterId: requester.id, createdForAnotherUser: requester.id !== users[0]?.id }), ...auditLogs]; return response(request, item, 201); }
+  if (path === '/bookings' && method === 'POST') {
+    const input = payload as unknown as CreateBookingPayload;
+    const requester = matchUser(input.requesterId || users[0]?.id || '');
+    if (!requester) return errorResponse(request, 404, 'Không tìm thấy người đăng ký mock.');
+    if (requester.status !== 'ACTIVE') return errorResponse(request, 422, 'Chỉ có thể tạo yêu cầu cho tài khoản đang hoạt động.');
+
+    const requestedEquipments = Array.isArray(input.equipments) ? input.equipments : [];
+    if (input.bookingType === 'EQUIPMENT_ONLY' && requestedEquipments.length === 0) {
+      return errorResponse(request, 422, 'Yêu cầu mượn thiết bị phải có ít nhất một thiết bị.');
+    }
+    const purposeGroup = input.purposeGroupId
+      ? purposeGroups.find((group) => group.id === input.purposeGroupId) || null
+      : ensureMockPurposeGroup(input.purpose);
+    const equipmentItems = requestedEquipments.map((entry, index) => ({
+      id: `mock-booking-equipment-${Date.now()}-${index}`,
+      equipmentId: String(entry.equipmentId),
+      requestedQuantity: Number(entry.quantity || 1),
+      reservedQuantity: 0,
+      borrowedQuantity: 0,
+    }));
+    const item: BookingData = {
+      id: `mock-booking-${Date.now()}`,
+      requestCode: `BK-MOCK-${String(bookings.length + 1).padStart(3, '0')}`,
+      requesterId: requester.id,
+      requester: toBookingRequester(requester),
+      bookingType: input.bookingType,
+      purpose: input.purpose,
+      purposeGroupId: purposeGroup?.id || null,
+      startTime: input.startTime,
+      endTime: input.endTime,
+      expectedReturnTime: input.expectedReturnTime,
+      numberOfPeople: input.numberOfPeople,
+      numberOfComputers: input.numberOfComputers,
+      status: 'PENDING',
+      isOverdue: false,
+      hasIncident: false,
+      note: input.note || null,
+      purposeGroupName: purposeGroup?.name || null,
+      equipmentItems,
+      createdAt: now(),
+    };
+    bookings = [item, ...bookings];
+    auditLogs = [createMockAudit('BOOKING_CREATED', 'BookingRequest', item.id, null, { requesterId: requester.id, createdForAnotherUser: requester.id !== users[0]?.id }), ...auditLogs];
+    return response(request, item, 201);
+  }
   const bookingAction = path.match(/^\/bookings\/([^/]+)\/(approve|reject|cancel|check-in|check-out)$/);
   if (bookingAction && method === 'POST') {
     const item = bookings.find((booking) => booking.id === bookingAction[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy lịch mock.');
@@ -737,6 +882,41 @@ function toBookingRequester(user: UserApiRecord) {
 function bookingRequesterOf(booking: BookingData) {
   const requester = users.find((user) => user.id === booking.requesterId);
   return requester ? toBookingRequester(requester) : null;
+}
+
+function normalizeMockPurposeKey(value: string): string {
+  const stopWords = new Set(['bai', 'cho', 'cua', 'cuu', 'de', 'hanh', 'hoc', 'lam', 'mon', 'nghien', 'on', 'phuc', 'su', 'tap', 'thuc', 'viec', 'va', 'voi', 'dung', 'phong', 'lab']);
+  const normalized = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('vi')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token && !stopWords.has(token));
+  const boundedTokens: string[] = [];
+  let length = 0;
+  for (const token of Array.from(new Set(normalized)).sort()) {
+    const nextLength = length + token.length + (boundedTokens.length ? 1 : 0);
+    if (nextLength > 255) break;
+    boundedTokens.push(token);
+    length = nextLength;
+  }
+  return boundedTokens.join(' ') || 'general';
+}
+
+function ensureMockPurposeGroup(purpose: string): MockPurposeGroup {
+  const normalizedKey = normalizeMockPurposeKey(purpose);
+  const existing = purposeGroups.find((group) => group.normalizedKey === normalizedKey);
+  if (existing) return existing;
+  const group: MockPurposeGroup = {
+    id: `mock-purpose-${Date.now()}-${purposeGroups.length}`,
+    name: purpose.trim().replace(/\s+/g, ' '),
+    normalizedKey,
+  };
+  purposeGroups.push(group);
+  return group;
 }
 
 function withBookingRequester(booking: BookingData): BookingData {
@@ -877,6 +1057,33 @@ function mockUsageStatistics(month: string) {
       currentRequesterName: current?.requesterName || null,
     };
   });
+  const sessionDtos = sessions.map((booking) => {
+    const machineLogs = usageActivities.filter((activity) => activity.bookingRequestId === booking.id);
+    const usageHours = round(overlapHours(booking.checkInTime!, booking.checkOutTime || null));
+    const actualComputerCount = booking.actualComputerCount ?? booking.numberOfComputers;
+    return {
+      bookingId: booking.id, requestCode: booking.requestCode, purpose: booking.purpose, bookingType: booking.bookingType,
+      purposeGroupId: booking.purposeGroupId || null, purposeGroupName: booking.purposeGroupName || null,
+      checkInTime: booking.checkInTime, checkOutTime: booking.checkOutTime || null,
+      actualPeopleCount: booking.actualPeopleCount ?? booking.numberOfPeople, actualComputerCount, usageHours,
+      computerHours: machineLogs.length ? round(machineLogs.reduce((sum, activity) => sum + overlapHours(activity.startedAt, activity.endedAt), 0)) : round(usageHours * actualComputerCount),
+      computerHoursSource: machineLogs.length ? 'MACHINE_LOGS' as const : 'ESTIMATED_COUNT' as const,
+      computerCodes: machineLogs.map((activity) => activity.computerCode), isActive: !booking.checkOutTime,
+    };
+  });
+  const purposeUsage = new Map<string, { id: string | null; name: string; sessionCount: number; usageHours: number }>();
+  sessionDtos.forEach((session) => {
+    const key = session.purposeGroupId || `legacy:${normalizeMockPurposeKey(session.purpose)}`;
+    const current = purposeUsage.get(key) || {
+      id: session.purposeGroupId || null,
+      name: session.purposeGroupName || session.purpose,
+      sessionCount: 0,
+      usageHours: 0,
+    };
+    current.sessionCount += 1;
+    current.usageHours = round(current.usageHours + session.usageHours);
+    purposeUsage.set(key, current);
+  });
 
   return {
     month, rangeStart: start.toISOString(), rangeEnd: end.toISOString(),
@@ -886,19 +1093,8 @@ function mockUsageStatistics(month: string) {
     totalCheckOuts: sessions.filter((booking) => { const date = booking.checkOutTime ? new Date(booking.checkOutTime) : null; return !!date && date >= start && date < end; }).length,
     activeSessions: sessions.filter((booking) => !booking.checkOutTime).length,
     daily: rows,
-    sessions: sessions.map((booking) => {
-      const machineLogs = usageActivities.filter((activity) => activity.bookingRequestId === booking.id);
-      const usageHours = round(overlapHours(booking.checkInTime!, booking.checkOutTime || null));
-      const actualComputerCount = booking.actualComputerCount ?? booking.numberOfComputers;
-      return {
-        bookingId: booking.id, requestCode: booking.requestCode, purpose: booking.purpose, bookingType: booking.bookingType,
-        checkInTime: booking.checkInTime, checkOutTime: booking.checkOutTime || null,
-        actualPeopleCount: booking.actualPeopleCount ?? booking.numberOfPeople, actualComputerCount, usageHours,
-        computerHours: machineLogs.length ? round(machineLogs.reduce((sum, activity) => sum + overlapHours(activity.startedAt, activity.endedAt), 0)) : round(usageHours * actualComputerCount),
-        computerHoursSource: machineLogs.length ? 'MACHINE_LOGS' as const : 'ESTIMATED_COUNT' as const,
-        computerCodes: machineLogs.map((activity) => activity.computerCode), isActive: !booking.checkOutTime,
-      };
-    }),
+    sessions: sessionDtos,
+    purposeGroups: Array.from(purposeUsage.values()).sort((left, right) => right.usageHours - left.usageHours),
     computerSummaries,
     computerActivities: activities.map((activity) => ({ ...activity, durationHours: round(overlapHours(activity.startedAt, activity.endedAt)), isActive: !activity.endedAt })),
   };

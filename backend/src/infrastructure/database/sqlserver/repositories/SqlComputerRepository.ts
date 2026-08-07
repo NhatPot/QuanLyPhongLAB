@@ -33,6 +33,19 @@ export class SqlComputerRepository implements IComputerRepository {
     return this.toDomain(result.recordset[0]);
   }
 
+  public async findByMacAddress(macAddress: string): Promise<Computer | null> {
+    const pool = await SqlConnectionFactory.getPool();
+    const result = await pool.request()
+      .input('macAddress', mssql.NVarChar, macAddress.trim())
+      .query('SELECT * FROM Computers WHERE MacAddress = @macAddress AND DeletedAt IS NULL');
+
+    if (result.recordset.length === 0) {
+      return null;
+    }
+
+    return this.toDomain(result.recordset[0]);
+  }
+
   public async list(filter: ComputerFilter): Promise<{ data: Computer[]; total: number }> {
     const pool = await SqlConnectionFactory.getPool();
     const page = filter.page || 1;

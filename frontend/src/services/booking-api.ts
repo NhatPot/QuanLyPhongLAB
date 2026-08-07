@@ -11,6 +11,13 @@ export interface BookingRequester {
   department: string | null;
 }
 
+export interface BookingPurposeOption {
+  id: string | null;
+  name: string;
+  usageCount: number;
+  source: 'GROUP' | 'LEGACY';
+}
+
 export interface BookingData {
   id: string;
   requestCode: string;
@@ -18,6 +25,8 @@ export interface BookingData {
   requester?: BookingRequester | null;
   bookingType: BookingType;
   purpose: string;
+  purposeGroupId?: string | null;
+  purposeGroupName?: string | null;
   startTime: string;
   endTime: string;
   expectedReturnTime?: string | null;
@@ -53,6 +62,7 @@ export interface CreateBookingPayload {
   requesterId?: string;
   bookingType: BookingType;
   purpose: string;
+  purposeGroupId?: string;
   startTime: string;
   endTime: string;
   expectedReturnTime?: string | null;
@@ -87,6 +97,8 @@ export interface LabUsageSession {
   bookingId: string;
   requestCode: string;
   purpose: string;
+  purposeGroupId?: string | null;
+  purposeGroupName?: string | null;
   bookingType: BookingType;
   checkInTime: string;
   checkOutTime: string | null;
@@ -151,9 +163,19 @@ export interface LabUsageStatistics {
   sessions: LabUsageSession[];
   computerSummaries: ComputerUsageSummary[];
   computerActivities: ComputerActivityRecord[];
+  purposeGroups: Array<{
+    id: string | null;
+    name: string;
+    sessionCount: number;
+    usageHours: number;
+  }>;
 }
 
 export const bookingApi = {
+  purposeOptions: async (): Promise<BookingPurposeOption[]> => {
+    const response = await apiClient.get('/bookings/purpose-options');
+    return response.data.data;
+  },
   requesterOptions: async (keyword?: string): Promise<BookingRequester[]> => {
     const response = await apiClient.get('/bookings/requester-options', { params: { keyword: keyword || undefined } });
     return response.data.data;

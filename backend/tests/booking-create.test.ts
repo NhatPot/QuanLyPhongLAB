@@ -3,6 +3,7 @@ import { validate as validateUuid } from 'uuid';
 import { CreateBookingUseCase } from '../src/application/use-cases/booking/CreateBookingUseCase';
 import { BookingRequest } from '../src/domain/entities/BookingRequest';
 import { BookingEquipmentItem } from '../src/domain/entities/BookingEquipmentItem';
+import { BookingPurposeGroup } from '../src/domain/entities/BookingPurposeGroup';
 import { SqlBookingRequestRepository } from '../src/infrastructure/database/sqlserver/repositories/SqlBookingRequestRepository';
 import { SqlBookingEquipmentItemRepository } from '../src/infrastructure/database/sqlserver/repositories/SqlBookingEquipmentItemRepository';
 
@@ -15,6 +16,7 @@ describe('CreateBookingUseCase', () => {
   let unitOfWork: any;
   let auditLogRepo: any;
   let userRepo: any;
+  let purposeGroupRepo: any;
   let useCase: CreateBookingUseCase;
 
   beforeEach(() => {
@@ -33,7 +35,13 @@ describe('CreateBookingUseCase', () => {
         status: 'ACTIVE',
       }),
     };
-    useCase = new CreateBookingUseCase(bookingRepo, equipmentItemRepo, availability, unitOfWork, auditLogRepo, userRepo);
+    purposeGroupRepo = {
+      findById: vi.fn(),
+      list: vi.fn().mockResolvedValue([]),
+      save: vi.fn(),
+      listSuggestions: vi.fn(),
+    };
+    useCase = new CreateBookingUseCase(bookingRepo, equipmentItemRepo, availability, unitOfWork, auditLogRepo, userRepo, purposeGroupRepo);
   });
 
   it('tạo yêu cầu của giáo viên với UUID hợp lệ và chỉ lưu booking một lần', async () => {
@@ -82,6 +90,82 @@ describe('CreateBookingUseCase', () => {
 
     expect(userRepo.findById).not.toHaveBeenCalled();
     expect(bookingRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('lưu danh sách thiết bị và số lượng khi chỉ mượn thiết bị', async () => {
+    const equipmentId = '8e49a188-ac9b-452c-ad39-63082256d70e';
+
+    const booking = await useCase.execute({
+      actorUserId: requesterId,
+      actorRoles: ['TEACHER'],
+      actorPermissions: ['BOOKING_CREATE'],
+      bookingType: 'EQUIPMENT_ONLY',
+      purpose: 'Mượn bộ ESP IoT thực hành',
+      startTime: new Date('2026-07-18T01:30:00.000Z'),
+      endTime: new Date('2026-07-18T03:30:00.000Z'),
+      numberOfPeople: 1,
+      numberOfComputers: 0,
+      equipments: [{ equipmentId, quantity: 3 }],
+    });
+
+    const savedItems = equipmentItemRepo.saveMany.mock.calls[0][0] as BookingEquipmentItem[];
+    expect(savedItems).toHaveLength(1);
+    expect(savedItems[0].bookingRequestId).toBe(booking.id.toString());
+    expect(savedItems[0].equipmentId).toBe(equipmentId);
+    expect(savedItems[0].requestedQuantity).toBe(3);
+  });
+
+  it('từ chối yêu cầu chỉ mượn thiết bị nhưng không có thiết bị', async () => {
+    await expect(useCase.execute({
+      actorUserId: requesterId,
+      actorRoles: ['TEACHER'],
+      actorPermissions: ['BOOKING_CREATE'],
+      bookingType: 'EQUIPMENT_ONLY',
+      purpose: 'Mượn thiết bị thực hành',
+      startTime: new Date('2026-07-18T01:30:00.000Z'),
+      endTime: new Date('2026-07-18T03:30:00.000Z'),
+      numberOfPeople: 1,
+      numberOfComputers: 0,
+      equipments: [],
+    })).rejects.toMatchObject({ code: 'VALIDATION_ERROR', statusCode: 400 });
+
+    expect(availability.execute).not.toHaveBeenCalled();
+    expect(bookingRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('gom các mục đích gần giống nhau vào cùng nhóm', async () => {
+    const first = await useCase.execute({
+      actorUserId: requesterId,
+      actorRoles: ['TEACHER'],
+      actorPermissions: ['BOOKING_CREATE'],
+      bookingType: 'FULL_LAB',
+      purpose: 'Nghiên cứu môn IoT',
+      startTime: new Date('2026-07-18T01:30:00.000Z'),
+      endTime: new Date('2026-07-18T03:30:00.000Z'),
+      numberOfPeople: 2,
+      numberOfComputers: 2,
+      equipments: [],
+    });
+    const createdGroup = purposeGroupRepo.save.mock.calls[0][0] as BookingPurposeGroup;
+    purposeGroupRepo.list.mockResolvedValue([createdGroup]);
+
+    const second = await useCase.execute({
+      actorUserId: requesterId,
+      actorRoles: ['TEACHER'],
+      actorPermissions: ['BOOKING_CREATE'],
+      bookingType: 'FULL_LAB',
+      purpose: 'Học môn IoT',
+      startTime: new Date('2026-07-18T04:30:00.000Z'),
+      endTime: new Date('2026-07-18T06:30:00.000Z'),
+      numberOfPeople: 2,
+      numberOfComputers: 2,
+      equipments: [],
+    });
+
+    expect(first.purposeGroupId).toBe(createdGroup.id.toString());
+    expect(second.purposeGroupId).toBe(createdGroup.id.toString());
+    expect(createdGroup.normalizedKey).toBe('iot');
+    expect(purposeGroupRepo.save).toHaveBeenCalledTimes(1);
   });
 
   it('cho phép nhân viên có quyền đăng ký thay và audit đúng người thao tác', async () => {

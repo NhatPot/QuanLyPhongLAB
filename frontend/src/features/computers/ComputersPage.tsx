@@ -21,7 +21,7 @@ import {
 import { EChart } from '@/components/charts/echart';
 import { useAuth } from '@/features/auth/AuthContext';
 import { bookingApi } from '@/services/booking-api';
-import { computerApi, type ComputerData, type ComputerStatus } from '@/services/computer-api';
+import { computerApi, type ComputerData, type ComputerStatus, type DeviceMetrics } from '@/services/computer-api';
 import { maintenanceApi } from '@/services/maintenance-api';
 import { ComputerEditorDialog } from '@/features/computers/ComputerEditorDialog';
 import { cn } from '@/lib/utils';
@@ -111,6 +111,12 @@ export default function ComputersPage() {
   } = useQuery({
     queryKey: ['computers', 'management-dashboard'],
     queryFn: () => computerApi.list({ page: 1, pageSize: 200 }),
+  });
+
+  const { data: metricsData } = useQuery({
+    queryKey: ['device-metrics'],
+    queryFn: computerApi.getDeviceMetrics,
+    refetchInterval: 10000, // Poll every 10 seconds
   });
 
   const { data: activityEvents = [] } = useQuery({
@@ -626,6 +632,7 @@ export default function ComputersPage() {
                 <ComputerCard
                   key={computer.id}
                   computer={computer}
+                  metrics={computer.macAddress ? metricsData?.[computer.macAddress.toUpperCase()] : undefined}
                   viewMode={viewMode}
                   onClick={() => openComputer(computer)}
                 />
@@ -772,10 +779,12 @@ function FilterSelect({
 
 function ComputerCard({
   computer,
+  metrics,
   viewMode,
   onClick,
 }: {
   computer: ComputerData;
+  metrics?: DeviceMetrics;
   viewMode: ViewMode;
   onClick: () => void;
 }) {
@@ -796,10 +805,15 @@ function ComputerCard({
         </div>
         <div>
           <p className="text-sm font-extrabold text-slate-800">{computer.code}</p>
-          <p className="text-[10px] text-slate-400">{computer.name}</p>
+          <p className="truncate text-[10px] text-slate-400">{computer.name}</p>
         </div>
-        <p className="truncate text-xs text-slate-500">{specification}</p>
-        <p className="text-xs text-slate-500">{computer.ipAddress || 'Chưa có IP'}</p>
+        <div className="min-w-0">
+          <p className="truncate text-xs text-slate-500">{specification}</p>
+          {metrics?.status?.cpu?.usage !== undefined && (
+            <p className="text-[10px] text-blue-600 font-medium">CPU: {metrics.status.cpu.usage.toFixed(1)}% | RAM: {metrics.status.ram?.usagePercent?.toFixed(1)}%</p>
+          )}
+        </div>
+        <p className="text-xs text-slate-500">{metrics?.ipAddress || computer.ipAddress || 'Chưa có IP'}</p>
         <span className={cn('inline-flex items-center gap-1.5 text-[11px] font-bold', meta.text)}>
           <i className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} />
           {meta.label}
@@ -825,7 +839,10 @@ function ComputerCard({
           {meta.label}
         </p>
         <p className="mt-2 truncate text-[9px] font-medium text-slate-400">{specification}</p>
-        <p className="mt-0.5 truncate text-[9px] text-slate-400">{computer.ipAddress || computer.position || 'Chưa cập nhật IP'}</p>
+        {metrics?.status?.cpu?.usage !== undefined && (
+          <p className="mt-0.5 truncate text-[9px] text-blue-600 font-medium">CPU: {metrics.status.cpu.usage.toFixed(1)}% | RAM: {metrics.status.ram?.usagePercent?.toFixed(1)}%</p>
+        )}
+        <p className="mt-0.5 truncate text-[9px] text-slate-400">{metrics?.ipAddress || computer.ipAddress || computer.position || 'Chưa cập nhật IP'}</p>
         {maintenanceReminder && <p className="mt-1 truncate text-[9px] font-bold text-amber-600">{maintenanceReminder}</p>}
       </div>
     </button>

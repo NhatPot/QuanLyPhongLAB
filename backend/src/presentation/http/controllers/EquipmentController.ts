@@ -7,6 +7,7 @@ import { ListEquipmentUseCase } from '../../../application/use-cases/equipment/L
 import { UpdateEquipmentUseCase } from '../../../application/use-cases/equipment/UpdateEquipmentUseCase';
 import { AdjustInventoryUseCase } from '../../../application/use-cases/equipment/AdjustInventoryUseCase';
 import { ReportBrokenEquipmentUseCase } from '../../../application/use-cases/equipment/ReportBrokenEquipmentUseCase';
+import { DeleteEquipmentUseCase } from '../../../application/use-cases/equipment/DeleteEquipmentUseCase';
 import { IEquipmentInventoryTransactionRepository } from '../../../domain/repositories/IEquipmentInventoryTransactionRepository';
 import { ApiResponse } from '../presenters/ApiResponse';
 import { Equipment } from '../../../domain/entities/Equipment';
@@ -21,6 +22,7 @@ export class EquipmentController {
     private updateEquipmentUseCase: UpdateEquipmentUseCase,
     private adjustInventoryUseCase: AdjustInventoryUseCase,
     private reportBrokenEquipmentUseCase: ReportBrokenEquipmentUseCase,
+    private deleteEquipmentUseCase: DeleteEquipmentUseCase,
     private transactionRepo: IEquipmentInventoryTransactionRepository
   ) {}
 
@@ -172,6 +174,23 @@ export class EquipmentController {
     }
 
     res.status(200).json(ApiResponse.success(this.toResponseDto(result.getValue()), 'Báo hỏng thiết bị thành công.'));
+  };
+
+  public delete = async (req: Request, res: Response): Promise<void> => {
+    const result = await this.deleteEquipmentUseCase.execute({
+      id: req.params.id,
+      userId: req.user?.userId,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      correlationId: req.correlationId
+    });
+
+    if (!result.isSuccess) {
+      res.status(400).json(ApiResponse.error('BAD_REQUEST', result.getError(), null, req.correlationId));
+      return;
+    }
+
+    res.status(200).json(ApiResponse.success(null, 'Xóa thiết bị thành công.'));
   };
 
   public listTransactions = async (req: Request, res: Response): Promise<void> => {

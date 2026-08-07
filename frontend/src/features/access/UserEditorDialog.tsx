@@ -158,7 +158,7 @@ export function UserEditorDialog({ open, user, canAssignRole, onClose, onSave }:
                   {...register('temporaryPassword')}
                   type="password"
                   className={inputClass}
-                  placeholder="Ít nhất 8 ký tự, có hoa/thường/số"
+                  placeholder="Nhập mật khẩu bất kỳ"
                   autoComplete="new-password"
                 />
               </Field>

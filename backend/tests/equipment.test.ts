@@ -9,6 +9,7 @@ import { UniqueEntityId } from '../src/domain/value-objects/UniqueEntityId';
 vi.spyOn(container.uow, 'complete').mockImplementation(async (work: any) => {
   return work();
 });
+vi.spyOn(container.uow, 'getTransaction').mockReturnValue({} as any);
 
 const mockCategory = EquipmentCategory.create({
   code: 'CAT01',
@@ -81,6 +82,111 @@ describe('Equipment API', () => {
       expect(res.status).toBe(201);
       expect(res.body).toHaveProperty('success', true);
       expect(res.body.data).toHaveProperty('code', 'EQ02');
+      expect(res.body.data).toHaveProperty('totalQuantity', 1);
+      expect(res.body.data).toHaveProperty('availableQuantity', 1);
+    });
+
+    it('should generate a code from the category when code is omitted', async () => {
+      const existingGenerated = Equipment.create({
+        code: 'CAT01-001',
+        name: 'Thiết bị đã có mã tự sinh',
+        categoryId: mockCategory.id.toString(),
+        totalQuantity: 1,
+        availableQuantity: 1,
+        reservedQuantity: 0,
+        borrowedQuantity: 0,
+        brokenQuantity: 0,
+        maintenanceQuantity: 0,
+        lostQuantity: 0,
+        status: 'ACTIVE'
+      });
+      vi.spyOn(container.equipmentCategoryRepo, 'findById').mockResolvedValue(mockCategory);
+      vi.spyOn(container.equipmentRepo, 'list').mockResolvedValue({ data: [existingGenerated], total: 1 });
+      vi.spyOn(container.equipmentRepo, 'findByCode').mockResolvedValue(null);
+      vi.spyOn(container.equipmentRepo, 'save').mockResolvedValue();
+      vi.spyOn(container.auditLogRepo, 'save').mockResolvedValue();
+      vi.spyOn(container.tokenService, 'verifyAccessToken').mockReturnValue({
+        userId: 'admin-id',
+        roles: ['ADMIN'],
+        permissions: ['EQUIPMENT_CREATE']
+      });
+
+      const res = await request(app)
+        .post('/api/equipments')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          name: 'ESP32 DevKit',
+          categoryId: mockCategory.id.toString(),
+          status: 'ACTIVE'
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data).toHaveProperty('code', 'CAT01-002');
+    });
+  });
+
+  describe('DELETE /api/equipments/:id', () => {
+    it('should reject users without delete permission', async () => {
+      vi.spyOn(container.tokenService, 'verifyAccessToken').mockReturnValue({
+        userId: 'lab-staff-id',
+        roles: ['LAB_STAFF'],
+        permissions: ['EQUIPMENT_VIEW']
+      });
+
+      const res = await request(app)
+        .delete(`/api/equipments/${mockEquipment.id}`)
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(403);
+    });
+
+    it('should reject equipment that is currently borrowed', async () => {
+      const borrowedEquipment = Equipment.create({
+        code: 'EQ-BORROWED',
+        name: 'Thiết bị đang mượn',
+        categoryId: 'c1284a1e-cf65-4927-b50a-b3287dfb6ef5',
+        totalQuantity: 10,
+        availableQuantity: 9,
+        reservedQuantity: 0,
+        borrowedQuantity: 1,
+        brokenQuantity: 0,
+        maintenanceQuantity: 0,
+        lostQuantity: 0,
+        status: 'ACTIVE'
+      }, new UniqueEntityId('e2284a1e-cf65-4927-b50a-b3287dfb6ef5'));
+      vi.spyOn(container.equipmentRepo, 'findById').mockResolvedValue(borrowedEquipment);
+      vi.spyOn(container.tokenService, 'verifyAccessToken').mockReturnValue({
+        userId: 'admin-id',
+        roles: ['ADMIN'],
+        permissions: ['EQUIPMENT_DELETE']
+      });
+
+      const res = await request(app)
+        .delete(`/api/equipments/${borrowedEquipment.id}`)
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.message).toContain('mượn');
+    });
+
+    it('should soft delete equipment for an administrator', async () => {
+      vi.spyOn(container.equipmentRepo, 'findById').mockResolvedValue(mockEquipment);
+      vi.spyOn(container.equipmentRepo, 'save').mockResolvedValue();
+      vi.spyOn(container.auditLogRepo, 'save').mockResolvedValue();
+      vi.spyOn(container.tokenService, 'verifyAccessToken').mockReturnValue({
+        userId: 'admin-id',
+        roles: ['ADMIN'],
+        permissions: ['EQUIPMENT_DELETE']
+      });
+
+      const res = await request(app)
+        .delete(`/api/equipments/${mockEquipment.id}`)
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('success', true);
+      expect(container.equipmentRepo.save).toHaveBeenCalled();
+      expect(container.auditLogRepo.save).toHaveBeenCalled();
     });
   });
 

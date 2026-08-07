@@ -7,11 +7,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 const schema = z.object({
-  temporaryPassword: z.string()
-    .min(8, 'Mật khẩu phải có ít nhất 8 ký tự.')
-    .regex(/[a-z]/, 'Cần có chữ thường.')
-    .regex(/[A-Z]/, 'Cần có chữ hoa.')
-    .regex(/[0-9]/, 'Cần có chữ số.'),
+  temporaryPassword: z.string().min(1, 'Mật khẩu không được để trống.'),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -59,7 +55,7 @@ export function ResetPasswordDialog({
               type="password"
               autoFocus
               autoComplete="new-password"
-              placeholder="Ít nhất 8 ký tự, có hoa/thường/số"
+              placeholder="Nhập mật khẩu bất kỳ"
               className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
             />
             {errors.temporaryPassword?.message && <span className="mt-1 block text-xs font-medium text-red-500">{errors.temporaryPassword.message}</span>}
@@ -74,4 +70,3 @@ export function ResetPasswordDialog({
     </div>
   );
 }
-

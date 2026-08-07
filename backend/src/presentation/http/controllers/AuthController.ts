@@ -7,14 +7,14 @@ import { ValidationError, UnauthorizedError } from '../../../shared/errors/AppEr
 export const loginSchema = z.object({
   body: z.object({
     identifier: z.string().min(1, 'Tên đăng nhập hoặc email không được để trống.'),
-    password: z.string().min(6, 'Mật khẩu phải dài ít nhất 6 ký tự.')
+    password: z.string().min(1, 'Mật khẩu không được để trống.')
   })
 });
 
 export const changePasswordSchema = z.object({
   body: z.object({
-    currentPassword: z.string().min(6, 'Mật khẩu cũ phải dài ít nhất 6 ký tự.'),
-    newPassword: z.string().min(6, 'Mật khẩu mới phải dài ít nhất 6 ký tự.')
+    currentPassword: z.string().min(1, 'Mật khẩu cũ không được để trống.'),
+    newPassword: z.string().min(1, 'Mật khẩu mới không được để trống.')
   })
 });
 

@@ -11,6 +11,7 @@ export interface BookingRequestProps {
   requesterId: string;
   bookingType: BookingType;
   purpose: string;
+  purposeGroupId?: string | null;
   startTime: Date;
   endTime: Date;
   expectedReturnTime?: Date | null;
@@ -67,6 +68,7 @@ export class BookingRequest extends Entity<BookingRequestProps> {
   get requesterId(): string { return this.props.requesterId; }
   get bookingType(): BookingType { return this.props.bookingType; }
   get purpose(): string { return this.props.purpose; }
+  get purposeGroupId(): string | null { return this.props.purposeGroupId || null; }
   get startTime(): Date { return this.props.startTime; }
   get endTime(): Date { return this.props.endTime; }
   get expectedReturnTime(): Date | null { return this.props.expectedReturnTime || null; }

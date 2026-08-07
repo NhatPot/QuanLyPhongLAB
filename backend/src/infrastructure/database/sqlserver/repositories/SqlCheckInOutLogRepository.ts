@@ -86,11 +86,14 @@ export class SqlCheckInOutLogRepository implements ICheckInOutLogRepository {
           logs.Note,
           booking.RequestCode,
           booking.Purpose,
+          booking.PurposeGroupId,
+          purposeGroup.Name AS PurposeGroupName,
           booking.BookingType,
           booking.NumberOfPeople AS RequestedPeopleCount,
           booking.NumberOfComputers AS RequestedComputerCount
         FROM CheckInOutLogs logs
         INNER JOIN BookingRequests booking ON booking.Id = logs.BookingRequestId
+        LEFT JOIN BookingPurposeGroups purposeGroup ON purposeGroup.Id = booking.PurposeGroupId
         WHERE logs.CheckInTime IS NOT NULL
           AND logs.CheckInTime < @end
           AND COALESCE(logs.CheckOutTime, SYSUTCDATETIME()) > @start
@@ -119,6 +122,8 @@ export class SqlCheckInOutLogRepository implements ICheckInOutLogRepository {
       ...this.toLog(row),
       requestCode: String(row.RequestCode),
       purpose: String(row.Purpose),
+      purposeGroupId: row.PurposeGroupId ? String(row.PurposeGroupId) : null,
+      purposeGroupName: row.PurposeGroupName ? String(row.PurposeGroupName) : null,
       bookingType: String(row.BookingType),
       requestedPeopleCount: Number(row.RequestedPeopleCount || 0),
       requestedComputerCount: Number(row.RequestedComputerCount || 0),

@@ -29,6 +29,9 @@ export interface EquipmentData {
   updatedAt?: string;
 }
 
+type EquipmentWriteData = Omit<EquipmentData, 'id' | 'totalQuantity' | 'availableQuantity' | 'reservedQuantity' | 'borrowedQuantity' | 'brokenQuantity' | 'maintenanceQuantity' | 'lostQuantity' | 'rowVersion' | 'createdAt' | 'updatedAt'>;
+type EquipmentCreateData = Omit<EquipmentWriteData, 'code'> & { code?: string; quantity: number };
+
 export interface EquipmentFilter {
   keyword?: string;
   categoryId?: string;
@@ -86,14 +89,18 @@ export const equipmentApi = {
     return response.data.data;
   },
 
-  create: async (data: Omit<EquipmentData, 'id' | 'totalQuantity' | 'availableQuantity' | 'reservedQuantity' | 'borrowedQuantity' | 'brokenQuantity' | 'maintenanceQuantity' | 'lostQuantity' | 'rowVersion' | 'createdAt' | 'updatedAt'>): Promise<EquipmentData> => {
+  create: async (data: EquipmentCreateData): Promise<EquipmentData> => {
     const response = await apiClient.post('/equipments', data);
     return response.data.data;
   },
 
-  update: async (id: string, data: Omit<EquipmentData, 'id' | 'totalQuantity' | 'availableQuantity' | 'reservedQuantity' | 'borrowedQuantity' | 'brokenQuantity' | 'maintenanceQuantity' | 'lostQuantity' | 'rowVersion' | 'createdAt' | 'updatedAt'>): Promise<EquipmentData> => {
+  update: async (id: string, data: EquipmentWriteData): Promise<EquipmentData> => {
     const response = await apiClient.put(`/equipments/${id}`, data);
     return response.data.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/equipments/${id}`);
   },
 
   adjust: async (id: string, delta: number, note?: string): Promise<EquipmentData> => {

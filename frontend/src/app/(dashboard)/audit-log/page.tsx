@@ -14,6 +14,8 @@ const ACTION_LABELS: Record<string, string> = {
   USER_CREATED: 'Tạo người dùng',
   USER_UPDATED: 'Cập nhật người dùng',
   USER_STATUS_UPDATED: 'Đổi trạng thái người dùng',
+  USER_DELETED: 'Xóa người dùng',
+  EQUIPMENT_DELETED: 'Xóa thiết bị',
   USER_ROLES_UPDATED: 'Đổi vai trò người dùng',
   USER_PASSWORD_RESET: 'Đặt lại mật khẩu',
   ROLE_PERMISSIONS_UPDATED: 'Cập nhật ma trận quyền',
@@ -24,6 +26,7 @@ function formatDate(value: string) {
 }
 
 function actionTone(action: string) {
+  if (action.includes('DELETED')) return 'border-red-200 bg-red-50 text-red-700';
   if (action.includes('PASSWORD') || action.includes('STATUS')) return 'border-amber-200 bg-amber-50 text-amber-700';
   if (action.includes('ROLE')) return 'border-violet-200 bg-violet-50 text-violet-700';
   return 'border-blue-200 bg-blue-50 text-blue-700';
@@ -73,4 +76,3 @@ function AuditRow({ record }: { record: AuditLogRecord }) {
 function JsonBlock({ label, value }: { label: string; value: unknown }) {
   return <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400">{label}</p><pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words text-[10px] leading-5 text-slate-600">{value === null ? 'Không có dữ liệu' : JSON.stringify(value, null, 2)}</pre></div>;
 }
-

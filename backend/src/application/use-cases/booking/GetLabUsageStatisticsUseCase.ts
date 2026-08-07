@@ -1,5 +1,6 @@
 import { ICheckInOutLogRepository, LabUsageSession } from '../../../domain/repositories/ICheckInOutLogRepository';
 import { ComputerActivityRecord, IComputerActivityRepository } from '../../../domain/repositories/IComputerActivityRepository';
+import { normalizePurposeKey } from './purpose-normalization';
 
 type DailyUsage = {
   date: string;
@@ -86,6 +87,20 @@ export class GetLabUsageStatisticsUseCase {
       computerHours: roundHours(item.computerHours),
     }));
     const computerSummaries = this.createComputerSummaries(activities, currentActivities, start, end, now);
+    const sessionDtos = sessions.map((session) => this.toSessionDto(session, usageActivities, start, end, now));
+    const purposeUsage = new Map<string, { id: string | null; name: string; sessionCount: number; usageHours: number }>();
+    sessionDtos.forEach((session) => {
+      const key = session.purposeGroupId || `legacy:${normalizePurposeKey(session.purpose)}`;
+      const current = purposeUsage.get(key) || {
+        id: session.purposeGroupId || null,
+        name: session.purposeGroupName || session.purpose,
+        sessionCount: 0,
+        usageHours: 0,
+      };
+      current.sessionCount += 1;
+      current.usageHours = roundHours(current.usageHours + session.usageHours);
+      purposeUsage.set(key, current);
+    });
 
     return {
       month,
@@ -97,7 +112,8 @@ export class GetLabUsageStatisticsUseCase {
       totalCheckOuts: sessions.filter((session) => session.checkOutTime && session.checkOutTime >= start && session.checkOutTime < end).length,
       activeSessions: sessions.filter((session) => !session.checkOutTime).length,
       daily: dailyUsage,
-      sessions: sessions.map((session) => this.toSessionDto(session, usageActivities, start, end, now)),
+      sessions: sessionDtos,
+      purposeGroups: Array.from(purposeUsage.values()).sort((left, right) => right.usageHours - left.usageHours),
       computerSummaries,
       computerActivities: activities.map((activity) => this.toActivityDto(activity, start, end, now)),
     };
@@ -156,6 +172,8 @@ export class GetLabUsageStatisticsUseCase {
       bookingId: session.bookingRequestId,
       requestCode: session.requestCode,
       purpose: session.purpose,
+      purposeGroupId: session.purposeGroupId,
+      purposeGroupName: session.purposeGroupName,
       bookingType: session.bookingType,
       checkInTime: session.checkInTime,
       checkOutTime: session.checkOutTime,

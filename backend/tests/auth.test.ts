@@ -42,7 +42,7 @@ describe('Authentication API', () => {
         .post('/api/auth/login')
         .send({
           identifier: 'admin',
-          password: 'password123'
+          password: 'p'
         });
 
       expect(response.status).toBe(200);
@@ -140,8 +140,8 @@ describe('Authentication API', () => {
         .set('Authorization', `Bearer ${token}`)
         .set('Cookie', ['refreshToken=mockedRefresh'])
         .send({
-          currentPassword: 'password123',
-          newPassword: 'newPassword123'
+          currentPassword: 'p',
+          newPassword: 'n'
         });
 
       expect(response.status).toBe(200);

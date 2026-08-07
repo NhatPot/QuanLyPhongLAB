@@ -34,6 +34,7 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
       .input('requesterId', mssql.UniqueIdentifier, raw.RequesterId)
       .input('bookingType', mssql.NVarChar, raw.BookingType)
       .input('purpose', mssql.NVarChar, raw.Purpose)
+      .input('purposeGroupId', mssql.UniqueIdentifier, raw.PurposeGroupId)
       .input('startTime', mssql.DateTime2, raw.StartTime)
       .input('endTime', mssql.DateTime2, raw.EndTime)
       .input('expectedReturnTime', mssql.DateTime2, raw.ExpectedReturnTime)
@@ -59,6 +60,7 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
             RequesterId = @requesterId,
             BookingType = @bookingType,
             Purpose = @purpose,
+            PurposeGroupId = @purposeGroupId,
             StartTime = @startTime,
             EndTime = @endTime,
             ExpectedReturnTime = @expectedReturnTime,
@@ -76,8 +78,8 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
             Note = @note,
             UpdatedAt = SYSUTCDATETIME()
         WHEN NOT MATCHED THEN
-          INSERT (Id, RequestCode, RequesterId, BookingType, Purpose, StartTime, EndTime, ExpectedReturnTime, NumberOfPeople, NumberOfComputers, Status, ApprovedBy, ApprovedAt, RejectedReason, CancelledBy, CancelledAt, CancellationReason, IsOverdue, HasIncident, Note, CreatedAt, UpdatedAt)
-          VALUES (@id, @requestCode, @requesterId, @bookingType, @purpose, @startTime, @endTime, @expectedReturnTime, @numberOfPeople, @numberOfComputers, @status, @approvedBy, @approvedAt, @rejectedReason, @cancelledBy, @cancelledAt, @cancellationReason, @isOverdue, @hasIncident, @note, SYSUTCDATETIME(), SYSUTCDATETIME());
+          INSERT (Id, RequestCode, RequesterId, BookingType, Purpose, PurposeGroupId, StartTime, EndTime, ExpectedReturnTime, NumberOfPeople, NumberOfComputers, Status, ApprovedBy, ApprovedAt, RejectedReason, CancelledBy, CancelledAt, CancellationReason, IsOverdue, HasIncident, Note, CreatedAt, UpdatedAt)
+          VALUES (@id, @requestCode, @requesterId, @bookingType, @purpose, @purposeGroupId, @startTime, @endTime, @expectedReturnTime, @numberOfPeople, @numberOfComputers, @status, @approvedBy, @approvedAt, @rejectedReason, @cancelledBy, @cancelledAt, @cancellationReason, @isOverdue, @hasIncident, @note, SYSUTCDATETIME(), SYSUTCDATETIME());
       `);
   }
 
@@ -121,6 +123,7 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
       requesterId: raw.RequesterId,
       bookingType: raw.BookingType as BookingType,
       purpose: raw.Purpose,
+      purposeGroupId: raw.PurposeGroupId ? String(raw.PurposeGroupId) : null,
       startTime: raw.StartTime,
       endTime: raw.EndTime,
       expectedReturnTime: raw.ExpectedReturnTime,
@@ -149,6 +152,7 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
       RequesterId: booking.requesterId,
       BookingType: booking.bookingType,
       Purpose: booking.purpose,
+      PurposeGroupId: booking.purposeGroupId,
       StartTime: booking.startTime,
       EndTime: booking.endTime,
       ExpectedReturnTime: booking.expectedReturnTime,

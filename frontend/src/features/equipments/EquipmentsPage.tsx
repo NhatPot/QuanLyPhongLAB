@@ -7,10 +7,12 @@ import { z } from 'zod';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { equipmentApi, EquipmentData, EquipmentTxData } from '@/services/equipment-api';
 import { useAuth } from '@/features/auth/AuthContext';
-import { Plus, Search, Edit2, History, AlertTriangle, Settings, RefreshCw, X, Save, ArrowUpDown } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Plus, Search, Edit2, History, AlertTriangle, Settings, RefreshCw, X, Save, ArrowUpDown, Trash2 } from 'lucide-react';
 
 const equipmentSchema = z.object({
-  code: z.string().min(1, 'Mã thiết bị không được trống.'),
+  quantity: z.coerce.number().int().min(1, 'Số lượng phải từ 1.'),
+  code: z.string().trim().max(50, 'Mã thiết bị tối đa 50 ký tự.').optional(),
   name: z.string().min(1, 'Tên thiết bị không được trống.'),
   categoryId: z.string().min(1, 'Danh mục không được trống.'),
   location: z.string().optional(),
@@ -44,12 +46,15 @@ const EquipmentsPage: React.FC = () => {
   const [adjustState, setAdjustState] = useState<{ id: string; isOpen: boolean; delta: number; note: string } | null>(null);
   const [brokenState, setBrokenState] = useState<{ id: string; isOpen: boolean; quantity: number; from: 'AVAILABLE' | 'BORROWED'; note: string } | null>(null);
   const [txHistoryState, setTxHistoryState] = useState<{ id: string; code: string; isOpen: boolean } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EquipmentData | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const canCreate = hasPermission('EQUIPMENT_CREATE');
   const canUpdate = hasPermission('EQUIPMENT_UPDATE');
   const canAdjust = hasPermission('EQUIPMENT_INVENTORY_ADJUST');
   const canDamageReport = hasPermission('EQUIPMENT_DAMAGE_REPORT');
   const canCategoryCreate = hasPermission('EQUIPMENT_CATEGORY_CREATE');
+  const canDelete = hasPermission('EQUIPMENT_DELETE');
 
   const { data: categories } = useQuery({
     queryKey: ['equipment-categories'],
@@ -78,7 +83,11 @@ const EquipmentsPage: React.FC = () => {
   const saveMutation = useMutation({
     mutationFn: (data: FormFields) => {
       if (selectedEq) {
-        return equipmentApi.update(selectedEq.id, data);
+        const { quantity: _quantity, ...updateData } = {
+          ...data,
+          code: data.code?.trim() || selectedEq.code,
+        };
+        return equipmentApi.update(selectedEq.id, updateData);
       }
       return equipmentApi.create(data);
     },
@@ -116,9 +125,23 @@ const EquipmentsPage: React.FC = () => {
     }
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => equipmentApi.delete(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['equipments'] });
+      setDeleteTarget(null);
+      setDeleteError(null);
+    },
+    onError: (error) => {
+      const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+      setDeleteError(response?.data?.error?.message || (error instanceof Error ? error.message : 'Không thể xóa thiết bị.'));
+    }
+  });
+
   const openAddEqModal = () => {
     setSelectedEq(null);
     eqForm.reset({
+      quantity: 1,
       code: '',
       name: '',
       categoryId: categories?.[0]?.id || '',
@@ -133,6 +156,7 @@ const EquipmentsPage: React.FC = () => {
   const openEditEqModal = (e: EquipmentData) => {
     setSelectedEq(e);
     eqForm.reset({
+      quantity: e.totalQuantity,
       code: e.code,
       name: e.name,
       categoryId: e.categoryId,
@@ -261,6 +285,17 @@ const EquipmentsPage: React.FC = () => {
                       >
                         <History className="h-3.5 w-3.5" /> Lịch sử
                       </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => {
+                            setDeleteError(null);
+                            setDeleteTarget(eq);
+                          }}
+                          className="inline-flex items-center gap-1 rounded bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 text-xs font-bold"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Xóa
+                        </button>
+                      )}
                       {canUpdate && (
                         <button
                           onClick={() => openEditEqModal(eq)}
@@ -327,10 +362,11 @@ const EquipmentsPage: React.FC = () => {
 
               <div className="grid gap-4 grid-cols-2">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Mã thiết bị (Unique)</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Mã thiết bị (tùy chọn)</label>
                   <input
                     {...eqForm.register('code')}
                     type="text"
+                    placeholder="Bỏ trống để tự sinh theo mã danh mục"
                     disabled={!!selectedEq}
                     className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-slate-900 focus:border-blue-500 focus:outline-none disabled:bg-slate-50 text-sm"
                   />
@@ -346,6 +382,20 @@ const EquipmentsPage: React.FC = () => {
                   />
                   {eqForm.formState.errors.name && <p className="mt-1 text-xs text-red-500">{eqForm.formState.errors.name.message}</p>}
                 </div>
+
+                {!selectedEq && (
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Số lượng</label>
+                    <input
+                      {...eqForm.register('quantity', { valueAsNumber: true })}
+                      type="number"
+                      min={1}
+                      step={1}
+                      className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-slate-900 focus:border-blue-500 focus:outline-none text-sm"
+                    />
+                    {eqForm.formState.errors.quantity && <p className="mt-1 text-xs text-red-500">{eqForm.formState.errors.quantity.message}</p>}
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-4 grid-cols-2">
@@ -623,6 +673,28 @@ const EquipmentsPage: React.FC = () => {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+        title="Xóa thiết bị?"
+        description={
+          deleteTarget
+            ? `Thiết bị ${deleteTarget.name} (${deleteTarget.code}) sẽ bị ẩn khỏi danh sách. Lịch sử kho vẫn được giữ lại.`
+            : ''
+        }
+        confirmLabel="Xóa thiết bị"
+        destructive
+        pending={deleteMutation.isPending}
+        error={deleteError || undefined}
+        onConfirm={() => {
+          if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
+        }}
+      />
     </div>
   );
 };

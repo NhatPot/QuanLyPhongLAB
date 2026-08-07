@@ -95,4 +95,8 @@ export const userApi = {
     const response = await apiClient.post(`/users/${id}/reset-password`, { temporaryPassword });
     return response.data.data;
   },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/users/${id}`);
+  },
 };

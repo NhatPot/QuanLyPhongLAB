@@ -194,6 +194,22 @@ export default function ReportsPage() {
         <CardHeader className="flex-row items-start justify-between gap-3"><div><CardTitle>Giờ sử dụng thực tế phòng Lab</CardTitle><CardDescription>Giờ phòng lấy từ check-in/check-out; giờ-máy cộng trực tiếp thời lượng của từng máy đã chọn.</CardDescription></div><input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 outline-none focus:border-blue-400" /></CardHeader>
         <CardContent>{usageQuery.isLoading ? <ChartSkeleton /> : <EChart option={activityOption} className="h-72" />}</CardContent>
       </Card>
+
+      <Card className="mt-4">
+        <CardHeader><CardTitle>Thống kê theo nhóm mục đích</CardTitle><CardDescription>Các cách nhập gần giống nhau được gom về cùng nhóm để dễ theo dõi.</CardDescription></CardHeader>
+        <CardContent>
+          {usageQuery.isLoading ? <div className="h-32 animate-pulse rounded-xl bg-slate-100" /> : (usage?.purposeGroups?.length ?? 0) > 0 ? (
+            <div className="divide-y divide-slate-100 rounded-xl border border-slate-100">
+              {usage!.purposeGroups.map((group) => (
+                <div key={group.id || group.name} className="flex items-center justify-between gap-4 px-4 py-3">
+                  <div className="min-w-0"><p className="truncate text-sm font-bold text-slate-800">{group.name}</p><p className="text-[11px] text-slate-400">{group.sessionCount} phiên sử dụng</p></div>
+                  <span className="shrink-0 text-sm font-extrabold text-blue-700">{group.usageHours} giờ</span>
+                </div>
+              ))}
+            </div>
+          ) : <EmptyChart label="Chưa có phiên sử dụng để thống kê mục đích." />}
+        </CardContent>
+      </Card>
     </div>
   );
 }

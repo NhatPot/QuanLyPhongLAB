@@ -10,11 +10,7 @@ const roleCodesSchema = z.array(
   z.string().trim().min(1).max(50).transform((value) => value.toUpperCase()),
 ).min(1, 'Người dùng phải có ít nhất một vai trò.').max(10);
 const temporaryPasswordSchema = z.string()
-  .min(8, 'Mật khẩu tạm thời phải có ít nhất 8 ký tự.')
-  .max(128, 'Mật khẩu tạm thời không được vượt quá 128 ký tự.')
-  .regex(/[a-z]/, 'Mật khẩu phải có chữ thường.')
-  .regex(/[A-Z]/, 'Mật khẩu phải có chữ hoa.')
-  .regex(/[0-9]/, 'Mật khẩu phải có chữ số.');
+  .min(1, 'Mật khẩu tạm thời không được để trống.');
 
 const profileBodySchema = z.object({
   fullName: z.string().trim().min(2, 'Họ tên phải có ít nhất 2 ký tự.').max(255),
@@ -95,7 +91,12 @@ export function createUserRouter(controller: UserController): Router {
     validateRequest(resetUserPasswordSchema),
     controller.resetPassword,
   );
+  router.delete(
+    '/:id',
+    requirePermissions('USER_DELETE'),
+    validateRequest(getUserSchema),
+    controller.delete,
+  );
 
   return router;
 }
-

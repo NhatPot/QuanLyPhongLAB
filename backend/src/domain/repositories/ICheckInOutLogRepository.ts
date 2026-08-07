@@ -14,6 +14,8 @@ export interface CheckInOutLog {
 export interface LabUsageSession extends CheckInOutLog {
   requestCode: string;
   purpose: string;
+  purposeGroupId?: string | null;
+  purposeGroupName?: string | null;
   bookingType: string;
   requestedPeopleCount: number;
   requestedComputerCount: number;

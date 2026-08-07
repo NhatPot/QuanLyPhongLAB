@@ -24,7 +24,9 @@ import { SqlAuditLogRepository } from '../../../infrastructure/database/sqlserve
 import { SqlCheckInOutLogRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlCheckInOutLogRepository';
 import { SqlComputerActivityRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlComputerActivityRepository';
 import { SqlUserRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlUserRepository';
+import { SqlBookingPurposeGroupRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlBookingPurposeGroupRepository';
 import { ListBookingRequesterOptionsUseCase } from '../../../application/use-cases/booking/ListBookingRequesterOptionsUseCase';
+import { ListBookingPurposeOptionsUseCase } from '../../../application/use-cases/booking/ListBookingPurposeOptionsUseCase';
 import { authMiddleware, requirePermissions } from '../middlewares/authMiddleware';
 import { validateRequest } from '../middlewares/validateRequestMiddleware';
 
@@ -51,6 +53,7 @@ const createBookingSchema = z.object({
     requesterId: z.string().uuid('ID người đăng ký không hợp lệ.').optional(),
     bookingType: z.enum(['FULL_LAB', 'COMPUTERS_ONLY', 'EQUIPMENT_ONLY']),
     purpose: z.string().trim().min(5, 'Mục đích cần ít nhất 5 ký tự.').max(1000),
+    purposeGroupId: z.string().uuid('Nhóm mục đích không hợp lệ.').optional(),
     startTime: z.string().datetime('Thời gian bắt đầu không hợp lệ.'),
     endTime: z.string().datetime('Thời gian kết thúc không hợp lệ.'),
     expectedReturnTime: z.string().datetime().nullable().optional(),
@@ -61,6 +64,34 @@ const createBookingSchema = z.object({
       quantity: z.number().int().min(1).max(1000),
     })).max(100).default([]),
     note: z.string().trim().max(4000).optional(),
+  }).superRefine((value, context) => {
+    if (value.bookingType === 'EQUIPMENT_ONLY' && value.equipments.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['equipments'],
+        message: 'Yêu cầu mượn thiết bị phải có ít nhất một thiết bị.',
+      });
+    }
+
+    const equipmentIds = new Set<string>();
+    value.equipments.forEach((item, index) => {
+      if (equipmentIds.has(item.equipmentId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['equipments', index, 'equipmentId'],
+          message: 'Không được chọn trùng thiết bị trong cùng một yêu cầu.',
+        });
+      }
+      equipmentIds.add(item.equipmentId);
+    });
+
+    if (value.bookingType === 'EQUIPMENT_ONLY' && value.numberOfComputers !== 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['numberOfComputers'],
+        message: 'Yêu cầu chỉ mượn thiết bị không được đăng ký máy tính.',
+      });
+    }
   }),
 });
 const requesterOptionsSchema = z.object({
@@ -82,6 +113,7 @@ export function createBookingRouter(): Router {
   const checkInOutLogRepo = new SqlCheckInOutLogRepository();
   const computerActivityRepo = new SqlComputerActivityRepository();
   const userRepo = new SqlUserRepository();
+  const purposeGroupRepo = new SqlBookingPurposeGroupRepository();
 
   // Shared Use Cases
   const checkAvailabilityUseCase = new CheckAvailabilityUseCase(
@@ -99,6 +131,7 @@ export function createBookingRouter(): Router {
     uow,
     auditLogRepo,
     userRepo,
+    purposeGroupRepo,
   );
   
   const getBookingUseCase = new GetBookingUseCase(bookingRepo, equipmentItemRepo);
@@ -112,6 +145,7 @@ export function createBookingRouter(): Router {
   const checkOutBookingUseCase = new CheckOutBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo);
   const getLabUsageStatisticsUseCase = new GetLabUsageStatisticsUseCase(checkInOutLogRepo, computerActivityRepo);
   const listBookingRequesterOptionsUseCase = new ListBookingRequesterOptionsUseCase(userRepo);
+  const listBookingPurposeOptionsUseCase = new ListBookingPurposeOptionsUseCase(purposeGroupRepo);
 
   // Controller
   const controller = new BookingController(
@@ -127,6 +161,7 @@ export function createBookingRouter(): Router {
     checkOutBookingUseCase,
     getLabUsageStatisticsUseCase,
     listBookingRequesterOptionsUseCase,
+    listBookingPurposeOptionsUseCase,
   );
 
   // Routes
@@ -135,6 +170,7 @@ export function createBookingRouter(): Router {
   router.get('/usage-statistics', authMiddleware, requirePermissions('REPORT_VIEW'), controller.getUsageStatistics.bind(controller));
 
   // User booking operations
+  router.get('/purpose-options', authMiddleware, requirePermissions('BOOKING_CREATE'), controller.listPurposeOptions.bind(controller));
   router.get('/requester-options', authMiddleware, requirePermissions('BOOKING_CREATE', 'BOOKING_CREATE_FOR_USER'), validateRequest(requesterOptionsSchema), controller.listRequesterOptions.bind(controller));
   router.post('/', authMiddleware, requirePermissions('BOOKING_CREATE'), validateRequest(createBookingSchema), controller.create.bind(controller));
   router.get('/my-bookings', authMiddleware, requirePermissions('BOOKING_CREATE'), controller.getMyBookings.bind(controller));

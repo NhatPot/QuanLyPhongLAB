@@ -16,6 +16,7 @@ export interface UserProps {
   lastLoginAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+  deletedAt?: Date;
 }
 
 export class User extends Entity<UserProps> {
@@ -39,6 +40,7 @@ export class User extends Entity<UserProps> {
   public get lastLoginAt(): Date | undefined { return this.props.lastLoginAt; }
   public get createdAt(): Date | undefined { return this.props.createdAt; }
   public get updatedAt(): Date | undefined { return this.props.updatedAt; }
+  public get deletedAt(): Date | undefined { return this.props.deletedAt; }
 
   public updateProfile(input: {
     fullName: string;
@@ -90,5 +92,10 @@ export class User extends Entity<UserProps> {
     this.props.passwordHash = hash;
     this.props.mustChangePassword = true;
     this.props.updatedAt = new Date();
+  }
+
+  public markDeleted(deletedAt = new Date()): void {
+    this.props.deletedAt = deletedAt;
+    this.props.updatedAt = deletedAt;
   }
 }

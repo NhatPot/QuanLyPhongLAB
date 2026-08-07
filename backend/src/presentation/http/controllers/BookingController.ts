@@ -12,6 +12,7 @@ import { CheckOutBookingUseCase } from '../../../application/use-cases/booking/C
 import { GetLabUsageStatisticsUseCase } from '../../../application/use-cases/booking/GetLabUsageStatisticsUseCase';
 import { ListBookingRequesterOptionsUseCase } from '../../../application/use-cases/booking/ListBookingRequesterOptionsUseCase';
 import { BookingType } from '../../../domain/entities/BookingRequest';
+import { ListBookingPurposeOptionsUseCase } from '../../../application/use-cases/booking/ListBookingPurposeOptionsUseCase';
 
 function primaryBookingRole(user: any): string {
   if (Array.isArray(user?.roles) && user.roles.includes('ADMIN')) return 'ADMIN';
@@ -33,6 +34,7 @@ export class BookingController {
     private checkOutBookingUseCase: CheckOutBookingUseCase,
     private getLabUsageStatisticsUseCase: GetLabUsageStatisticsUseCase,
     private listBookingRequesterOptionsUseCase: ListBookingRequesterOptionsUseCase,
+    private listBookingPurposeOptionsUseCase?: ListBookingPurposeOptionsUseCase,
   ) {}
 
   public create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -45,6 +47,7 @@ export class BookingController {
         requesterId: req.body.requesterId,
         bookingType: req.body.bookingType as BookingType,
         purpose: req.body.purpose,
+        purposeGroupId: req.body.purposeGroupId,
         startTime: new Date(req.body.startTime),
         endTime: new Date(req.body.endTime),
         expectedReturnTime: req.body.expectedReturnTime ? new Date(req.body.expectedReturnTime) : null,
@@ -61,7 +64,8 @@ export class BookingController {
       res.status(201).json({
         id: booking.id.toString(),
         requestCode: booking.requestCode,
-        status: booking.status
+        status: booking.status,
+        purposeGroupId: booking.purposeGroupId,
       });
     } catch (error: any) {
       next(error);
@@ -73,6 +77,17 @@ export class BookingController {
       const keyword = typeof req.query.keyword === 'string' ? req.query.keyword : undefined;
       const requesters = await this.listBookingRequesterOptionsUseCase.execute(keyword);
       res.status(200).json({ data: requesters });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public listPurposeOptions = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const options = this.listBookingPurposeOptionsUseCase
+        ? await this.listBookingPurposeOptionsUseCase.execute()
+        : [];
+      res.status(200).json({ data: options });
     } catch (error) {
       next(error);
     }
@@ -214,6 +229,7 @@ export class BookingController {
       requester,
       bookingType: booking.bookingType,
       purpose: booking.purpose,
+      purposeGroupId: booking.purposeGroupId,
       startTime: booking.startTime,
       endTime: booking.endTime,
       expectedReturnTime: booking.expectedReturnTime,

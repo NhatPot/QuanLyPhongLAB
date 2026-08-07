@@ -50,6 +50,18 @@ export interface ComputerSummary {
   inactive: number;
 }
 
+export interface DeviceMetrics {
+  timestamp: string;
+  status?: {
+    cpu?: { usage?: number; temperature?: number; cores?: number[] };
+    ram?: { used?: number; total?: number; free?: number; usagePercent?: number };
+    disk?: { used?: number; total?: number; usagePercent?: number; partitions?: any[] };
+    network?: { rxBytes?: number; txBytes?: number; rxSec?: number; txSec?: number };
+  };
+  installed_apps?: Array<{ name: string; version?: string; publisher?: string }>;
+  ipAddress?: string;
+}
+
 export const computerApi = {
   list: async (filter: ComputerFilter): Promise<ComputerListResponse> => {
     const response = await apiClient.get('/computers', { params: filter });
@@ -82,6 +94,11 @@ export const computerApi = {
 
   getSummary: async (): Promise<ComputerSummary> => {
     const response = await apiClient.get('/computers/availability-summary');
+    return response.data.data;
+  },
+
+  getDeviceMetrics: async (): Promise<Record<string, DeviceMetrics>> => {
+    const response = await apiClient.get('/devices/metrics');
     return response.data.data;
   }
 };

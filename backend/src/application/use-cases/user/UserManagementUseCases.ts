@@ -230,6 +230,49 @@ export class UpdateUserStatusUseCase {
   }
 }
 
+export class DeleteUserUseCase {
+  constructor(
+    private readonly userRepo: IUserRepository,
+    private readonly sessionRepo: IAuthSessionRepository,
+    private readonly uow: IUnitOfWork,
+    private readonly auditLogRepo: IAuditLogRepository,
+  ) {}
+
+  public async execute(input: UserOperationContext & { id: string }): Promise<void> {
+    const detail = await this.userRepo.findByIdWithRoles(input.id);
+    if (!detail) throw new NotFoundError('Không tìm thấy người dùng.');
+    if (input.id === input.actorUserId) {
+      throw new ForbiddenError('Bạn không thể xóa tài khoản đang đăng nhập.');
+    }
+
+    const protectsLastAdmin =
+      detail.user.status === 'ACTIVE' &&
+      detail.roles.includes('ADMIN');
+    const oldValue = { ...snapshotUser(detail.user), roles: detail.roles };
+    detail.user.markDeleted();
+
+    await this.uow.complete(async () => {
+      const transaction = this.uow.getTransaction();
+      if (protectsLastAdmin && (await this.userRepo.countActiveUsersByRole('ADMIN', transaction)) <= 1) {
+        throw new BusinessRuleError('Không thể xóa quản trị viên đang hoạt động cuối cùng.', 'LAST_ACTIVE_ADMIN');
+      }
+      await this.userRepo.save(detail.user, transaction);
+      await this.sessionRepo.revokeByUserId(input.id, transaction);
+      await this.auditLogRepo.save({
+        userId: input.actorUserId,
+        action: 'USER_DELETED',
+        entityName: 'Users',
+        entityId: detail.user.id.toString(),
+        oldValueJson: JSON.stringify(oldValue),
+        newValueJson: JSON.stringify({ deletedAt: detail.user.deletedAt }),
+        ipAddress: input.ipAddress,
+        userAgent: input.userAgent,
+        correlationId: input.correlationId,
+      }, transaction);
+    });
+  }
+}
+
 export class AssignUserRolesUseCase {
   constructor(
     private readonly userRepo: IUserRepository,
@@ -336,5 +379,6 @@ function snapshotUser(user: User) {
     department: user.department || null,
     status: user.status,
     mustChangePassword: user.mustChangePassword,
+    deletedAt: user.deletedAt || null,
   };
 }

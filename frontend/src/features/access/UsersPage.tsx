@@ -13,6 +13,7 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  Trash2,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -131,11 +132,14 @@ export default function UsersPage() {
     status: UserStatus;
   } | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const canCreate = hasPermission("USER_CREATE");
   const canUpdate = hasPermission("USER_UPDATE");
   const canUpdateStatus = hasPermission("USER_STATUS_UPDATE");
   const canAssignRole = hasPermission("ROLE_ASSIGN");
+  const canDelete = hasPermission("USER_DELETE");
 
   const listQuery = useQuery({
     queryKey: ["users", { page, keyword, statusFilter, roleFilter }],
@@ -264,12 +268,27 @@ export default function UsersPage() {
       toast.error(errorMessage(error, "Không thể đặt lại mật khẩu.")),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => userApi.delete(id),
+    onSuccess: async (_data, id) => {
+      toast.success("Đã xóa tài khoản");
+      setDeleteTarget(null);
+      setDeleteError(null);
+      await refreshUsers(id);
+    },
+    onError: (error) => {
+      const message = errorMessage(error, "Không thể xóa tài khoản.");
+      setDeleteError(message);
+      toast.error(message);
+    },
+  });
+
   const saveUser = (values: UserFormValues) => {
     if (
       !selectedUser &&
-      (!values.temporaryPassword || values.temporaryPassword.length < 8)
+      !values.temporaryPassword
     ) {
-      toast.error("Mật khẩu tạm thời phải có ít nhất 8 ký tự.");
+      toast.error("Vui lòng nhập mật khẩu tạm thời.");
       return;
     }
     saveMutation.mutate({ selected: selectedUser, values });
@@ -585,6 +604,24 @@ export default function UsersPage() {
                             )}
                           </button>
                         )}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeleteTarget(item);
+                            }}
+                            disabled={
+                              deleteMutation.isPending ||
+                              item.id === currentUser?.id
+                            }
+                            title="Xóa tài khoản"
+                            aria-label={`Xóa tài khoản ${item.fullName}`}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -696,6 +733,28 @@ export default function UsersPage() {
               id: statusTarget.user.id,
               status: statusTarget.status,
             });
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+        title="Xóa tài khoản?"
+        description={
+          deleteTarget
+            ? `Tài khoản ${deleteTarget.fullName} (@${deleteTarget.username}) sẽ bị ẩn khỏi danh sách và thu hồi các phiên đăng nhập. Lịch sử hoạt động vẫn được giữ lại.`
+            : ""
+        }
+        confirmLabel="Xóa tài khoản"
+        destructive
+        pending={deleteMutation.isPending}
+        error={deleteError || undefined}
+        onConfirm={() => {
+          if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
         }}
       />
     </div>

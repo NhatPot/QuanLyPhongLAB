@@ -68,6 +68,7 @@ import { ListEquipmentUseCase } from '../application/use-cases/equipment/ListEqu
 import { UpdateEquipmentUseCase } from '../application/use-cases/equipment/UpdateEquipmentUseCase';
 import { AdjustInventoryUseCase } from '../application/use-cases/equipment/AdjustInventoryUseCase';
 import { ReportBrokenEquipmentUseCase } from '../application/use-cases/equipment/ReportBrokenEquipmentUseCase';
+import { DeleteEquipmentUseCase } from '../application/use-cases/equipment/DeleteEquipmentUseCase';
 
 import { CheckAvailabilityUseCase } from '../application/use-cases/booking/CheckAvailabilityUseCase';
 import { CreateBookingUseCase } from '../application/use-cases/booking/CreateBookingUseCase';
@@ -85,6 +86,7 @@ import { GetLabUsageStatisticsUseCase } from '../application/use-cases/booking/G
 import {
   AssignUserRolesUseCase,
   CreateUserUseCase,
+  DeleteUserUseCase,
   GetUserSummaryUseCase,
   GetUserUseCase,
   ListUsersUseCase,
@@ -157,6 +159,10 @@ import {
   UpdateExpenseUseCase,
 } from '../application/use-cases/expense/ExpenseManagementUseCases';
 import { ExpenseController } from '../presentation/http/controllers/ExpenseController';
+import { RegisterDeviceUseCase } from '../application/use-cases/device/RegisterDeviceUseCase';
+import { UpdateDeviceMetricsUseCase } from '../application/use-cases/device/UpdateDeviceMetricsUseCase';
+import { ReportHardwareChangeUseCase } from '../application/use-cases/device/ReportHardwareChangeUseCase';
+import { DeviceController } from '../presentation/http/controllers/DeviceController';
 
 import { ILabProfileRepository } from '../domain/repositories/ILabProfileRepository';
 import { IComputerRepository } from '../domain/repositories/IComputerRepository';
@@ -209,6 +215,7 @@ class DependencyContainer {
   public readonly maintenanceController: MaintenanceController;
   public readonly incidentController: IncidentController;
   public readonly expenseController: ExpenseController;
+  public readonly deviceController: DeviceController;
 
   // Use cases
   public readonly getHealthUseCase: GetHealthUseCase;
@@ -238,6 +245,7 @@ class DependencyContainer {
   public readonly updateEquipmentUseCase: UpdateEquipmentUseCase;
   public readonly adjustInventoryUseCase: AdjustInventoryUseCase;
   public readonly reportBrokenEquipmentUseCase: ReportBrokenEquipmentUseCase;
+  public readonly deleteEquipmentUseCase: DeleteEquipmentUseCase;
 
   public readonly checkAvailabilityUseCase: CheckAvailabilityUseCase;
   public readonly createBookingUseCase: CreateBookingUseCase;
@@ -261,6 +269,7 @@ class DependencyContainer {
   public readonly updateUserStatusUseCase: UpdateUserStatusUseCase;
   public readonly assignUserRolesUseCase: AssignUserRolesUseCase;
   public readonly resetUserPasswordUseCase: ResetUserPasswordUseCase;
+  public readonly deleteUserUseCase: DeleteUserUseCase;
 
   public readonly listRolesUseCase: ListRolesUseCase;
   public readonly getRoleCatalogUseCase: GetRoleCatalogUseCase;
@@ -303,6 +312,10 @@ class DependencyContainer {
   public readonly listExpenseCategoriesUseCase: ListExpenseCategoriesUseCase;
   public readonly createExpenseCategoryUseCase: CreateExpenseCategoryUseCase;
   public readonly updateExpenseCategoryUseCase: UpdateExpenseCategoryUseCase;
+
+  public readonly registerDeviceUseCase: RegisterDeviceUseCase;
+  public readonly updateDeviceMetricsUseCase: UpdateDeviceMetricsUseCase;
+  public readonly reportHardwareChangeUseCase: ReportHardwareChangeUseCase;
 
   constructor() {
     this.clock = new SystemClock();
@@ -362,12 +375,13 @@ class DependencyContainer {
 
     this.createEquipmentCategoryUseCase = new CreateEquipmentCategoryUseCase(this.equipmentCategoryRepo);
     this.listEquipmentCategoriesUseCase = new ListEquipmentCategoriesUseCase(this.equipmentCategoryRepo);
-    this.createEquipmentUseCase = new CreateEquipmentUseCase(this.equipmentRepo, this.uow, this.auditLogRepo);
+    this.createEquipmentUseCase = new CreateEquipmentUseCase(this.equipmentRepo, this.equipmentCategoryRepo, this.uow, this.auditLogRepo);
     this.getEquipmentUseCase = new GetEquipmentUseCase(this.equipmentRepo);
     this.listEquipmentUseCase = new ListEquipmentUseCase(this.equipmentRepo);
     this.updateEquipmentUseCase = new UpdateEquipmentUseCase(this.equipmentRepo, this.uow, this.auditLogRepo);
     this.adjustInventoryUseCase = new AdjustInventoryUseCase(this.equipmentRepo, this.equipmentTxRepo, this.uow, this.auditLogRepo);
     this.reportBrokenEquipmentUseCase = new ReportBrokenEquipmentUseCase(this.equipmentRepo, this.equipmentTxRepo, this.uow, this.auditLogRepo);
+    this.deleteEquipmentUseCase = new DeleteEquipmentUseCase(this.equipmentRepo, this.uow, this.auditLogRepo);
     this.equipmentController = new EquipmentController(
       this.createEquipmentCategoryUseCase,
       this.listEquipmentCategoriesUseCase,
@@ -377,6 +391,7 @@ class DependencyContainer {
       this.updateEquipmentUseCase,
       this.adjustInventoryUseCase,
       this.reportBrokenEquipmentUseCase,
+      this.deleteEquipmentUseCase,
       this.equipmentTxRepo
     );
 
@@ -493,6 +508,12 @@ class DependencyContainer {
       this.uow,
       this.auditLogRepo
     );
+    this.deleteUserUseCase = new DeleteUserUseCase(
+      this.userRepo,
+      this.sessionRepo,
+      this.uow,
+      this.auditLogRepo,
+    );
     this.userController = new UserController(
       this.listUsersUseCase,
       this.getUserSummaryUseCase,
@@ -501,7 +522,8 @@ class DependencyContainer {
       this.updateUserUseCase,
       this.updateUserStatusUseCase,
       this.assignUserRolesUseCase,
-      this.resetUserPasswordUseCase
+      this.resetUserPasswordUseCase,
+      this.deleteUserUseCase,
     );
 
     this.listRolesUseCase = new ListRolesUseCase(this.rolePermissionRepo);
@@ -647,6 +669,15 @@ class DependencyContainer {
       this.listExpenseCategoriesUseCase,
       this.createExpenseCategoryUseCase,
       this.updateExpenseCategoryUseCase,
+    );
+
+    this.registerDeviceUseCase = new RegisterDeviceUseCase(this.computerRepo, this.uow);
+    this.updateDeviceMetricsUseCase = new UpdateDeviceMetricsUseCase(this.computerRepo, this.uow);
+    this.reportHardwareChangeUseCase = new ReportHardwareChangeUseCase(this.computerRepo, this.incidentRepo, this.uow);
+    this.deviceController = new DeviceController(
+      this.registerDeviceUseCase,
+      this.updateDeviceMetricsUseCase,
+      this.reportHardwareChangeUseCase
     );
   }
 }

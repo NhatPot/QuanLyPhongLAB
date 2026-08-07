@@ -358,6 +358,26 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
   });
   activitySheet.views = [{ state: 'frozen', ySplit: 4 }];
 
+  const purposeSheet = workbook.addWorksheet('Mục đích', { properties: { tabColor: { argb: COLORS.blue } } });
+  applySheetDefaults(purposeSheet, 'portrait');
+  purposeSheet.columns = [{ width: 8 }, { width: 42 }, { width: 18 }, { width: 18 }];
+  styleTitle(purposeSheet, 1, `THỐNG KÊ THEO NHÓM MỤC ĐÍCH THÁNG ${usage.month}`, 4);
+  purposeSheet.mergeCells('A2:D2');
+  purposeSheet.getCell('A2').value = 'Các cách nhập gần giống nhau được gom về cùng nhóm chuẩn để thống kê nhất quán.';
+  purposeSheet.getCell('A2').font = { name: 'Aptos', size: 10, italic: true, color: { argb: COLORS.slate } };
+  purposeSheet.getCell('A2').alignment = { horizontal: 'center', wrapText: true };
+  purposeSheet.getRow(4).values = ['STT', 'Nhóm mục đích', 'Số phiên sử dụng', 'Số giờ phòng'];
+  styleHeader(purposeSheet.getRow(4));
+  usage.purposeGroups.forEach((group, index) => {
+    const row = purposeSheet.addRow([index + 1, group.name, group.sessionCount, group.usageHours]);
+    row.getCell(4).numFmt = '0.00 "giờ"';
+  });
+  const purposeLastRow = Math.max(5, purposeSheet.rowCount);
+  if (!usage.purposeGroups.length) purposeSheet.getCell('A5').value = 'Tháng này chưa có phiên sử dụng để thống kê mục đích.';
+  styleDataRange(purposeSheet, 5, purposeLastRow, 4);
+  purposeSheet.autoFilter = { from: 'A4', to: `D${purposeLastRow}` };
+  purposeSheet.views = [{ state: 'frozen', ySplit: 4 }];
+
   const usageLogSheet = workbook.addWorksheet('Lịch sử check-in-out', { properties: { tabColor: { argb: COLORS.green } } });
   applySheetDefaults(usageLogSheet);
   usageLogSheet.columns = [{ width: 8 }, { width: 17 }, { width: 34 }, { width: 20 }, { width: 20 }, { width: 13 }, { width: 13 }, { width: 14 }, { width: 15 }, { width: 32 }, { width: 20 }, { width: 14 }];

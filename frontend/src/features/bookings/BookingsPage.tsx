@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -11,9 +11,11 @@ import { toast } from "sonner";
 import {
   bookingApi,
   type BookingData,
+  type BookingPurposeOption,
   type BookingRequester,
   type CreateBookingPayload,
 } from "@/services/booking-api";
+import { equipmentApi } from "@/services/equipment-api";
 import { useAuth } from "@/features/auth/AuthContext";
 import { DataTable, SortHeader } from "@/components/data-table/data-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -37,11 +39,36 @@ const schema = z
   .object({
     bookingType: z.enum(["FULL_LAB", "COMPUTERS_ONLY", "EQUIPMENT_ONLY"]),
     purpose: z.string().min(5, "Mục đích cần ít nhất 5 ký tự."),
+    purposeGroupId: z.string().optional(),
     startTime: z.string().min(1, "Chọn giờ bắt đầu."),
     endTime: z.string().min(1, "Chọn giờ kết thúc."),
     numberOfPeople: z.coerce.number().min(1),
     numberOfComputers: z.coerce.number().min(0),
+    equipments: z.array(z.object({
+      equipmentId: z.string().min(1, "Chọn thiết bị cho mượn."),
+      quantity: z.coerce.number().int().min(1, "Số lượng phải từ 1."),
+    })),
     note: z.string().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.bookingType === "EQUIPMENT_ONLY" && value.equipments.length === 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["equipments"],
+        message: "Cần chọn ít nhất một thiết bị cho mượn.",
+      });
+    }
+    const seen = new Set<string>();
+    value.equipments.forEach((item, index) => {
+      if (seen.has(item.equipmentId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["equipments", index, "equipmentId"],
+          message: "Thiết bị đã được chọn ở dòng khác.",
+        });
+      }
+      seen.add(item.equipmentId);
+    });
   })
   .refine((value) => new Date(value.startTime) < new Date(value.endTime), {
     path: ["endTime"],
@@ -74,6 +101,10 @@ function errorMessage(error: unknown, fallback: string) {
     : apiError?.message || fallback;
 }
 
+function requestedEquipmentQuantity(booking: BookingData) {
+  return booking.equipmentItems?.reduce((total, item) => total + item.requestedQuantity, 0) || 0;
+}
+
 export default function BookingsPage() {
   const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
@@ -96,12 +127,39 @@ export default function BookingsPage() {
     department: null,
   }) : null, [user]);
 
+  const { data: purposeOptions = [], isLoading: loadingPurposeOptions } = useQuery({
+    queryKey: ["booking-purpose-options"],
+    queryFn: bookingApi.purposeOptions,
+    enabled: createOpen && canCreate,
+    staleTime: 30_000,
+  });
+
   const { data: requesterOptions = [], isLoading: loadingRequesters } = useQuery({
     queryKey: ["booking-requester-options", requesterKeyword],
     queryFn: () => bookingApi.requesterOptions(requesterKeyword),
     enabled: createOpen && canCreateForUser,
     staleTime: 30_000,
   });
+  const { data: equipmentList, isLoading: loadingEquipments, error: equipmentError } = useQuery({
+    queryKey: ["booking-equipment-options"],
+    queryFn: () => equipmentApi.list({ status: "ACTIVE", page: 1, pageSize: 500 }),
+    enabled: createOpen && canCreate,
+    staleTime: 30_000,
+  });
+  const { data: equipmentCategories = [] } = useQuery({
+    queryKey: ["booking-equipment-categories"],
+    queryFn: equipmentApi.listCategories,
+    enabled: createOpen && canCreate,
+    staleTime: 60_000,
+  });
+  const availableEquipments = useMemo(
+    () => (equipmentList?.data || []).filter((item) => item.status === "ACTIVE" && item.availableQuantity > 0),
+    [equipmentList],
+  );
+  const equipmentCategoryName = useMemo(
+    () => new Map(equipmentCategories.map((category) => [category.id, category.name])),
+    [equipmentCategories],
+  );
   const visibleRequesterOptions = useMemo(() => {
     const options = selectedRequester ? [selectedRequester, ...requesterOptions] : requesterOptions;
     return options.filter((option, index) => options.findIndex((candidate) => candidate.id === option.id) === index);
@@ -124,7 +182,9 @@ export default function BookingsPage() {
     retry: false,
   });
   const {
+    control,
     register,
+    setValue,
     handleSubmit,
     reset,
     watch,
@@ -134,12 +194,20 @@ export default function BookingsPage() {
     defaultValues: {
       bookingType: "FULL_LAB",
       purpose: "",
+      purposeGroupId: "",
       numberOfPeople: 1,
       numberOfComputers: 0,
+      equipments: [{ equipmentId: "", quantity: 1 }],
       note: "",
     },
   });
+  const equipmentFields = useFieldArray({ control, name: "equipments" });
   const bookingType = watch("bookingType");
+  const equipmentValues = watch("equipments");
+  const requestedEquipmentCount = equipmentValues.reduce(
+    (total, item) => total + (Number(item.quantity) || 0),
+    0,
+  );
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
@@ -191,11 +259,12 @@ export default function BookingsPage() {
     createMutation.mutate({
       ...value,
       requesterId: canCreateForUser ? (selectedRequester?.id || user?.id) : undefined,
+      purposeGroupId: value.purposeGroupId?.startsWith("legacy:") ? undefined : value.purposeGroupId || undefined,
       startTime: new Date(value.startTime).toISOString(),
       endTime: new Date(value.endTime).toISOString(),
-      equipments: [],
       numberOfComputers:
         value.bookingType === "EQUIPMENT_ONLY" ? 0 : value.numberOfComputers,
+      equipments: value.bookingType === "EQUIPMENT_ONLY" ? value.equipments : [],
     });
 
   const columns = useMemo<ColumnDef<BookingData>[]>(
@@ -258,11 +327,14 @@ export default function BookingsPage() {
       },
       {
         accessorKey: "numberOfPeople",
-        header: "Quy mô",
+        header: "Quy mô / thiết bị",
         cell: ({ row }) => (
           <span className="text-xs">
-            {row.original.numberOfPeople} người ·{" "}
-            {row.original.numberOfComputers} máy
+            {row.original.bookingType === "EQUIPMENT_ONLY" ? (
+              <>{requestedEquipmentQuantity(row.original)} thiết bị</>
+            ) : (
+              <>{row.original.numberOfPeople} người · {row.original.numberOfComputers} máy</>
+            )}
           </span>
         ),
       },
@@ -485,10 +557,40 @@ export default function BookingsPage() {
               </select>
             </Field>
             <Field label="Mục đích" error={errors.purpose?.message}>
-              <Input
-                {...register("purpose")}
-                placeholder="Ví dụ: Thực hành mạng máy tính"
-              />
+              <div className="space-y-2">
+                <select
+                  {...register("purposeGroupId")}
+                  disabled={loadingPurposeOptions}
+                  onChange={(event) => {
+                    const selectedValue = event.target.value;
+                    const selectedOption: BookingPurposeOption | undefined = purposeOptions.find((option) => (
+                      option.id ? option.id === selectedValue : `legacy:${option.name}` === selectedValue
+                    ));
+                    setValue("purposeGroupId", selectedValue, { shouldValidate: true });
+                    if (selectedOption) setValue("purpose", selectedOption.name, { shouldValidate: true });
+                  }}
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="">Chọn mục đích gợi ý (không bắt buộc)</option>
+                  {purposeOptions.map((option) => {
+                    const optionValue = option.id || `legacy:${option.name}`;
+                    return (
+                      <option key={optionValue} value={optionValue}>
+                        {option.name} · {option.usageCount} lần
+                      </option>
+                    );
+                  })}
+                </select>
+                <Input
+                  {...register("purpose", {
+                    onChange: () => setValue("purposeGroupId", "", { shouldValidate: false }),
+                  })}
+                  placeholder="Hoặc nhập mục đích riêng, ví dụ: Nghiên cứu môn IoT"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Mục đích gần giống nhau sẽ được hệ thống tự gom vào cùng nhóm để thống kê.
+                </p>
+              </div>
             </Field>
             <Field label="Bắt đầu" error={errors.startTime?.message}>
               <Input type="datetime-local" {...register("startTime")} />
@@ -496,9 +598,11 @@ export default function BookingsPage() {
             <Field label="Kết thúc" error={errors.endTime?.message}>
               <Input type="datetime-local" {...register("endTime")} />
             </Field>
-            <Field label="Số người" error={errors.numberOfPeople?.message}>
-              <Input type="number" min={1} {...register("numberOfPeople")} />
-            </Field>
+            {bookingType !== "EQUIPMENT_ONLY" && (
+              <Field label="Số người" error={errors.numberOfPeople?.message}>
+                <Input type="number" min={1} {...register("numberOfPeople")} />
+              </Field>
+            )}
             {bookingType !== "EQUIPMENT_ONLY" && (
               <Field
                 label="Số máy tính"
@@ -510,6 +614,86 @@ export default function BookingsPage() {
                   {...register("numberOfComputers")}
                 />
               </Field>
+            )}
+            {bookingType === "EQUIPMENT_ONLY" && (
+              <div className="sm:col-span-2 rounded-2xl border border-blue-100 bg-blue-50/50 p-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold text-slate-700">Danh mục thiết bị cho mượn</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      Chọn thiết bị (ví dụ ESP/IoT) và số lượng cần mượn.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0 bg-white text-blue-700">
+                    Tổng: {requestedEquipmentCount} thiết bị
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => equipmentFields.append({ equipmentId: "", quantity: 1 })}
+                  >
+                    <Plus />
+                    Thêm dòng
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {equipmentError && (
+                    <p className="text-[11px] text-red-600">
+                      Không tải được danh sách thiết bị. Kiểm tra quyền xem thiết bị hoặc kết nối máy chủ.
+                    </p>
+                  )}
+                  {equipmentFields.fields.map((field, index) => (
+                    <div key={field.id} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_130px_auto]">
+                      <label className="block">
+                        <span className="sr-only">Thiết bị dòng {index + 1}</span>
+                        <select
+                          {...register(`equipments.${index}.equipmentId`)}
+                          disabled={loadingEquipments}
+                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                        >
+                          <option value="">
+                            {loadingEquipments ? "Đang tải thiết bị..." : availableEquipments.length ? "Chọn thiết bị" : "Chưa có thiết bị khả dụng"}
+                          </option>
+                          {availableEquipments.map((equipment) => (
+                            <option key={equipment.id} value={equipment.id}>
+                              {equipmentCategoryName.get(equipment.categoryId) || "Khác"} · {equipment.code} · {equipment.name} (còn {equipment.availableQuantity})
+                            </option>
+                          ))}
+                        </select>
+                        {errors.equipments?.[index]?.equipmentId?.message && (
+                          <span className="mt-1 block text-[11px] text-red-600">{errors.equipments[index]?.equipmentId?.message}</span>
+                        )}
+                      </label>
+                      <label className="block">
+                        <span className="sr-only">Số lượng dòng {index + 1}</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          step={1}
+                          {...register(`equipments.${index}.quantity`, { valueAsNumber: true })}
+                        />
+                        {errors.equipments?.[index]?.quantity?.message && (
+                          <span className="mt-1 block text-[11px] text-red-600">{errors.equipments[index]?.quantity?.message}</span>
+                        )}
+                      </label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-slate-400 hover:text-red-600"
+                        onClick={() => equipmentFields.remove(index)}
+                        aria-label={`Xóa dòng thiết bị ${index + 1}`}
+                      >
+                        <XCircle />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                {errors.equipments?.message && (
+                  <p className="mt-2 text-[11px] text-red-600">{errors.equipments.message as string}</p>
+                )}
+              </div>
             )}
             <div className="sm:col-span-2">
               <Field label="Ghi chú">

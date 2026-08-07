@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import {
   AssignUserRolesUseCase,
   CreateUserUseCase,
+  DeleteUserUseCase,
   GetUserSummaryUseCase,
   GetUserUseCase,
   ListUsersUseCase,
@@ -24,6 +25,7 @@ export class UserController {
     private readonly updateUserStatusUseCase: UpdateUserStatusUseCase,
     private readonly assignUserRolesUseCase: AssignUserRolesUseCase,
     private readonly resetUserPasswordUseCase: ResetUserPasswordUseCase,
+    private readonly deleteUserUseCase: DeleteUserUseCase,
   ) {}
 
   public list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -133,6 +135,18 @@ export class UserController {
         this.toResponseDto(detail),
         'Đặt lại mật khẩu thành công. Người dùng phải đổi mật khẩu khi đăng nhập lại.',
       ));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      await this.deleteUserUseCase.execute({
+        id: req.params.id,
+        ...this.contextOf(req),
+      });
+      res.status(200).json(ApiResponse.success(null, 'Xóa tài khoản thành công.'));
     } catch (error) {
       next(error);
     }
