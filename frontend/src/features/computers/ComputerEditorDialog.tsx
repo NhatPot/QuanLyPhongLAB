@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -117,6 +118,23 @@ export function ComputerEditorDialog({
     );
   }, [computer, open, reset]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose, open]);
+
   const refreshComputerData = () => {
     void queryClient.invalidateQueries({ queryKey: ["computers"] });
     void queryClient.invalidateQueries({ queryKey: ["computers-summary"] });
@@ -165,21 +183,22 @@ export function ComputerEditorDialog({
 
   return (
     <>
-      {open && (
-        <div
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) onClose();
-          }}
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm"
-        >
+      {open && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) onClose();
+            }}
+            className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4"
+          >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="computer-editor-title"
-            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-[0_24px_80px_rgba(15,23,42,.28)]"
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4">
               <div>
                 <h2
                   id="computer-editor-title"
@@ -401,7 +420,8 @@ export function ComputerEditorDialog({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       <ConfirmDialog
