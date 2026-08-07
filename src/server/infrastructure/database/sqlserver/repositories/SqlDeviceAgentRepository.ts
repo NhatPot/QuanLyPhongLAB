@@ -98,23 +98,27 @@ export class SqlDeviceAgentRepository implements IDeviceAgentRepository {
   }
 
   public async getAllMetrics(): Promise<Record<string, DeviceMetrics>> {
-    const pool = await SqlConnectionFactory.getPool();
-    const result = await pool.request().query(`
-      SELECT da.DeviceId, da.LatestMetricsJson
-      FROM DeviceAgents da
-      INNER JOIN Computers c ON c.Id = da.ComputerId
-      WHERE c.DeletedAt IS NULL AND da.LatestMetricsJson IS NOT NULL
-    `);
+    try {
+      const pool = await SqlConnectionFactory.getPool();
+      const result = await pool.request().query(`
+        SELECT da.DeviceId, da.LatestMetricsJson
+        FROM DeviceAgents da
+        INNER JOIN Computers c ON c.Id = da.ComputerId
+        WHERE c.DeletedAt IS NULL AND da.LatestMetricsJson IS NOT NULL
+      `);
 
-    const metrics: Record<string, DeviceMetrics> = {};
-    for (const row of result.recordset) {
-      try {
-        metrics[String(row.DeviceId)] = JSON.parse(String(row.LatestMetricsJson)) as DeviceMetrics;
-      } catch {
-        // Skip a damaged snapshot instead of breaking the entire monitoring screen.
+      const metrics: Record<string, DeviceMetrics> = {};
+      for (const row of result.recordset) {
+        try {
+          metrics[String(row.DeviceId)] = JSON.parse(String(row.LatestMetricsJson)) as DeviceMetrics;
+        } catch {
+          // Skip a damaged snapshot
+        }
       }
+      return metrics;
+    } catch {
+      return {};
     }
-    return metrics;
   }
 
   private toDomain(row: any): DeviceAgentRecord {

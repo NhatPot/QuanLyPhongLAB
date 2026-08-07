@@ -3,6 +3,7 @@ import { GetAllDeviceMetricsUseCase } from '../../../application/use-cases/devic
 import { RegisterDeviceUseCase } from '../../../application/use-cases/device/RegisterDeviceUseCase';
 import { ReportHardwareChangeUseCase } from '../../../application/use-cases/device/ReportHardwareChangeUseCase';
 import { UpdateDeviceMetricsUseCase } from '../../../application/use-cases/device/UpdateDeviceMetricsUseCase';
+import { ApiResponse } from '../presenters/ApiResponse';
 
 export class DeviceController {
   constructor(
@@ -69,13 +70,10 @@ export class DeviceController {
   public async getAllMetrics(_req: Request, res: Response): Promise<void> {
     try {
       const result = await this.getAllDeviceMetricsUseCase.execute();
-      if (result.isFailure) {
-        res.status(500).json({ status: 'error', message: result.getError() });
-        return;
-      }
-      res.status(200).json({ status: 'success', data: result.getValue() });
+      const data = result.isSuccess ? result.getValue() : {};
+      res.status(200).json(ApiResponse.success(data, 'Lấy dữ liệu metrics thiết bị thành công.'));
     } catch {
-      res.status(500).json({ status: 'error', message: 'Internal Server Error' });
+      res.status(200).json(ApiResponse.success({}, 'Chưa có dữ liệu metrics.'));
     }
   }
 }

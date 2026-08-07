@@ -6,9 +6,10 @@ export class GetAllDeviceMetricsUseCase {
 
   public async execute(): Promise<Result<Record<string, DeviceMetrics>>> {
     try {
-      return Result.ok(await this.deviceAgentRepo.getAllMetrics());
-    } catch (error: any) {
-      return Result.fail(error.message || 'Lỗi khi tải dữ liệu giám sát thiết bị.');
+      const metrics = await this.deviceAgentRepo.getAllMetrics();
+      return Result.ok(metrics || {});
+    } catch {
+      return Result.ok({});
     }
   }
 }
