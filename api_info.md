@@ -1,43 +1,47 @@
-# 🖥️ FIT PC Monitor
+# 📡 Server API Specification — FIT PC Monitor
 
-Hệ thống giám sát và quản lý tài nguyên máy tính thời gian thực (System Monitoring Agent) dành cho **Windows** và **Ubuntu**, phát triển trên nền tảng **Electron + React + Vite**.
-
----
-
-## 📌 Tính năng chính
-
-- 📊 **Giám sát thời gian thực**: Thu thập thông số CPU, RAM, Disk, Network và danh sách ứng dụng đã cài đặt trên hệ thống.
-- ⚡ **Tự động đăng ký & Cấu hình môi trường**: Tải `SERVER_URL` và `API_KEY` từ file `.env`, tự động lưu `api_key` được cấp từ máy chủ sau khi đăng ký.
-- 🚨 **Cảnh báo khẩn cấp thay đổi phần cứng**: Tự động phát hiện khi thiết bị bị tháo/thay thế linh kiện (CPU, GPU, RAM, MAC, UUID, OS, Hostname) mỗi khi khởi động và gửi cảnh báo khẩn cấp lên Server.
-- 📥 **Khay hệ thống (System Tray / Hidden Icons)**: Tự động thu nhỏ xuống khay hệ thống ẩn khi nhấn nút Thu nhỏ hoặc Đóng.
-- 🔒 **Khóa bảo mật**: Hỗ trợ thiết lập và đổi mật khẩu bảo vệ ứng dụng.
+Tài liệu mô tả chi tiết tất cả các REST API Endpoints được hỗ trợ bởi hệ thống **FIT PC Monitor Client** kết nối với Server quản lý.
 
 ---
 
-## 📡 Danh sách API Endpoints Hỗ Trợ (Server API Specification)
+## 🔒 Cấu trúc Header chung
 
-Tất cả các yêu cầu POST tới Server đều có header `Content-Type: application/json`. Khi có `API_KEY`, Client sẽ gửi kèm header `Authorization: Bearer <API_KEY>` và `X-API-Key: <API_KEY>`.
+Tất cả các API POST gửi lên Server sử dụng cấu trúc Header tiêu chuẩn:
 
-| Phương thức | Endpoint | Mô tả |
-| :--- | :--- | :--- |
-| `GET` | `/api/health` (hoặc `/`) | Kiểm tra trạng thái hoạt động của máy chủ (Health Check). |
-| `POST` | `/api/devices/register` | Đăng ký thông tin thiết bị với máy chủ. Máy chủ trả về `device_id` và `api_key`. |
-| `POST` | `/api/devices/unregister` | Hủy đăng ký thiết bị khỏi máy chủ. |
-| `POST` | `/api/auth/login` | Xác thực đăng nhập tài khoản người sử dụng với Server. |
-| `POST` | `/api/devices/bind-user` | Xác nhận và liên kết tài khoản vừa đăng nhập đang sử dụng máy tính nào. |
-| `POST` | `/api/devices/unbind-user` | Báo cáo máy chủ khi người dùng đăng xuất khỏi máy tính. |
-| `POST` | `/api/devices/metrics` | Gửi dữ liệu định kỳ gồm thông số tài nguyên (CPU, RAM, Disk, Network) và danh sách ứng dụng. |
-| `POST` | `/api/devices/alert-hardware-change` | Báo cáo khẩn cấp khi phát hiện thông số phần cứng bị thay đổi lúc khởi động. |
+```http
+Content-Type: application/json
+Authorization: Bearer <API_KEY>
+X-API-Key: <API_KEY>
+```
+
+> **Lưu ý:** Khi `API_KEY` chưa được thiết lập (hoặc ở lần đăng ký đầu tiên), các header `Authorization` và `X-API-Key` có thể để trống.
 
 ---
 
-### 🔍 Chi tiết Payload các Endpoint
+## 📋 Danh sách API Endpoints
 
-#### 1. Kiểm tra trạng thái máy chủ — `GET /api/health` (hoặc `/`)
+| STT | Phương thức | Endpoint | Mô tả ngắn |
+| :---: | :--- | :--- | :--- |
+| 1 | `GET` | `/api/health` (hoặc `/`) | Health Check — Kiểm tra kết nối máy chủ. |
+| 2 | `POST` | `/api/devices/register` | Đăng ký thiết bị và nhận `device_id`, `api_key`. |
+| 3 | `POST` | `/api/devices/unregister` | Hủy đăng ký thiết bị khỏi máy chủ. |
+| 4 | `POST` | `/api/auth/login` | Xác thực tài khoản người dùng với máy chủ. |
+| 5 | `POST` | `/api/devices/bind-user` | Liên kết thông tin người dùng với thiết bị. |
+| 6 | `POST` | `/api/devices/unbind-user` | Hủy liên kết người dùng khi đăng xuất. |
+| 7 | `POST` | `/api/devices/metrics` | Gửi định kỳ thông số hệ thống (CPU, RAM, Disk, Network) & Apps. |
+| 8 | `POST` | `/api/devices/alert-hardware-change` | Cảnh báo khẩn cấp khi linh kiện phần cứng thay đổi lúc khởi động. |
 
-**Request Header:** `Content-Type: application/json` (không yêu cầu body)
+---
 
-**Response (Success - 200 OK):**
+## 🔍 Chi tiết API Payloads
+
+### 1. Health Check — `GET /api/health`
+
+* **Mô tả:** Kiểm tra trạng thái hoạt động và phản hồi từ Server.
+* **Endpoint:** `GET /api/health` (hoặc `GET /`)
+* **Headers:** `Content-Type: application/json`
+
+**Response (`200 OK`):**
 ```json
 {
   "status": "ok",
@@ -47,7 +51,10 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 
 ---
 
-#### 2. Đăng ký thiết bị — `POST /api/devices/register`
+### 2. Đăng ký thiết bị — `POST /api/devices/register`
+
+* **Mô tả:** Khởi tạo thông tin phần cứng lần đầu với máy chủ để cấp mã `device_id` và mã khóa bảo mật `api_key`.
+* **Endpoint:** `POST /api/devices/register`
 
 **Request Body:**
 ```json
@@ -60,14 +67,32 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
   "arch": "x64",
   "cpu_model": "Intel Core™ i5-10600KF",
   "cpu_cores": 6,
+  "gpu_model": "NVIDIA GeForce RTX 2080 Ti",
+  "gpu": "NVIDIA GeForce RTX 2080 Ti",
   "total_ram_gb": 31.9,
+  "total_disk_gb": 911.9,
+  "disk_size_gb": 911.9,
+  "disk_info": [
+    { "mount": "C:", "sizeGb": 500, "usedGb": 150.2, "usePercent": 30 }
+  ],
   "mac_address": "24:4b:fe:03:c4:03",
+  "ip_address": "192.168.1.100",
+  "ip_addresses": [
+    "192.168.1.100",
+    "10.8.0.2",
+    "fe80::1234:5678:9abc:def0"
+  ],
   "uuid": "b4de5f15-c674-4139-e7fd-244bfe03c403",
+  "status": "IN_USE",
+  "device_status": "IN_USE",
+  "is_in_use": true,
+  "current_user": "user_jwt_token_1770000000000",
+  "user_token": "user_jwt_token_1770000000000",
   "registered_at": "2026-08-06T16:25:40.807Z"
 }
 ```
 
-**Response (Success - 200 OK):**
+**Response (`200 OK`):**
 ```json
 {
   "status": "success",
@@ -79,7 +104,10 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 
 ---
 
-#### 3. Hủy đăng ký thiết bị — `POST /api/devices/unregister`
+### 3. Hủy đăng ký thiết bị — `POST /api/devices/unregister`
+
+* **Mô tả:** Báo cáo máy chủ hủy đăng ký thiết bị hiện tại khỏi hệ thống giám sát.
+* **Endpoint:** `POST /api/devices/unregister`
 
 **Request Body:**
 ```json
@@ -89,7 +117,7 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 }
 ```
 
-**Response (Success - 200 OK):**
+**Response (`200 OK`):**
 ```json
 {
   "status": "success",
@@ -101,7 +129,10 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 
 ---
 
-#### 4. Xác thực đăng nhập người dùng — `POST /api/auth/login`
+### 4. Đăng nhập người dùng — `POST /api/auth/login`
+
+* **Mô tả:** Gửi tài khoản & mật khẩu người dùng lên Server để xác thực đăng nhập.
+* **Endpoint:** `POST /api/auth/login`
 
 **Request Body:**
 ```json
@@ -112,7 +143,7 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 }
 ```
 
-**Response (Success - 200 OK):**
+**Response (`200 OK`):**
 ```json
 {
   "status": "success",
@@ -130,7 +161,10 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 
 ---
 
-#### 5. Liên kết tài khoản người dùng với thiết bị — `POST /api/devices/bind-user`
+### 5. Liên kết người dùng với thiết bị — `POST /api/devices/bind-user`
+
+* **Mô tả:** Đăng ký phiên hoạt động của người dùng cụ thể trên máy tính hiện tại.
+* **Endpoint:** `POST /api/devices/bind-user`
 
 **Request Body:**
 ```json
@@ -140,11 +174,17 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
   "username": "user@example.com",
   "full_name": "USER",
   "login_at": "2026-08-06T16:30:00.000Z",
-  "hostname": "DESKTOP-SMTJA1Q"
+  "hostname": "DESKTOP-SMTJA1Q",
+  "ip_address": "192.168.1.100",
+  "ip_addresses": [
+    "192.168.1.100",
+    "10.8.0.2",
+    "fe80::1234:5678:9abc:def0"
+  ]
 }
 ```
 
-**Response (Success - 200 OK):**
+**Response (`200 OK`):**
 ```json
 {
   "status": "success",
@@ -155,7 +195,10 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 
 ---
 
-#### 6. Hủy liên kết người dùng khỏi thiết bị — `POST /api/devices/unbind-user`
+### 6. Hủy liên kết người dùng — `POST /api/devices/unbind-user`
+
+* **Mô tả:** Báo cáo máy chủ kết thúc phiên đăng nhập của người dùng trên thiết bị.
+* **Endpoint:** `POST /api/devices/unbind-user`
 
 **Request Body:**
 ```json
@@ -167,7 +210,7 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 }
 ```
 
-**Response (Success - 200 OK):**
+**Response (`200 OK`):**
 ```json
 {
   "status": "success",
@@ -177,7 +220,10 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 
 ---
 
-#### 7. Gửi dữ liệu giám sát định kỳ — `POST /api/devices/metrics`
+### 7. Gửi dữ liệu giám sát định kỳ — `POST /api/devices/metrics`
+
+* **Mô tả:** Gửi định kỳ các thông số tải CPU, RAM, Disk, Traffic mạng và danh sách phần mềm cài đặt.
+* **Endpoint:** `POST /api/devices/metrics`
 
 **Request Body:**
 ```json
@@ -185,6 +231,10 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
   "device_id": "24:4b:fe:03:c4:03",
   "timestamp": "2026-08-06T16:25:42.499Z",
   "status": {
+    "device_status": "IN_USE",
+    "is_in_use": true,
+    "current_user": "user_jwt_token_1770000000000",
+    "user_token": "user_jwt_token_1770000000000",
     "cpu": {
       "usage": 78.6,
       "cores": [75.2, 80.1, 72.4, 82.0, 79.5, 81.2],
@@ -208,7 +258,13 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
       "rxBytes": 1048576,
       "txBytes": 524288,
       "rxSec": 128,
-      "txSec": 64
+      "txSec": 64,
+      "ip_address": "192.168.1.100",
+      "ip_addresses": [
+        "192.168.1.100",
+        "10.8.0.2",
+        "fe80::1234:5678:9abc:def0"
+      ]
     }
   },
   "installed_apps": [
@@ -218,7 +274,7 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 }
 ```
 
-**Response (Success - 200 OK):**
+**Response (`200 OK`):**
 ```json
 {
   "status": "success",
@@ -229,7 +285,10 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 
 ---
 
-#### 8. Báo cáo khẩn cấp thay đổi phần cứng — `POST /api/devices/alert-hardware-change`
+### 8. Báo cáo khẩn cấp thay đổi phần cứng — `POST /api/devices/alert-hardware-change`
+
+* **Mô tả:** Phát hiện linh kiện (RAM, GPU, CPU, MAC, OS, ...) thay đổi so với cấu hình đã lưu và báo cáo khẩn cấp.
+* **Endpoint:** `POST /api/devices/alert-hardware-change`
 
 **Request Body:**
 ```json
@@ -266,7 +325,7 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 }
 ```
 
-**Response (Success - 200 OK):**
+**Response (`200 OK`):**
 ```json
 {
   "status": "alert_received",

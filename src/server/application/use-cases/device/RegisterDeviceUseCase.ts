@@ -25,11 +25,16 @@ export interface RegisterDeviceInput {
   arch?: string;
   cpu_model?: string;
   cpu_cores?: number;
+  gpu_model?: string;
+  gpu?: string;
   total_ram_gb?: number;
+  total_disk_gb?: number;
+  disk_size_gb?: number;
   uuid?: string;
   registered_at?: string;
   ip_address?: string;
   ipAddress?: string;
+  ip_addresses?: string[];
 }
 
 export class RegisterDeviceUseCase {
@@ -66,12 +71,14 @@ export class RegisterDeviceUseCase {
         computer = await this.computerRepo.findByMacAddress(macAddress);
       }
       if (!computer && hostname) {
-        computer = await this.computerRepo.findByCode(hostname);
+        computer = await this.computerRepo.findAnyMatching(hostname);
       }
 
       const apiKey = generateDeviceApiKey();
       const registeredAt = input.registered_at ? new Date(input.registered_at) : new Date();
-      const ipAddress = input.ip_address || input.ipAddress;
+      const ipAddress = input.ip_address || input.ipAddress || (input.ip_addresses && input.ip_addresses[0]);
+      const gpuModel = input.gpu_model || input.gpu;
+      const totalDisk = input.total_disk_gb || input.disk_size_gb;
 
       await this.uow.complete(async () => {
         const transaction = this.uow.getTransaction();
@@ -82,16 +89,20 @@ export class RegisterDeviceUseCase {
             name: hostname,
             cpu: input.cpu_model,
             ram: input.total_ram_gb ? `${input.total_ram_gb}GB` : undefined,
+            storage: totalDisk ? `${totalDisk}GB` : undefined,
+            gpu: gpuModel,
             operatingSystem: input.os ? `${input.os} ${input.os_version || ''}`.trim() : undefined,
             macAddress,
             ipAddress,
-            status: 'INACTIVE',
+            status: 'ACTIVE',
             note: 'Tự động đăng ký qua Agent.',
           });
         } else {
           computer.updateInformation({
             cpu: input.cpu_model || computer.cpu,
             ram: input.total_ram_gb ? `${input.total_ram_gb}GB` : computer.ram,
+            storage: totalDisk ? `${totalDisk}GB` : computer.storage,
+            gpu: gpuModel || computer.gpu,
             operatingSystem: input.os ? `${input.os} ${input.os_version || ''}`.trim() : computer.operatingSystem,
             macAddress: macAddress || computer.macAddress,
             ipAddress: ipAddress || computer.ipAddress,

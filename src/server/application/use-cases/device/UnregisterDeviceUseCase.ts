@@ -3,8 +3,9 @@ import { IDeviceAgentRepository } from '../../../domain/repositories/IDeviceAgen
 import { IIncidentReportRepository } from '../../../domain/repositories/IIncidentReportRepository';
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { Result } from '../../../shared/result/Result';
-import { normalizeDeviceId, isValidMacAddress, normalizeMacAddress, hashDeviceApiKey } from '../../../shared/utils/deviceIdentity';
+import { normalizeDeviceId, hashDeviceApiKey } from '../../../shared/utils/deviceIdentity';
 import { IncidentReport } from '../../../domain/entities/IncidentReport';
+import { Computer } from '../../../domain/entities/Computer';
 
 export interface UnregisterDeviceInput {
   device_id?: string;
@@ -45,6 +46,7 @@ export class UnregisterDeviceUseCase {
         return Result.fail('Vui lòng cung cấp device_id, mac_address hoặc API Key.');
       }
 
+      const macInput = input.mac_address || input.macAddress || rawDeviceId;
       const deviceId = normalizeDeviceId(rawDeviceId);
       const unregisteredAt = input.unregistered_at || input.unregisteredAt || new Date().toISOString();
 
@@ -52,17 +54,15 @@ export class UnregisterDeviceUseCase {
         existingAgent = await this.deviceAgentRepo.findByDeviceId(deviceId);
       }
 
-      let macAddress: string | undefined;
-      if (isValidMacAddress(rawDeviceId)) {
-        macAddress = normalizeMacAddress(rawDeviceId);
+      let computer: Computer | null = existingAgent ? await this.computerRepo.findById(existingAgent.computerId) : null;
+      if (!computer && macInput) {
+        computer = await this.computerRepo.findByMacAddress(macInput);
       }
-
-      let computer = existingAgent ? await this.computerRepo.findById(existingAgent.computerId) : null;
-      if (!computer && macAddress) {
-        computer = await this.computerRepo.findByMacAddress(macAddress);
-      }
-      if (!computer) {
+      if (!computer && deviceId) {
         computer = await this.computerRepo.findByCode(deviceId);
+      }
+      if (!computer && rawDeviceId) {
+        computer = await this.computerRepo.findAnyMatching(rawDeviceId);
       }
 
       const computerName = computer ? `${computer.name} (${computer.code})` : deviceId;
@@ -70,10 +70,8 @@ export class UnregisterDeviceUseCase {
       await this.uow.complete(async () => {
         const transaction = this.uow.getTransaction();
 
-        // 1. Delete Device Agent registration (revoking static API Key)
         await this.deviceAgentRepo.deleteByDeviceId(deviceId, transaction);
 
-        // 2. Create high priority incident report notifying admin
         const incidentAlert = IncidentReport.create({
           code: `INC-UNREG-${Date.now().toString().slice(-6)}`,
           title: `[CẢNH BÁO HỆ THỐNG] Máy tính ${computerName} vừa hủy đăng ký`,
@@ -85,7 +83,6 @@ export class UnregisterDeviceUseCase {
         });
         await this.incidentRepo.save(incidentAlert, transaction);
 
-        // 3. Remove computer from system
         if (computer) {
           computer.delete();
           await this.computerRepo.save(computer, transaction);

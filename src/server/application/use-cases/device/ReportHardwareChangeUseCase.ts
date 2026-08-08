@@ -5,7 +5,7 @@ import { IDeviceAgentRepository } from '../../../domain/repositories/IDeviceAgen
 import { IIncidentReportRepository } from '../../../domain/repositories/IIncidentReportRepository';
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { Result } from '../../../shared/result/Result';
-import { normalizeDeviceId, isValidMacAddress, normalizeMacAddress, hashDeviceApiKey } from '../../../shared/utils/deviceIdentity';
+import { normalizeDeviceId, hashDeviceApiKey } from '../../../shared/utils/deviceIdentity';
 import { Computer } from '../../../domain/entities/Computer';
 
 const SYSTEM_DEVICE_REPORTER_ID = '00000000-0000-0000-0000-000000000000';
@@ -47,6 +47,7 @@ export class ReportHardwareChangeUseCase {
         }
       }
 
+      const macInput = input.mac_address || input.macAddress || rawDeviceId;
       const deviceId = rawDeviceId ? normalizeDeviceId(rawDeviceId) : 'UNKNOWN-DEVICE';
       if (!existingAgent && deviceId !== 'UNKNOWN-DEVICE') {
         existingAgent = await this.deviceAgentRepo.findByDeviceId(deviceId);
@@ -56,17 +57,14 @@ export class ReportHardwareChangeUseCase {
       if (existingAgent) {
         computer = await this.computerRepo.findById(existingAgent.computerId);
       }
+      if (!computer && macInput) {
+        computer = await this.computerRepo.findByMacAddress(macInput);
+      }
       if (!computer && deviceId !== 'UNKNOWN-DEVICE') {
-        let macAddress: string | undefined;
-        if (isValidMacAddress(rawDeviceId!)) {
-          macAddress = normalizeMacAddress(rawDeviceId!);
-        }
-        if (macAddress) {
-          computer = await this.computerRepo.findByMacAddress(macAddress);
-        }
-        if (!computer) {
-          computer = await this.computerRepo.findByCode(deviceId);
-        }
+        computer = await this.computerRepo.findByCode(deviceId);
+      }
+      if (!computer && rawDeviceId) {
+        computer = await this.computerRepo.findAnyMatching(rawDeviceId);
       }
 
       const computerName = computer ? `${computer.name} (${computer.code})` : deviceId;
