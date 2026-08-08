@@ -10,13 +10,16 @@ export class HealthController {
       const result = await this.getHealthUseCase.execute();
       
       if (result.isSuccess) {
-        res.status(200).json(
-          ApiResponse.success(result.getValue(), "Service is healthy")
-        );
+        res.status(200).json({
+          status: 'ok',
+          message: 'FIT PC Monitor Server Alive',
+          data: result.getValue(),
+        });
       } else {
-        res.status(500).json(
-          ApiResponse.error("HEALTH_CHECK_FAILED", result.getError() || "Health check failed", null, req.correlationId)
-        );
+        res.status(500).json({
+          status: 'error',
+          message: result.getError() || 'Health check failed',
+        });
       }
     } catch (error) {
       next(error);

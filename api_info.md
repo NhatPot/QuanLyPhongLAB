@@ -22,6 +22,10 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 | :--- | :--- | :--- |
 | `GET` | `/api/health` (hoặc `/`) | Kiểm tra trạng thái hoạt động của máy chủ (Health Check). |
 | `POST` | `/api/devices/register` | Đăng ký thông tin thiết bị với máy chủ. Máy chủ trả về `device_id` và `api_key`. |
+| `POST` | `/api/devices/unregister` | Hủy đăng ký thiết bị khỏi máy chủ. |
+| `POST` | `/api/auth/login` | Xác thực đăng nhập tài khoản người sử dụng với Server. |
+| `POST` | `/api/devices/bind-user` | Xác nhận và liên kết tài khoản vừa đăng nhập đang sử dụng máy tính nào. |
+| `POST` | `/api/devices/unbind-user` | Báo cáo máy chủ khi người dùng đăng xuất khỏi máy tính. |
 | `POST` | `/api/devices/metrics` | Gửi dữ liệu định kỳ gồm thông số tài nguyên (CPU, RAM, Disk, Network) và danh sách ứng dụng. |
 | `POST` | `/api/devices/alert-hardware-change` | Báo cáo khẩn cấp khi phát hiện thông số phần cứng bị thay đổi lúc khởi động. |
 
@@ -29,7 +33,21 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 
 ### 🔍 Chi tiết Payload các Endpoint
 
-#### 1. Đăng ký thiết bị — `POST /api/devices/register`
+#### 1. Kiểm tra trạng thái máy chủ — `GET /api/health` (hoặc `/`)
+
+**Request Header:** `Content-Type: application/json` (không yêu cầu body)
+
+**Response (Success - 200 OK):**
+```json
+{
+  "status": "ok",
+  "message": "FIT PC Monitor Server Alive"
+}
+```
+
+---
+
+#### 2. Đăng ký thiết bị — `POST /api/devices/register`
 
 **Request Body:**
 ```json
@@ -61,7 +79,105 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 
 ---
 
-#### 2. Gửi dữ liệu giám sát định kỳ — `POST /api/devices/metrics`
+#### 3. Hủy đăng ký thiết bị — `POST /api/devices/unregister`
+
+**Request Body:**
+```json
+{
+  "device_id": "24:4b:fe:03:c4:03",
+  "unregistered_at": "2026-08-08T14:30:00.000Z"
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "status": "success",
+  "message": "Hủy đăng ký thiết bị thành công",
+  "device_id": "24:4b:fe:03:c4:03",
+  "unregistered_at": "2026-08-08T14:30:00.000Z"
+}
+```
+
+---
+
+#### 4. Xác thực đăng nhập người dùng — `POST /api/auth/login`
+
+**Request Body:**
+```json
+{
+  "username": "user@example.com",
+  "password": "your_password_here",
+  "device_id": "24:4b:fe:03:c4:03"
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "status": "success",
+  "message": "Đăng nhập người dùng thành công",
+  "user": {
+    "user_id": "USR-1234",
+    "username": "user@example.com",
+    "full_name": "USER",
+    "email": "user@example.com",
+    "role": "user"
+  },
+  "token": "user_jwt_token_1770000000000"
+}
+```
+
+---
+
+#### 5. Liên kết tài khoản người dùng với thiết bị — `POST /api/devices/bind-user`
+
+**Request Body:**
+```json
+{
+  "device_id": "24:4b:fe:03:c4:03",
+  "user_id": "USR-1234",
+  "username": "user@example.com",
+  "full_name": "USER",
+  "login_at": "2026-08-06T16:30:00.000Z",
+  "hostname": "DESKTOP-SMTJA1Q"
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "status": "success",
+  "message": "Đã liên kết tài khoản user@example.com với máy tính 24:4b:fe:03:c4:03",
+  "bound_at": "2026-08-06T16:30:00.000Z"
+}
+```
+
+---
+
+#### 6. Hủy liên kết người dùng khỏi thiết bị — `POST /api/devices/unbind-user`
+
+**Request Body:**
+```json
+{
+  "device_id": "24:4b:fe:03:c4:03",
+  "user_id": "USR-1234",
+  "username": "user@example.com",
+  "logout_at": "2026-08-06T17:00:00.000Z"
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "status": "success",
+  "message": "Đã hủy phiên sử dụng máy tính thành công"
+}
+```
+
+---
+
+#### 7. Gửi dữ liệu giám sát định kỳ — `POST /api/devices/metrics`
 
 **Request Body:**
 ```json
@@ -113,7 +229,7 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
 
 ---
 
-#### 3. Báo cáo khẩn cấp thay đổi phần cứng — `POST /api/devices/alert-hardware-change`
+#### 8. Báo cáo khẩn cấp thay đổi phần cứng — `POST /api/devices/alert-hardware-change`
 
 **Request Body:**
 ```json
@@ -158,41 +274,3 @@ Tất cả các yêu cầu POST tới Server đều có header `Content-Type: ap
   "alert_time": "2026-08-06T16:35:10.350Z"
 }
 ```
-
----
-
-## ⚙️ Cấu hình Môi trường (`.env`)
-
-Tạo file `.env` tại thư mục gốc dự án:
-
-```env
-# URL máy chủ quản lý
-SERVER_URL=http://localhost:3000
-
-# API Key mặc định (tùy chọn)
-API_KEY=
-```
-
----
-
-## 🚀 Hướng dẫn Chạy & Kiểm thử
-
-### 1. Khởi chạy ứng dụng Chế độ Phát triển (Dev Mode):
-```bash
-npm run dev
-```
-
-### 2. Thử nghiệm với Server Giả lập (Mock Server Local):
-```bash
-# Terminal 1: Chạy Mock Server (Cổng 3000)
-npm run mock:server
-
-# Terminal 2: Chạy script test tự động
-npm run test:agent
-```
-
-### 3. Đóng gói bản cài đặt cho Windows (`.exe`):
-```bash
-npm run dist:win
-```
-Bản cài đặt sẽ được tạo tại thư mục `dist/FIT PC Monitor Setup 1.0.0.exe`.

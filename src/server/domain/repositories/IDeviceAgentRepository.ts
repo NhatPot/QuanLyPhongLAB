@@ -21,6 +21,10 @@ export interface DeviceAgentRecord {
   cpuCores?: number;
   registeredAt: Date;
   lastSeenAt?: Date;
+  currentUserId?: string;
+  currentUsername?: string;
+  currentFullName?: string;
+  boundAt?: Date;
   latestMetrics?: DeviceMetrics;
 }
 
@@ -41,5 +45,11 @@ export interface IDeviceAgentRepository {
   findByDeviceId(deviceId: string): Promise<DeviceAgentRecord | null>;
   upsertRegistration(input: RegisterDeviceAgentInput, transaction?: any): Promise<void>;
   updateMetrics(deviceId: string, metrics: DeviceMetrics, receivedAt: Date, transaction?: any): Promise<void>;
+  updateBoundUser(
+    deviceId: string,
+    boundUser: { userId?: string; username?: string; fullName?: string; boundAt?: Date } | null,
+    transaction?: any,
+  ): Promise<void>;
+  deleteByDeviceId(deviceId: string, transaction?: any): Promise<void>;
   getAllMetrics(): Promise<Record<string, DeviceMetrics>>;
 }

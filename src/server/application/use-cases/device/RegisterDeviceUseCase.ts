@@ -6,12 +6,19 @@ import { Result } from '../../../shared/result/Result';
 import {
   generateDeviceApiKey,
   hashDeviceApiKey,
+  normalizeDeviceId,
+  isValidMacAddress,
   normalizeMacAddress,
 } from '../../../shared/utils/deviceIdentity';
 
 export interface RegisterDeviceInput {
-  device_id: string;
-  hostname: string;
+  device_id?: string;
+  deviceId?: string;
+  mac_address?: string;
+  macAddress?: string;
+  hostname?: string;
+  name?: string;
+  code?: string;
   os?: string;
   os_version?: string;
   platform?: string;
@@ -19,10 +26,10 @@ export interface RegisterDeviceInput {
   cpu_model?: string;
   cpu_cores?: number;
   total_ram_gb?: number;
-  mac_address: string;
   uuid?: string;
   registered_at?: string;
   ip_address?: string;
+  ipAddress?: string;
 }
 
 export class RegisterDeviceUseCase {
@@ -34,42 +41,60 @@ export class RegisterDeviceUseCase {
 
   public async execute(input: RegisterDeviceInput): Promise<Result<{ device_id: string; api_key: string }>> {
     try {
-      const deviceId = normalizeMacAddress(input.device_id);
-      const macAddress = normalizeMacAddress(input.mac_address);
-      if (deviceId !== macAddress) {
-        return Result.fail('device_id và mac_address phải cùng xác định một thiết bị.');
+      const rawDeviceId = input.device_id || input.deviceId || input.mac_address || input.macAddress;
+      const rawMac = input.mac_address || input.macAddress || input.device_id || input.deviceId;
+      const hostname = (input.hostname || input.name || input.code || 'UNKNOWN-HOST').trim();
+
+      if (!rawDeviceId && !rawMac) {
+        return Result.fail('Vui lòng cung cấp device_id hoặc mac_address để đăng ký thiết bị.');
       }
 
-      let computer = await this.computerRepo.findByMacAddress(macAddress);
-      if (!computer) {
-        computer = await this.computerRepo.findByCode(input.hostname);
+      const deviceId = normalizeDeviceId(rawDeviceId || rawMac || '');
+      let macAddress: string | undefined;
+      if (rawMac && isValidMacAddress(rawMac)) {
+        macAddress = normalizeMacAddress(rawMac);
+      } else if (rawDeviceId && isValidMacAddress(rawDeviceId)) {
+        macAddress = normalizeMacAddress(rawDeviceId);
+      }
+
+      const existingAgent = await this.deviceAgentRepo.findByDeviceId(deviceId);
+      let computer: Computer | null = null;
+      if (existingAgent) {
+        computer = await this.computerRepo.findById(existingAgent.computerId);
+      }
+      if (!computer && macAddress) {
+        computer = await this.computerRepo.findByMacAddress(macAddress);
+      }
+      if (!computer && hostname) {
+        computer = await this.computerRepo.findByCode(hostname);
       }
 
       const apiKey = generateDeviceApiKey();
       const registeredAt = input.registered_at ? new Date(input.registered_at) : new Date();
+      const ipAddress = input.ip_address || input.ipAddress;
 
       await this.uow.complete(async () => {
         const transaction = this.uow.getTransaction();
 
         if (!computer) {
           computer = Computer.create({
-            code: input.hostname.trim(),
-            name: input.hostname.trim(),
+            code: hostname,
+            name: hostname,
             cpu: input.cpu_model,
             ram: input.total_ram_gb ? `${input.total_ram_gb}GB` : undefined,
             operatingSystem: input.os ? `${input.os} ${input.os_version || ''}`.trim() : undefined,
             macAddress,
-            ipAddress: input.ip_address,
+            ipAddress,
             status: 'INACTIVE',
             note: 'Tự động đăng ký qua Agent.',
           });
         } else {
           computer.updateInformation({
-            cpu: input.cpu_model,
-            ram: input.total_ram_gb ? `${input.total_ram_gb}GB` : undefined,
-            operatingSystem: input.os ? `${input.os} ${input.os_version || ''}`.trim() : undefined,
-            macAddress,
-            ipAddress: input.ip_address,
+            cpu: input.cpu_model || computer.cpu,
+            ram: input.total_ram_gb ? `${input.total_ram_gb}GB` : computer.ram,
+            operatingSystem: input.os ? `${input.os} ${input.os_version || ''}`.trim() : computer.operatingSystem,
+            macAddress: macAddress || computer.macAddress,
+            ipAddress: ipAddress || computer.ipAddress,
           });
         }
 
@@ -78,7 +103,7 @@ export class RegisterDeviceUseCase {
           computerId: computer.id.toString(),
           deviceId,
           apiKeyHash: hashDeviceApiKey(apiKey),
-          hostname: input.hostname,
+          hostname,
           agentUuid: input.uuid,
           platform: input.platform,
           architecture: input.arch,
@@ -87,7 +112,7 @@ export class RegisterDeviceUseCase {
         }, transaction);
       });
 
-      return Result.ok({ device_id: input.device_id.trim(), api_key: apiKey });
+      return Result.ok({ device_id: deviceId, api_key: apiKey });
     } catch (error: any) {
       return Result.fail(error.message || 'Lỗi khi đăng ký thiết bị.');
     }

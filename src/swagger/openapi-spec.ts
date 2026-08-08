@@ -1080,6 +1080,81 @@ export const openApiSpec = {
         responses: { 200: { description: "Đăng ký thành công" } }
       }
     },
+    "/devices/unregister": {
+      post: {
+        tags: ["Thiết Bị Agent & Realtime Monitoring (Devices)"],
+        summary: "Hủy đăng ký thiết bị khỏi máy chủ, tự động xóa máy tính và gửi thông báo tới Admin",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["device_id"],
+                properties: {
+                  device_id: { type: "string", example: "24:4b:fe:03:c4:03" },
+                  unregistered_at: { type: "string", format: "date-time" }
+                }
+              }
+            }
+          }
+        },
+        responses: { 200: { description: "Hủy đăng ký thành công" } }
+      }
+    },
+    "/devices/bind-user": {
+      post: {
+        tags: ["Thiết Bị Agent & Realtime Monitoring (Devices)"],
+        summary: "Xác nhận và liên kết tài khoản người dùng đang đăng nhập sử dụng máy tính",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["device_id", "username"],
+                properties: {
+                  device_id: { type: "string", example: "24:4b:fe:03:c4:03" },
+                  user_id: { type: "string", example: "USR-1234" },
+                  username: { type: "string", example: "user@example.com" },
+                  full_name: { type: "string", example: "Nguyễn Văn A" },
+                  login_at: { type: "string", format: "date-time" },
+                  hostname: { type: "string", example: "DESKTOP-SMTJA1Q" }
+                }
+              }
+            }
+          }
+        },
+        responses: { 200: { description: "Đã liên kết tài khoản thành công" } }
+      }
+    },
+    "/devices/unbind-user": {
+      post: {
+        tags: ["Thiết Bị Agent & Realtime Monitoring (Devices)"],
+        summary: "Báo cáo máy chủ khi người dùng đăng xuất khỏi máy tính",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["device_id"],
+                properties: {
+                  device_id: { type: "string", example: "24:4b:fe:03:c4:03" },
+                  user_id: { type: "string", example: "USR-1234" },
+                  username: { type: "string", example: "user@example.com" },
+                  logout_at: { type: "string", format: "date-time" }
+                }
+              }
+            }
+          }
+        },
+        responses: { 200: { description: "Đã hủy phiên sử dụng thành công" } }
+      }
+    },
     "/devices/alert-hardware-change": {
       post: {
         tags: ["Thiết Bị Agent & Realtime Monitoring (Devices)"],

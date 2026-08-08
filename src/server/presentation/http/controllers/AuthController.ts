@@ -6,7 +6,8 @@ import { ValidationError, UnauthorizedError } from '../../../shared/errors/AppEr
 
 export const loginSchema = z.object({
   body: z.object({
-    identifier: z.string().min(1, 'Tên đăng nhập hoặc email không được để trống.'),
+    identifier: z.string().min(1, 'Tên đăng nhập hoặc email không được để trống.').optional(),
+    username: z.string().min(1, 'Tên đăng nhập hoặc email không được để trống.').optional(),
     password: z.string().min(1, 'Mật khẩu không được để trống.')
   })
 });
@@ -36,9 +37,15 @@ export const updateCurrentUserProfileSchema = z.object({
 });
 
 export class AuthController {
-  public async login(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { identifier, password } = req.body;
+      const identifier = (req.body?.identifier || req.body?.username || '').trim();
+      const password = req.body?.password;
+
+      if (!identifier || !password) {
+        throw new UnauthorizedError('Tên đăng nhập hoặc mật khẩu không được để trống.');
+      }
+
       const result = await container.loginUseCase.execute({
         identifier,
         password,
@@ -48,10 +55,13 @@ export class AuthController {
       });
 
       if (result.isFailure) {
-        throw new UnauthorizedError(result.getError() || "Tên đăng nhập hoặc mật khẩu không chính xác.");
+        throw new UnauthorizedError(result.getError() || 'Tên đăng nhập hoặc mật khẩu không chính xác.');
       }
 
       const { accessToken, refreshToken, mustChangePassword } = result.getValue();
+      const payload = container.tokenService.verifyAccessToken(accessToken) as { userId: string };
+      const userResult = await container.getCurrentUserUseCase.execute(payload.userId);
+      const userProfile = userResult.isSuccess ? userResult.getValue() : null;
 
       res.cookie('accessToken', accessToken, {
         httpOnly: false,
@@ -67,22 +77,50 @@ export class AuthController {
         maxAge: 7 * 24 * 60 * 60 * 1000
       });
 
-      res.status(200).json(
-        ApiResponse.success({
+      // Auto-bind device if device_id is passed in login request from Agent
+      const deviceId = req.body?.device_id || req.body?.deviceId;
+      if (deviceId && userProfile) {
+        try {
+          await container.bindUserDeviceUseCase.execute({
+            device_id: deviceId,
+            user_id: userProfile.id,
+            username: userProfile.username,
+            full_name: userProfile.fullName,
+          });
+        } catch {
+          // Ignore bind error if device not registered yet
+        }
+      }
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Đăng nhập người dùng thành công',
+        token: accessToken,
+        accessToken,
+        mustChangePassword,
+        user: userProfile ? {
+          user_id: userProfile.id,
+          username: userProfile.username,
+          full_name: userProfile.fullName,
+          email: userProfile.email,
+          role: userProfile.roles[0] || 'user'
+        } : null,
+        data: {
           accessToken,
-          mustChangePassword
-        }, "Đăng nhập thành công.")
-      );
+          mustChangePassword,
+          user: userProfile
+        }
+      });
     } catch (error) {
       next(error);
     }
-  }
+  };
 
-  public async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public refresh = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const refreshToken = req.cookies.refreshToken;
       if (!refreshToken) {
-        throw new UnauthorizedError("Không tìm thấy token phiên mới.");
+        throw new UnauthorizedError('Không tìm thấy token phiên mới.');
       }
 
       const result = await container.refreshSessionUseCase.execute({
@@ -92,7 +130,7 @@ export class AuthController {
       });
 
       if (result.isFailure) {
-        throw new UnauthorizedError(result.getError() || "Phiên làm việc không hợp lệ.");
+        throw new UnauthorizedError(result.getError() || 'Phiên làm việc không hợp lệ.');
       }
 
       const { accessToken, refreshToken: newRefreshToken } = result.getValue();
@@ -112,14 +150,14 @@ export class AuthController {
       });
 
       res.status(200).json(
-        ApiResponse.success({ accessToken }, "Tạo phiên mới thành công.")
+        ApiResponse.success({ accessToken }, 'Tạo phiên mới thành công.')
       );
     } catch (error) {
       next(error);
     }
-  }
+  };
 
-  public async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const refreshToken = req.cookies.refreshToken;
       if (refreshToken) {
@@ -128,31 +166,31 @@ export class AuthController {
 
       res.clearCookie('accessToken');
       res.clearCookie('refreshToken');
-      res.status(200).json(ApiResponse.success(null, "Đăng xuất thành công."));
+      res.status(200).json(ApiResponse.success(null, 'Đăng xuất thành công.'));
     } catch (error) {
       next(error);
     }
-  }
+  };
 
-  public async me(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public me = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = (req as any).user?.userId;
       if (!userId) {
-        throw new UnauthorizedError("Người dùng chưa được xác thực.");
+        throw new UnauthorizedError('Người dùng chưa được xác thực.');
       }
 
       const result = await container.getCurrentUserUseCase.execute(userId);
       if (result.isFailure) {
-        throw new UnauthorizedError(result.getError() || "Người dùng không tồn tại.");
+        throw new UnauthorizedError(result.getError() || 'Người dùng không tồn tại.');
       }
 
-      res.status(200).json(ApiResponse.success(result.getValue(), "Lấy thông tin thành công."));
+      res.status(200).json(ApiResponse.success(result.getValue(), 'Lấy thông tin thành công.'));
     } catch (error) {
       next(error);
     }
-  }
+  };
 
-  public async updateMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public updateMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user?.userId;
       if (!userId) throw new UnauthorizedError('Người dùng chưa được xác thực.');
@@ -169,15 +207,15 @@ export class AuthController {
     } catch (error) {
       next(error);
     }
-  }
+  };
 
-  public async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = (req as any).user?.userId;
       const refreshToken = req.cookies.refreshToken;
 
       if (!userId || !refreshToken) {
-        throw new UnauthorizedError("Bạn chưa đăng nhập.");
+        throw new UnauthorizedError('Bạn chưa đăng nhập.');
       }
 
       const { currentPassword, newPassword } = req.body;
@@ -192,12 +230,12 @@ export class AuthController {
       });
 
       if (result.isFailure) {
-        throw new ValidationError(result.getError() || "Thay đổi mật khẩu thất bại.");
+        throw new ValidationError(result.getError() || 'Thay đổi mật khẩu thất bại.');
       }
 
-      res.status(200).json(ApiResponse.success(null, "Đổi mật khẩu thành công. Các phiên đăng nhập khác đã được thu hồi."));
+      res.status(200).json(ApiResponse.success(null, 'Đổi mật khẩu thành công. Các phiên đăng nhập khác đã được thu hồi.'));
     } catch (error) {
       next(error);
     }
-  }
+  };
 }

@@ -810,8 +810,8 @@ function ComputerCard({
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-sm font-extrabold text-slate-800">{computer.code}</p>
-          <p className="truncate text-[10px] text-slate-400">{computer.name}</p>
+          <p className="text-sm font-extrabold text-slate-800">{computer.name || computer.code}</p>
+          <p className="truncate text-[10px] text-slate-400">{computer.code ? `Mã máy: ${computer.code}` : ''}</p>
         </div>
         <div className="min-w-0">
           <p className="truncate text-xs text-slate-500">{specification}</p>
@@ -839,7 +839,7 @@ function ComputerCard({
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-extrabold text-slate-800">{computer.code}</p>
+        <p className="truncate text-xs font-extrabold text-slate-800">{computer.name || computer.code}</p>
         <p className={cn('mt-0.5 flex items-center gap-1.5 truncate text-[9px] font-bold', meta.text)}>
           <i className={cn('h-1.5 w-1.5 shrink-0 rounded-full', meta.dot)} />
           {meta.label}

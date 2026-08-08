@@ -165,9 +165,12 @@ import {
 } from '../application/use-cases/expense/ExpenseManagementUseCases';
 import { ExpenseController } from '../presentation/http/controllers/ExpenseController';
 import { RegisterDeviceUseCase } from '../application/use-cases/device/RegisterDeviceUseCase';
+import { UnregisterDeviceUseCase } from '../application/use-cases/device/UnregisterDeviceUseCase';
 import { UpdateDeviceMetricsUseCase } from '../application/use-cases/device/UpdateDeviceMetricsUseCase';
 import { ReportHardwareChangeUseCase } from '../application/use-cases/device/ReportHardwareChangeUseCase';
 import { GetAllDeviceMetricsUseCase } from '../application/use-cases/device/GetAllDeviceMetricsUseCase';
+import { BindUserDeviceUseCase } from '../application/use-cases/device/BindUserDeviceUseCase';
+import { UnbindUserDeviceUseCase } from '../application/use-cases/device/UnbindUserDeviceUseCase';
 import { DeviceController } from '../presentation/http/controllers/DeviceController';
 
 import { ILabProfileRepository } from '../domain/repositories/ILabProfileRepository';
@@ -323,9 +326,12 @@ class DependencyContainer {
   public readonly updateExpenseCategoryUseCase: UpdateExpenseCategoryUseCase;
 
   public readonly registerDeviceUseCase: RegisterDeviceUseCase;
+  public readonly unregisterDeviceUseCase: UnregisterDeviceUseCase;
   public readonly updateDeviceMetricsUseCase: UpdateDeviceMetricsUseCase;
   public readonly reportHardwareChangeUseCase: ReportHardwareChangeUseCase;
   public readonly getAllDeviceMetricsUseCase: GetAllDeviceMetricsUseCase;
+  public readonly bindUserDeviceUseCase: BindUserDeviceUseCase;
+  public readonly unbindUserDeviceUseCase: UnbindUserDeviceUseCase;
 
   constructor() {
     this.clock = new SystemClock();
@@ -685,14 +691,20 @@ class DependencyContainer {
     );
 
     this.registerDeviceUseCase = new RegisterDeviceUseCase(this.computerRepo, this.deviceAgentRepo, this.uow);
+    this.unregisterDeviceUseCase = new UnregisterDeviceUseCase(this.computerRepo, this.deviceAgentRepo, this.incidentRepo, this.uow);
     this.updateDeviceMetricsUseCase = new UpdateDeviceMetricsUseCase(this.computerRepo, this.deviceAgentRepo, this.uow);
-    this.reportHardwareChangeUseCase = new ReportHardwareChangeUseCase(this.computerRepo, this.incidentRepo, this.uow);
+    this.reportHardwareChangeUseCase = new ReportHardwareChangeUseCase(this.computerRepo, this.deviceAgentRepo, this.incidentRepo, this.uow);
     this.getAllDeviceMetricsUseCase = new GetAllDeviceMetricsUseCase(this.deviceAgentRepo);
+    this.bindUserDeviceUseCase = new BindUserDeviceUseCase(this.computerRepo, this.deviceAgentRepo, this.uow);
+    this.unbindUserDeviceUseCase = new UnbindUserDeviceUseCase(this.computerRepo, this.deviceAgentRepo, this.uow);
     this.deviceController = new DeviceController(
       this.registerDeviceUseCase,
+      this.unregisterDeviceUseCase,
       this.updateDeviceMetricsUseCase,
       this.reportHardwareChangeUseCase,
       this.getAllDeviceMetricsUseCase,
+      this.bindUserDeviceUseCase,
+      this.unbindUserDeviceUseCase,
     );
   }
 }

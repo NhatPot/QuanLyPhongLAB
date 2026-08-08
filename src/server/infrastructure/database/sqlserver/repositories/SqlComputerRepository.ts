@@ -2,7 +2,7 @@ import mssql from 'mssql';
 import { IComputerRepository, ComputerFilter } from '../../../../domain/repositories/IComputerRepository';
 import { Computer } from '../../../../domain/entities/Computer';
 import { UniqueEntityId } from '../../../../domain/value-objects/UniqueEntityId';
-import { normalizeMacAddress } from '../../../../shared/utils/deviceIdentity';
+import { normalizeMacAddress, isValidMacAddress } from '../../../../shared/utils/deviceIdentity';
 import { SqlConnectionFactory } from '../connection';
 
 export class SqlComputerRepository implements IComputerRepository {
@@ -36,9 +36,22 @@ export class SqlComputerRepository implements IComputerRepository {
 
   public async findByMacAddress(macAddress: string): Promise<Computer | null> {
     const pool = await SqlConnectionFactory.getPool();
+    const rawMac = macAddress.trim();
+    let normalizedMac = rawMac;
+    if (isValidMacAddress(rawMac)) {
+      normalizedMac = normalizeMacAddress(rawMac);
+    }
+
     const result = await pool.request()
-      .input('macAddress', mssql.NVarChar, normalizeMacAddress(macAddress))
-      .query('SELECT * FROM Computers WHERE MacAddress = @macAddress AND DeletedAt IS NULL');
+      .input('rawMac', mssql.NVarChar, rawMac)
+      .input('normalizedMac', mssql.NVarChar, normalizedMac)
+      .query(`
+        SELECT * FROM Computers 
+        WHERE (
+          MacAddress = @rawMac 
+          OR REPLACE(REPLACE(REPLACE(MacAddress, ':', ''), '-', ''), '.', '') = @normalizedMac
+        ) AND DeletedAt IS NULL
+      `);
 
     if (result.recordset.length === 0) {
       return null;
