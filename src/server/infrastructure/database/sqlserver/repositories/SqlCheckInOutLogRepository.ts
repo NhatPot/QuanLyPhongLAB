@@ -69,6 +69,22 @@ export class SqlCheckInOutLogRepository implements ICheckInOutLogRepository {
 
   public async findUsageSessions(start: Date, end: Date): Promise<LabUsageSession[]> {
     const pool = await SqlConnectionFactory.getPool();
+    const schemaResult = await pool.request().query(`
+      SELECT CASE
+        WHEN OBJECT_ID('dbo.BookingPurposeGroups', 'U') IS NOT NULL
+          AND COL_LENGTH('dbo.BookingRequests', 'PurposeGroupId') IS NOT NULL
+        THEN CAST(1 AS BIT)
+        ELSE CAST(0 AS BIT)
+      END AS SupportsPurposeGroups;
+    `);
+    const supportsPurposeGroups = Boolean(schemaResult.recordset[0]?.SupportsPurposeGroups);
+    const purposeGroupFields = supportsPurposeGroups
+      ? `booking.PurposeGroupId, purposeGroup.Name AS PurposeGroupName,`
+      : `CAST(NULL AS UNIQUEIDENTIFIER) AS PurposeGroupId,
+         CAST(NULL AS NVARCHAR(255)) AS PurposeGroupName,`;
+    const purposeGroupJoin = supportsPurposeGroups
+      ? 'LEFT JOIN BookingPurposeGroups purposeGroup ON purposeGroup.Id = booking.PurposeGroupId'
+      : '';
     const result = await pool.request()
       .input('start', mssql.DateTime2, start)
       .input('end', mssql.DateTime2, end)
@@ -86,14 +102,13 @@ export class SqlCheckInOutLogRepository implements ICheckInOutLogRepository {
           logs.Note,
           booking.RequestCode,
           booking.Purpose,
-          booking.PurposeGroupId,
-          purposeGroup.Name AS PurposeGroupName,
+          ${purposeGroupFields}
           booking.BookingType,
           booking.NumberOfPeople AS RequestedPeopleCount,
           booking.NumberOfComputers AS RequestedComputerCount
         FROM CheckInOutLogs logs
         INNER JOIN BookingRequests booking ON booking.Id = logs.BookingRequestId
-        LEFT JOIN BookingPurposeGroups purposeGroup ON purposeGroup.Id = booking.PurposeGroupId
+        ${purposeGroupJoin}
         WHERE logs.CheckInTime IS NOT NULL
           AND logs.CheckInTime < @end
           AND COALESCE(logs.CheckOutTime, SYSUTCDATETIME()) > @start
