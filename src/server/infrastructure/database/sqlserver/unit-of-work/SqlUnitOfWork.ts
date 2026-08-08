@@ -1,67 +1,86 @@
+import { AsyncLocalStorage } from 'async_hooks';
 import mssql from 'mssql';
 import { IUnitOfWork } from '../../../../domain/repositories/IUnitOfWork';
 import { SqlConnectionFactory } from '../connection';
 
+const asyncLocalStorage = new AsyncLocalStorage<mssql.Transaction>();
+
 export class SqlUnitOfWork implements IUnitOfWork {
-  private transaction: mssql.Transaction | null = null;
+  private fallbackTransaction: mssql.Transaction | null = null;
 
   public async startTransaction(): Promise<void> {
-    if (this.transaction) {
-      throw new Error('Transaction already started.');
+    const storeTx = asyncLocalStorage.getStore();
+    if (storeTx || this.fallbackTransaction) {
+      return;
     }
     const pool = await SqlConnectionFactory.getPool();
-    this.transaction = new mssql.Transaction(pool);
-    await this.transaction.begin();
+    this.fallbackTransaction = new mssql.Transaction(pool);
+    await this.fallbackTransaction.begin();
   }
 
   public async commitTransaction(): Promise<void> {
-    if (!this.transaction) {
-      throw new Error('No active transaction to commit.');
+    const storeTx = asyncLocalStorage.getStore();
+    if (storeTx) return;
+    if (this.fallbackTransaction) {
+      await this.fallbackTransaction.commit();
+      this.fallbackTransaction = null;
     }
-    await this.transaction.commit();
-    this.transaction = null;
   }
 
   public async rollbackTransaction(): Promise<void> {
-    if (!this.transaction) {
-      return;
-    }
-    try {
-      await this.transaction.rollback();
-    } catch (err) {
-      // Ignore if transaction was already aborted/rolled back
-    } finally {
-      this.transaction = null;
+    const storeTx = asyncLocalStorage.getStore();
+    if (storeTx) return;
+    if (this.fallbackTransaction) {
+      try {
+        await this.fallbackTransaction.rollback();
+      } catch (err) {
+        // Ignore if transaction was already aborted/rolled back
+      } finally {
+        this.fallbackTransaction = null;
+      }
     }
   }
 
   public async complete<T>(work: () => Promise<T>): Promise<T> {
-    await this.startTransaction();
-    try {
-      const result = await work();
-      await this.commitTransaction();
-      return result;
-    } catch (error) {
-      await this.rollbackTransaction();
-      throw error;
+    const existingTx = asyncLocalStorage.getStore();
+    if (existingTx) {
+      return await work();
     }
+
+    const pool = await SqlConnectionFactory.getPool();
+    const transaction = new mssql.Transaction(pool);
+    await transaction.begin();
+
+    return await asyncLocalStorage.run(transaction, async () => {
+      try {
+        const result = await work();
+        await transaction.commit();
+        return result;
+      } catch (error) {
+        try {
+          await transaction.rollback();
+        } catch {
+          // Ignore rollback failure
+        }
+        throw error;
+      }
+    });
   }
 
   public getTransactionRequest(): mssql.Request {
-    if (!this.transaction) {
-      throw new Error('No active transaction.');
-    }
-    return new mssql.Request(this.transaction);
+    const tx = this.getTransaction();
+    return new mssql.Request(tx);
   }
 
   public getTransaction(): mssql.Transaction {
-    if (!this.transaction) {
+    const tx = asyncLocalStorage.getStore() || this.fallbackTransaction;
+    if (!tx) {
       throw new Error('No active transaction.');
     }
-    return this.transaction;
+    return tx;
   }
 
   public hasActiveTransaction(): boolean {
-    return this.transaction !== null;
+    return Boolean(asyncLocalStorage.getStore() || this.fallbackTransaction);
   }
 }

@@ -12,7 +12,28 @@ export function normalizeMacAddress(value: string): string {
     throw new Error('Địa chỉ MAC không đúng định dạng.');
   }
 
-  return trimmed.replace(/[:-]|\./g, '').toUpperCase();
+  const hexOnly = trimmed.replace(/[:-]|\./g, '').toUpperCase();
+  const pairs = hexOnly.match(/.{1,2}/g);
+  return pairs ? pairs.join(':') : hexOnly;
+}
+
+export function safeJoinIps(ipArray: any[] | undefined | null, maxLength = 50): string | undefined {
+  if (!Array.isArray(ipArray) || ipArray.length === 0) return undefined;
+  
+  const validIps = ipArray.map(ip => String(ip).trim()).filter(ip => ip.length > 0);
+  if (validIps.length === 0) return undefined;
+
+  let result = '';
+  for (const ip of validIps) {
+    if (result.length === 0) {
+      result = ip;
+    } else if (result.length + ip.length + 2 <= maxLength) {
+      result += ', ' + ip;
+    } else {
+      break;
+    }
+  }
+  return result;
 }
 
 export function normalizeDeviceId(value: string): string {

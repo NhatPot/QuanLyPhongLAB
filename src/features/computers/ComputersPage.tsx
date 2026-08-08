@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import type { EChartsOption } from 'echarts';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -22,6 +22,7 @@ import { EChart } from '@/components/charts/echart';
 import { useAuth } from '@/features/auth/AuthContext';
 import { bookingApi } from '@/services/booking-api';
 import { computerApi, type ComputerData, type ComputerStatus, type DeviceMetrics } from '@/services/computer-api';
+import { userApi } from '@/services/user-api';
 import { maintenanceApi } from '@/services/maintenance-api';
 import { ComputerEditorDialog } from '@/features/computers/ComputerEditorDialog';
 import { cn } from '@/lib/utils';
@@ -58,6 +59,27 @@ const formatPercent = (value: number, total: number) =>
   total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '0%';
 
 const normalize = (value?: string) => (value || '').trim().toLocaleLowerCase('vi');
+
+const parseJwtUser = (token: string, userMap?: Map<string, string>): string => {
+  if (!token) return '';
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    const payload = JSON.parse(jsonPayload);
+    
+    // First, try to map the userId from our loaded userMap
+    if (payload.userId && userMap?.has(payload.userId)) {
+      return userMap.get(payload.userId)!;
+    }
+
+    return payload.username || payload.fullName || payload.name || payload.userId || payload.sub || 'Có người dùng';
+  } catch (e) {
+    return 'Có người dùng';
+  }
+};
 const maintenanceReminderOf = (computer: ComputerData) => {
   if (computer.status === 'BROKEN') return 'Cần xếp lịch sửa chữa';
   if (computer.status === 'MAINTENANCE') return 'Đang có lịch bảo trì';
@@ -115,11 +137,90 @@ export default function ComputersPage() {
     refetchInterval: 3000,
   });
 
-  const { data: metricsData } = useQuery({
-    queryKey: ['device-metrics'],
-    queryFn: computerApi.getDeviceMetrics,
-    refetchInterval: 10000, // Poll every 10 seconds
-  });
+  const [metricsData, setMetricsData] = useState<Record<string, DeviceMetrics>>({});
+
+  useEffect(() => {
+    let client: any;
+    import('mqtt').then((mqttModule) => {
+      const mqtt = mqttModule.default || mqttModule;
+      const brokerUrl = process.env.NEXT_PUBLIC_MQTT_URL || 'wss://xfbbbaa0.ala.asia-southeast1.emqxsl.com:8084/mqtt';
+      
+      const clientId = 'dashboard_' + Math.random().toString(16).substr(2, 8);
+      client = mqtt.connect(brokerUrl, {
+        clientId,
+        username: process.env.NEXT_PUBLIC_MQTT_USER || undefined,
+        password: process.env.NEXT_PUBLIC_MQTT_PASS || undefined,
+        keepalive: 60,
+        reconnectPeriod: 5000,
+        connectTimeout: 10000,
+      });
+
+      client.on('connect', () => {
+        console.log('[MQTT] Đã kết nối thành công tới Broker:', brokerUrl);
+        client.subscribe('devices/+/metrics', (err: any) => {
+          if (!err) {
+            console.log('[MQTT] Successfully subscribed to devices/+/metrics');
+          } else {
+            console.error('[MQTT] Subscribe error:', err);
+          }
+        });
+      });
+
+      client.on('error', (err: any) => {
+        console.error('[MQTT] Lỗi kết nối:', err);
+      });
+      
+      client.on('offline', () => {
+        console.warn('[MQTT] Client bị mất kết nối (Offline)');
+      });
+
+      client.on('message', (topic: string, message: Buffer) => {
+        try {
+          const payload = JSON.parse(message.toString());
+          console.log(`[MQTT] Nhận dữ liệu từ topic: ${topic}`, payload);
+          // Topic format: devices/{deviceId}/metrics
+          const parts = topic.split('/');
+          const deviceId = parts[1];
+          if (deviceId && payload) {
+            setMetricsData(prev => ({
+              ...prev,
+              [deviceId.toUpperCase()]: {
+                timestamp: payload.timestamp,
+                localTimestamp: Date.now(),
+                isOffline: false,
+                status: payload.status,
+              }
+            }));
+          }
+        } catch (e) {
+          // parse error
+        }
+      });
+    });
+
+    // Cleanup stale metrics after 5 seconds
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setMetricsData(prev => {
+        let hasChanges = false;
+        const next = { ...prev };
+        for (const [mac, data] of Object.entries(next)) {
+          if (!data.isOffline && data.localTimestamp && now - data.localTimestamp > 5000) {
+            next[mac] = { ...data, isOffline: true, offlineSince: now };
+            hasChanges = true;
+          }
+        }
+        return hasChanges ? next : prev;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(timer);
+      if (client) {
+        client.end();
+      }
+    };
+  }, []);
 
   const { data: activityEvents = [] } = useQuery({
     queryKey: ['booking-calendar', 'computer-activity', activityRange.start.toISOString()],
@@ -127,11 +228,43 @@ export default function ComputersPage() {
     retry: false,
   });
 
+  const { data: usersData } = useQuery({
+    queryKey: ['users', 'all'],
+    queryFn: () => userApi.list({ page: 1, pageSize: 1000 }),
+    staleTime: 60000,
+  });
+
+  const userMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (usersData?.data) {
+      usersData.data.forEach(u => map.set(u.id, u.fullName || u.username));
+    }
+    return map;
+  }, [usersData]);
+
   const allComputers = useMemo(() => {
-    if (Array.isArray(listData)) return listData;
-    if (Array.isArray(listData?.data)) return listData.data;
-    return [];
-  }, [listData]);
+    let source: ComputerData[] = [];
+    if (Array.isArray(listData)) source = listData;
+    else if (Array.isArray(listData?.data)) source = listData.data;
+    
+    return source.map(computer => {
+      const macForMetrics = (computer.macAddress?.length === 12 && !computer.macAddress.includes(':'))
+        ? (computer.macAddress.match(/.{1,2}/g)?.join(':').toUpperCase() || '')
+        : (computer.macAddress?.toUpperCase() || '');
+      
+      // Nếu có tín hiệu MQTT real-time -> Ghi đè trạng thái thành Đang sử dụng (IN_USE)
+      if (metricsData[macForMetrics] && !metricsData[macForMetrics].isOffline) {
+        return { ...computer, status: 'IN_USE' as ComputerStatus };
+      }
+      
+      // Nếu mất tín hiệu MQTT nhưng DB vẫn đang lưu là IN_USE -> Ép về trạng thái Sẵn sàng (ACTIVE)
+      if (computer.status === 'IN_USE') {
+        return { ...computer, status: 'ACTIVE' as ComputerStatus };
+      }
+      
+      return computer;
+    });
+  }, [listData, metricsData]);
 
   const computedSummary = useMemo(() => {
     const count = (status: ComputerStatus) => allComputers.filter((item) => item.status === status).length;
@@ -637,15 +770,21 @@ export default function ComputersPage() {
                   : 'divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200',
               )}
             >
-              {visibleComputers.map((computer) => (
-                <ComputerCard
-                  key={computer.id}
-                  computer={computer}
-                  metrics={computer.macAddress ? metricsData?.[computer.macAddress.toUpperCase()] : undefined}
-                  viewMode={viewMode}
-                  onClick={() => openComputer(computer)}
-                />
-              ))}
+              {visibleComputers.map((computer) => {
+                const macForMetrics = (computer.macAddress?.length === 12 && !computer.macAddress.includes(':'))
+                  ? (computer.macAddress.match(/.{1,2}/g)?.join(':').toUpperCase() || '')
+                  : (computer.macAddress?.toUpperCase() || '');
+                return (
+                  <ComputerCard
+                    key={computer.id}
+                    computer={computer}
+                    metrics={metricsData?.[macForMetrics]}
+                    viewMode={viewMode}
+                    userMap={userMap}
+                    onClick={() => openComputer(computer)}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
@@ -710,9 +849,15 @@ export default function ComputersPage() {
       <ComputerEditorDialog
         open={editorOpen}
         computer={selectedComputer}
+        metrics={selectedComputer ? metricsData[
+          (selectedComputer.macAddress?.length === 12 && !selectedComputer.macAddress.includes(':'))
+            ? (selectedComputer.macAddress.match(/.{1,2}/g)?.join(':').toUpperCase() || '')
+            : (selectedComputer.macAddress?.toUpperCase() || '')
+        ] : undefined}
         canCreate={canCreate}
         canUpdate={canUpdate}
         canDelete={canDelete}
+        userMap={userMap}
         onClose={() => {
           setEditorOpen(false);
           setSelectedComputer(null);
@@ -790,11 +935,13 @@ function ComputerCard({
   computer,
   metrics,
   viewMode,
+  userMap,
   onClick,
 }: {
   computer: ComputerData;
   metrics?: DeviceMetrics;
   viewMode: ViewMode;
+  userMap?: Map<string, string>;
   onClick: () => void;
 }) {
   const meta = COMPUTER_STATUS_THEME[computer.status];
@@ -818,11 +965,11 @@ function ComputerCard({
         </div>
         <div className="min-w-0">
           <p className="truncate text-xs text-slate-500">{specification}</p>
-          {metrics?.status?.cpu?.usage !== undefined && (
-            <p className="text-[10px] text-blue-600 font-medium">CPU: {metrics.status.cpu.usage.toFixed(1)}% | RAM: {metrics.status.ram?.usagePercent?.toFixed(1)}%</p>
+          {metrics?.status?.current_user && (
+            <p className="text-[10px] text-blue-600 font-medium">Người dùng: {parseJwtUser(metrics.status.current_user, userMap)}</p>
           )}
         </div>
-        <p className="text-xs text-slate-500">{metrics?.ipAddress || computer.ipAddress || 'Chưa có IP'}</p>
+        <p className="text-xs text-slate-500">{computer.ipAddress || 'Chưa có IP'}</p>
         <span className={cn('inline-flex items-center gap-1.5 text-[11px] font-bold', meta.text)}>
           <i className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} />
           {meta.label}
@@ -848,10 +995,10 @@ function ComputerCard({
           {meta.label}
         </p>
         <p className="mt-2 truncate text-[9px] font-medium text-slate-400">{specification}</p>
-        {metrics?.status?.cpu?.usage !== undefined && (
-          <p className="mt-0.5 truncate text-[9px] text-blue-600 font-medium">CPU: {metrics.status.cpu.usage.toFixed(1)}% | RAM: {metrics.status.ram?.usagePercent?.toFixed(1)}%</p>
+        {metrics?.status?.current_user && (
+          <p className="mt-0.5 truncate text-[9px] text-blue-600 font-medium">Người dùng: {parseJwtUser(metrics.status.current_user, userMap)}</p>
         )}
-        <p className="mt-0.5 truncate text-[9px] text-slate-400">{metrics?.ipAddress || computer.ipAddress || computer.position || 'Chưa cập nhật IP'}</p>
+        <p className="mt-0.5 truncate text-[9px] text-slate-400">{computer.ipAddress || computer.position || 'Chưa cập nhật IP'}</p>
         {maintenanceReminder && <p className="mt-1 truncate text-[9px] font-bold text-amber-600">{maintenanceReminder}</p>}
       </div>
     </button>

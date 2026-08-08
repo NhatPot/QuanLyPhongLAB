@@ -69,9 +69,13 @@ let users: UserApiRecord[] = INITIAL_USERS.map((user, index) => ({
 const computers: ComputerData[] = Array.from({ length: 20 }, (_, index) => {
   const status: ComputerStatus = index < 14 ? 'ACTIVE' : index < 17 ? 'IN_USE' : index === 17 ? 'MAINTENANCE' : index === 18 ? 'BROKEN' : 'LOCKED';
   const code = `PC-${String(index + 1).padStart(2, '0')}`;
+  const isMultiStorage = index % 3 === 0;
+  const isMultiGpu = index % 4 === 0;
+  const storage = isMultiStorage ? '256GB NVMe SSD + 1TB SATA HDD' : '512GB NVMe SSD';
+  const gpu = isMultiGpu ? 'Intel UHD Graphics 770 + NVIDIA GeForce RTX 3060' : index % 2 === 0 ? 'NVIDIA GeForce RTX 3060' : 'Intel UHD Graphics 770';
   return {
     id: id('computer', index + 1), code, name: `Máy tính ${code}`,
-    cpu: 'Intel Core i5-12400F', ram: '16GB', storage: '256GB SSD', gpu: 'Intel UHD',
+    cpu: 'Intel Core i5-12400F', ram: '16GB', storage, gpu,
     operatingSystem: 'Windows 11 Pro', installedSoftware: 'Office, VS Code',
     ipAddress: `192.168.1.${101 + index}`, macAddress: `00:1B:44:11:3A:${String(index + 1).padStart(2, '0')}`,
     position: `Bàn ${String(index + 1).padStart(2, '0')}`, status,

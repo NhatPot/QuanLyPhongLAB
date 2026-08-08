@@ -19,12 +19,22 @@ function getAuthToken(): string | null {
   const authHeader = (apiClient.defaults.headers.common.Authorization as string) || '';
   if (authHeader.startsWith('Bearer ')) return authHeader.substring(7);
 
-  const localToken = localStorage.getItem('accessToken');
+  const localToken =
+    localStorage.getItem('accessToken') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('auth_token') ||
+    sessionStorage.getItem('accessToken') ||
+    sessionStorage.getItem('token');
   if (localToken) return localToken;
 
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; accessToken=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  const cookieStr = `; ${document.cookie}`;
+  for (const name of ['accessToken', 'token', 'auth_token']) {
+    const parts = cookieStr.split(`; ${name}=`);
+    if (parts.length === 2) {
+      const val = parts.pop()?.split(';').shift()?.trim();
+      if (val) return val;
+    }
+  }
   return null;
 }
 

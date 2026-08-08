@@ -2,7 +2,7 @@ import { IComputerRepository } from '../../../domain/repositories/IComputerRepos
 import { DeviceMetrics, IDeviceAgentRepository } from '../../../domain/repositories/IDeviceAgentRepository';
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { Result } from '../../../shared/result/Result';
-import { normalizeDeviceId, isValidMacAddress, normalizeMacAddress, hashDeviceApiKey } from '../../../shared/utils/deviceIdentity';
+import { normalizeDeviceId, isValidMacAddress, normalizeMacAddress, hashDeviceApiKey, safeJoinIps } from '../../../shared/utils/deviceIdentity';
 import { Computer } from '../../../domain/entities/Computer';
 
 export interface UpdateDeviceMetricsInput {
@@ -16,6 +16,8 @@ export interface UpdateDeviceMetricsInput {
   installed_apps?: DeviceMetrics['installed_apps'];
   ip_address?: string;
   ipAddress?: string;
+  ip_addresses?: string[];
+  ipv4_addresses?: string[];
   hostname?: string;
 }
 
@@ -44,7 +46,12 @@ export class UpdateDeviceMetricsUseCase {
       }
 
       const macInput = input.mac_address || input.macAddress || rawDeviceId;
-      const ipAddress = input.ip_address || input.ipAddress;
+      const ipAddress =
+        input.ip_address ||
+        input.ipAddress ||
+        (Array.isArray(input.ipv4_addresses) && input.ipv4_addresses.length > 0 ? safeJoinIps(input.ipv4_addresses) : undefined) ||
+        (Array.isArray(input.ip_addresses) && input.ip_addresses.length > 0 ? safeJoinIps(input.ip_addresses) : undefined) ||
+        ((input.status as any)?.network?.ip_addresses?.length > 0 ? safeJoinIps((input.status as any).network.ip_addresses) : undefined);
       const hostname = input.hostname;
       const deviceId = rawDeviceId ? normalizeDeviceId(rawDeviceId) : 'UNKNOWN-DEVICE';
 
@@ -86,19 +93,23 @@ export class UpdateDeviceMetricsUseCase {
         }
 
         if (computer) {
-          const boundUsername = existingAgent?.currentUsername;
+          const boundUsername = existingAgent?.currentUsername || (input.status as any)?.current_user;
           const boundFullName = existingAgent?.currentFullName;
 
-          let targetStatus = computer.status;
+          let targetStatus = (input.status as any)?.device_status || computer.status;
           let targetNote = computer.note;
 
-          if (boundUsername) {
-            targetStatus = 'IN_USE';
+          if (targetStatus === 'IN_USE' && boundUsername) {
             const userText = boundFullName ? `${boundUsername} (${boundFullName})` : boundUsername;
             targetNote = `Đang được sử dụng bởi ${userText}.`;
-          } else if (computer.status === 'IN_USE' && !computer.note?.includes('Đang được sử dụng bởi')) {
-            targetStatus = 'ACTIVE';
-            targetNote = 'Sẵn sàng sử dụng.';
+          } else if (targetStatus === 'IN_USE' && !computer.note?.includes('Đang được sử dụng bởi')) {
+            targetNote = 'Đang được sử dụng.';
+          } else if ((targetStatus === 'ACTIVE' || targetStatus === 'MAINTENANCE') && computer.status === 'IN_USE' && !computer.note?.includes('Đang được sử dụng bởi')) {
+             targetStatus = 'ACTIVE';
+             targetNote = 'Sẵn sàng sử dụng.';
+          } else if (computer.status === 'IN_USE' && targetStatus !== 'IN_USE') {
+             targetStatus = 'ACTIVE';
+             targetNote = 'Sẵn sàng sử dụng.';
           }
 
           const hasStatusChange = targetStatus !== computer.status;

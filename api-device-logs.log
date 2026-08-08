@@ -1,0 +1,270 @@
+================================================================================
+[2026-08-08T22:16:35.432Z] POST /api/devices/register (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4b:fe:03:c4:03",
+  "hostname": "DESKTOP-SMTJA1Q",
+  "os": "Microsoft Windows 11 Pro",
+  "os_version": "10.0.26200",
+  "platform": "Windows",
+  "arch": "x64",
+  "cpu_model": "Intel Core™ i5-10600KF",
+  "cpu_cores": 6,
+  "total_ram_gb": 31.9,
+  "mac_address": "24:4b:fe:03:c4:03",
+  "uuid": "b4de5f15-c674-4139-e7fd-244bfe03c403",
+  "registered_at": "2026-08-08T22:16:33.111Z"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đăng ký thiết bị thành công",
+  "device_id": "24:4B:FE:03:C4:03",
+  "api_key": "sk_live_06c3f37677a921ed904227d8f4959c0f0458973225bdb7bc8cce08e118d2493e"
+}
+
+================================================================================
+[2026-08-08T22:16:39.876Z] POST /api/devices/bind-user (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4B:FE:03:C4:03",
+  "user_id": "FE54CF35-04B7-4635-8BE4-E6E83BB5F046",
+  "username": "long",
+  "full_name": "Hồ Ngọc Hoàng Long",
+  "login_at": "2026-08-08T22:16:38.657Z",
+  "hostname": "DESKTOP-SMTJA1Q"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đã liên kết tài khoản long với máy tính DESKTOP-SMTJA1Q. Trạng thái đang sử dụng.",
+  "bound_at": "2026-08-08T22:16:38.657Z"
+}
+
+================================================================================
+[2026-08-08T22:30:14.387Z] POST /api/devices/register (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4b:fe:03:c4:03",
+  "hostname": "DESKTOP-SMTJA1Q",
+  "os": "Microsoft Windows 11 Pro",
+  "os_version": "10.0.26200",
+  "platform": "Windows",
+  "arch": "x64",
+  "cpu_model": "Intel Core™ i5-10600KF",
+  "cpu_cores": 6,
+  "total_ram_gb": 31.9,
+  "mac_address": "24:4b:fe:03:c4:03",
+  "uuid": "b4de5f15-c674-4139-e7fd-244bfe03c403",
+  "registered_at": "2026-08-08T22:30:12.299Z"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đăng ký thiết bị thành công",
+  "device_id": "24:4B:FE:03:C4:03",
+  "api_key": "sk_live_6d29fd53212c8784e9ab5f3520036ad0dba29861a8ca4779ab9ab62a3e2d2ba2"
+}
+
+================================================================================
+[2026-08-08T22:30:16.754Z] POST /api/devices/bind-user (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4B:FE:03:C4:03",
+  "user_id": "FE54CF35-04B7-4635-8BE4-E6E83BB5F046",
+  "username": "long",
+  "full_name": "Hồ Ngọc Hoàng Long",
+  "login_at": "2026-08-08T22:30:15.628Z",
+  "hostname": "DESKTOP-SMTJA1Q"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đã liên kết tài khoản long với máy tính DESKTOP-SMTJA1Q. Trạng thái đang sử dụng.",
+  "bound_at": "2026-08-08T22:30:15.628Z"
+}
+
+================================================================================
+[2026-08-08T22:38:14.786Z] POST /api/devices/register (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4b:fe:03:c4:03",
+  "hostname": "DESKTOP-SMTJA1Q",
+  "os": "Microsoft Windows 11 Pro",
+  "os_version": "10.0.26200",
+  "platform": "Windows",
+  "arch": "x64",
+  "cpu_model": "Intel Core™ i5-10600KF",
+  "cpu_cores": 6,
+  "total_ram_gb": 31.9,
+  "mac_address": "24:4b:fe:03:c4:03",
+  "uuid": "b4de5f15-c674-4139-e7fd-244bfe03c403",
+  "registered_at": "2026-08-08T22:38:14.488Z"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đăng ký thiết bị thành công",
+  "device_id": "24:4B:FE:03:C4:03",
+  "api_key": "sk_live_647d825564d47ecb5070b8925d6bdae3e8535cd2a90cbe70598feb48796a8f7e"
+}
+
+================================================================================
+[2026-08-08T22:38:22.434Z] POST /api/devices/bind-user (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4B:FE:03:C4:03",
+  "user_id": "FE54CF35-04B7-4635-8BE4-E6E83BB5F046",
+  "username": "long",
+  "full_name": "Hồ Ngọc Hoàng Long",
+  "login_at": "2026-08-08T22:38:21.327Z",
+  "hostname": "DESKTOP-SMTJA1Q"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đã liên kết tài khoản long với máy tính DESKTOP-SMTJA1Q. Trạng thái đang sử dụng.",
+  "bound_at": "2026-08-08T22:38:21.327Z"
+}
+
+================================================================================
+[2026-08-08T22:40:31.846Z] POST /api/devices/register (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4b:fe:03:c4:03",
+  "hostname": "DESKTOP-SMTJA1Q",
+  "os": "Microsoft Windows 11 Pro",
+  "os_version": "10.0.26200",
+  "platform": "Windows",
+  "arch": "x64",
+  "cpu_model": "Intel Core™ i5-10600KF",
+  "cpu_cores": 6,
+  "total_ram_gb": 31.9,
+  "mac_address": "24:4b:fe:03:c4:03",
+  "uuid": "b4de5f15-c674-4139-e7fd-244bfe03c403",
+  "registered_at": "2026-08-08T22:40:30.490Z"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đăng ký thiết bị thành công",
+  "device_id": "24:4B:FE:03:C4:03",
+  "api_key": "sk_live_24b17c2e9076bb8158a6bd4e47e1150e48b7c047e170e17e65dd41220b40ad99"
+}
+
+================================================================================
+[2026-08-08T22:40:35.639Z] POST /api/devices/bind-user (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4B:FE:03:C4:03",
+  "user_id": "FE54CF35-04B7-4635-8BE4-E6E83BB5F046",
+  "username": "long",
+  "full_name": "Hồ Ngọc Hoàng Long",
+  "login_at": "2026-08-08T22:40:33.828Z",
+  "hostname": "DESKTOP-SMTJA1Q"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đã liên kết tài khoản long với máy tính DESKTOP-SMTJA1Q. Trạng thái đang sử dụng.",
+  "bound_at": "2026-08-08T22:40:33.828Z"
+}
+
+================================================================================
+[2026-08-08T22:44:42.728Z] POST /api/devices/register (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4b:fe:03:c4:03",
+  "hostname": "DESKTOP-SMTJA1Q",
+  "os": "Microsoft Windows 11 Pro",
+  "os_version": "10.0.26200",
+  "platform": "Windows",
+  "arch": "x64",
+  "cpu_model": "Intel Core™ i5-10600KF",
+  "cpu_cores": 6,
+  "total_ram_gb": 31.9,
+  "mac_address": "24:4b:fe:03:c4:03",
+  "uuid": "b4de5f15-c674-4139-e7fd-244bfe03c403",
+  "registered_at": "2026-08-08T22:44:41.275Z"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đăng ký thiết bị thành công",
+  "device_id": "24:4B:FE:03:C4:03",
+  "api_key": "sk_live_fc52f37f6376a98632f655a4defc03f32bc140f77fdb5da9fade0b8c07859cb5"
+}
+
+================================================================================
+[2026-08-08T22:45:41.053Z] POST /api/devices/bind-user (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4B:FE:03:C4:03",
+  "user_id": "FE54CF35-04B7-4635-8BE4-E6E83BB5F046",
+  "username": "long",
+  "full_name": "Hồ Ngọc Hoàng Long",
+  "login_at": "2026-08-08T22:45:40.137Z",
+  "hostname": "DESKTOP-SMTJA1Q"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đã liên kết tài khoản long với máy tính DESKTOP-SMTJA1Q. Trạng thái đang sử dụng.",
+  "bound_at": "2026-08-08T22:45:40.137Z"
+}
+
+================================================================================
+[2026-08-08T22:48:53.053Z] POST /api/devices/register (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4b:fe:03:c4:03",
+  "hostname": "DESKTOP-SMTJA1Q",
+  "os": "Microsoft Windows 11 Pro",
+  "os_version": "10.0.26200",
+  "platform": "Windows",
+  "arch": "x64",
+  "cpu_model": "Intel Core™ i5-10600KF",
+  "cpu_cores": 6,
+  "total_ram_gb": 31.9,
+  "mac_address": "24:4b:fe:03:c4:03",
+  "uuid": "b4de5f15-c674-4139-e7fd-244bfe03c403",
+  "registered_at": "2026-08-08T22:48:50.798Z"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đăng ký thiết bị thành công",
+  "device_id": "24:4B:FE:03:C4:03",
+  "api_key": "sk_live_7f6bd07828966af654166274f02171e0ba29c7301bec321e5a8aeea9c1bedf37"
+}
+
+================================================================================
+[2026-08-08T22:48:54.711Z] POST /api/devices/bind-user (Status: 200)
+IP: UNKNOWN | User-Agent: axios/1.19.0
+--- REQUEST BODY ---
+{
+  "device_id": "24:4B:FE:03:C4:03",
+  "user_id": "FE54CF35-04B7-4635-8BE4-E6E83BB5F046",
+  "username": "long",
+  "full_name": "Hồ Ngọc Hoàng Long",
+  "login_at": "2026-08-08T22:48:53.782Z",
+  "hostname": "DESKTOP-SMTJA1Q"
+}
+--- RESPONSE ---
+{
+  "status": "success",
+  "message": "Đã liên kết tài khoản long với máy tính DESKTOP-SMTJA1Q. Trạng thái đang sử dụng.",
+  "bound_at": "2026-08-08T22:48:53.782Z"
+}
+

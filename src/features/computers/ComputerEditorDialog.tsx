@@ -25,6 +25,8 @@ import {
 import { toast } from "sonner";
 import { computerApi, type ComputerData } from "@/services/computer-api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { cn } from "@/lib/utils";
+import { MiniMetricsChart } from "./MiniMetricsChart";
 
 const computerSchema = z.object({
   code: z.string().min(1, "Mã máy không được để trống."),
@@ -49,6 +51,8 @@ type ComputerEditorDialogProps = {
   canCreate: boolean;
   canUpdate: boolean;
   canDelete: boolean;
+  metrics?: any;
+  userMap?: Map<string, string>;
   onClose: () => void;
 };
 
@@ -63,18 +67,68 @@ const EMPTY_FORM: FormFields = {
 const inputClass =
   "mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500";
 
+const parseMultiSpecs = (val?: string): string[] => {
+  if (!val) return [];
+  const parts = val.split(/(?:\s*\+\s*|\r?\n+|;|\s*\|\s*)/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length > 1) return parts;
+  return [val.trim()];
+};
+
+const parseJwtUser = (token: string, userMap?: Map<string, string>): string => {
+  if (!token) return '';
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    const payload = JSON.parse(jsonPayload);
+    
+    // First, try to map the userId from our loaded userMap
+    if (payload.userId && userMap?.has(payload.userId)) {
+      return userMap.get(payload.userId)!;
+    }
+
+    return payload.username || payload.fullName || payload.name || payload.userId || payload.sub || 'Có người dùng';
+  } catch (e) {
+    return 'Có người dùng';
+  }
+};
+
 export function ComputerEditorDialog({
   open,
   computer,
   canCreate,
   canUpdate,
   canDelete,
+  metrics,
+  userMap,
   onClose,
 }: ComputerEditorDialogProps) {
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [softwareSearch, setSoftwareSearch] = useState("");
+  const [metricsHistory, setMetricsHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!open) {
+      setMetricsHistory([]);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (metrics) {
+      setMetricsHistory(prev => {
+        if (prev.length > 0 && prev[prev.length - 1].timestamp === metrics.timestamp) {
+          return prev;
+        }
+        const next = [...prev, metrics];
+        if (next.length > 20) return next.slice(next.length - 20);
+        return next;
+      });
+    }
+  }, [metrics]);
 
   const {
     register,
@@ -266,7 +320,6 @@ export function ComputerEditorDialog({
                           <option value="IN_USE">Đang sử dụng</option>
                           <option value="BROKEN">Bị hỏng</option>
                           <option value="LOCKED">Đã khóa</option>
-                          <option value="INACTIVE">Không hoạt động</option>
                         </>
                       )}
                     </select>
@@ -302,6 +355,40 @@ export function ComputerEditorDialog({
                       </div>
                     )}
 
+                  {/* THÔNG SỐ VẬN HÀNH (METRICS) */}
+                  {computer && (
+                    <div className="sm:col-span-2 mt-1 mb-2 rounded-2xl border border-emerald-100 bg-emerald-50/30 px-4 py-3 shadow-sm">
+                      {metrics && !metrics.isOffline ? (
+                        <div className="flex items-center gap-4 py-2">
+                          <div className="relative flex h-3 w-3">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">Đang trực tuyến (Online)</p>
+                            {metrics.status?.current_user ? (
+                              <p className="text-[11px] text-blue-600 font-semibold mt-0.5">Người dùng: {parseJwtUser(metrics.status.current_user, userMap)}</p>
+                            ) : (
+                              <p className="text-[11px] text-slate-500 mt-0.5">Không có người dùng đăng nhập</p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-4 py-2">
+                          <div className="flex h-3 w-3 items-center justify-center rounded-full bg-slate-300"></div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">Ngoại tuyến (Offline)</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              {metrics?.offlineSince 
+                                ? `Mất kết nối lúc: ${new Date(metrics.offlineSince).toLocaleTimeString('vi-VN')} - ${new Date(metrics.offlineSince).toLocaleDateString('vi-VN')}`
+                                : 'Máy tính đang tắt hoặc mất kết nối mạng'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* THÔNG SỐ CẤU HÌNH - DANH SÁCH KHÔNG CHO PHÉP CHỈNH SỬA (ĐĂNG KÝ QUA API) */}
                   <div className="sm:col-span-2 mt-2 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4">
                     <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
@@ -324,22 +411,56 @@ export function ComputerEditorDialog({
                     </div>
 
                     <div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
-                      {specsList.map(({ label, value, icon: Icon }) => (
-                        <div
-                          key={label}
-                          className="flex items-center justify-between rounded-xl border border-slate-200/60 bg-white px-3.5 py-2.5 shadow-2xs"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                            <Icon className="h-4 w-4 text-slate-400 shrink-0" />
-                            <span className="text-xs font-semibold text-slate-500 truncate">
-                              {label}
-                            </span>
+                      {specsList.map(({ label, value, icon: Icon }) => {
+                        const isMulti = label === "Ổ cứng" || label === "Card đồ họa (GPU)";
+                        const items = isMulti ? parseMultiSpecs(value) : [];
+
+                        return (
+                          <div
+                            key={label}
+                            className={cn(
+                              "flex items-center justify-between rounded-xl border border-slate-200/60 bg-white px-3.5 py-2.5 shadow-2xs",
+                              isMulti && items.length > 1 && "sm:col-span-2 flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              <Icon className="h-4 w-4 text-slate-400 shrink-0" />
+                              <span className="text-xs font-semibold text-slate-500 truncate">
+                                {label}
+                                {isMulti && items.length > 1 && (
+                                  <span className="ml-1.5 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-extrabold text-blue-700">
+                                    {items.length} {label === "Ổ cứng" ? "ổ cứng" : "GPU"}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+
+                            {isMulti && items.length > 1 ? (
+                              <div className="flex flex-wrap gap-1.5 justify-end w-full sm:w-auto">
+                                {items.map((item, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 border border-blue-100 px-2.5 py-1 text-xs font-bold text-blue-900"
+                                    title={item}
+                                  >
+                                    <span className="rounded bg-blue-200/80 px-1 py-0.2 text-[9px] font-extrabold text-blue-800 shrink-0">
+                                      #{idx + 1}
+                                    </span>
+                                    <span>{item}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span
+                                className="text-xs font-bold text-slate-900 truncate max-w-[220px]"
+                                title={value || "Chưa nhận diện"}
+                              >
+                                {value || "Chưa nhận diện"}
+                              </span>
+                            )}
                           </div>
-                          <span className="text-xs font-bold text-slate-900 truncate max-w-[180px]" title={value || "Chưa nhận diện"}>
-                            {value || "Chưa nhận diện"}
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {(() => {

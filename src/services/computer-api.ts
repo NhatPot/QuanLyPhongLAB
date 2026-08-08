@@ -52,14 +52,12 @@ export interface ComputerSummary {
 
 export interface DeviceMetrics {
   timestamp: string;
+  localTimestamp?: number; // Used for frontend timeout tracking
+  isOffline?: boolean;
+  offlineSince?: number;
   status?: {
-    cpu?: { usage?: number; temperature?: number; cores?: number[] };
-    ram?: { used?: number; total?: number; free?: number; usagePercent?: number };
-    disk?: { used?: number; total?: number; usagePercent?: number; partitions?: any[] };
-    network?: { rxBytes?: number; txBytes?: number; rxSec?: number; txSec?: number };
+    current_user?: string;
   };
-  installed_apps?: Array<{ name: string; version?: string; publisher?: string }>;
-  ipAddress?: string;
 }
 
 export const computerApi = {

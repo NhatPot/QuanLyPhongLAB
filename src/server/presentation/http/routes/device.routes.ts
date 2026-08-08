@@ -21,11 +21,27 @@ export const registerDeviceSchema = z.object({
     arch: z.string().trim().max(100).optional(),
     cpu_model: z.string().trim().max(255).optional(),
     cpu_cores: z.number().int().positive().max(1024).optional(),
+    gpu_model: z.string().trim().max(255).optional(),
+    gpu: z.string().trim().max(255).optional(),
+    gpus: z.array(z.any()).optional(),
+    gpu_list: z.array(z.any()).optional(),
     total_ram_gb: z.number().positive().max(1048576).optional(),
+    total_disk_gb: z.number().nonnegative().optional(),
+    disk_size_gb: z.number().nonnegative().optional(),
+    disks: z.array(z.any()).optional(),
+    disk_info: z.array(z.any()).optional(),
     mac_address: macAddressSchema,
+    ip_address: z.string().optional(),
+    ip_addresses: z.array(z.string()).optional(),
+    ipv4_addresses: z.array(z.string()).optional(),
     uuid: z.string().trim().max(100).optional(),
+    status: z.string().optional(),
+    device_status: z.string().optional(),
+    is_in_use: z.boolean().optional(),
+    current_user: z.string().optional(),
+    user_token: z.string().optional(),
     registered_at: isoDateSchema.optional(),
-  }).superRefine((body, context) => {
+  }).passthrough().superRefine((body, context) => {
     if (normalizeMacAddress(body.device_id) !== normalizeMacAddress(body.mac_address)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -40,7 +56,13 @@ export const updateMetricsSchema = z.object({
   body: z.object({
     device_id: macAddressSchema,
     timestamp: isoDateSchema.optional(),
+    ip_address: z.string().optional(),
+    ipAddress: z.string().optional(),
+    ip_addresses: z.array(z.string()).optional(),
+    ipv4_addresses: z.array(z.string()).optional(),
     status: z.object({
+      device_status: z.string().optional(),
+      current_user: z.string().optional(),
       cpu: z.object({
         usage: percentageSchema.optional(),
         cores: z.array(percentageSchema).max(1024).optional(),
@@ -59,13 +81,13 @@ export const updateMetricsSchema = z.object({
         partitions: z.array(z.unknown()).max(256).optional(),
       }).optional(),
       network: z.record(z.unknown()).optional(),
-    }).optional(),
+    }).passthrough().optional(),
     installed_apps: z.array(z.object({
       name: z.string().trim().min(1).max(500),
       version: z.string().trim().max(100).optional(),
       publisher: z.string().trim().max(255).optional(),
     })).max(10000).optional(),
-  }),
+  }).passthrough(),
 });
 
 export const hardwareChangeSchema = z.object({
@@ -81,6 +103,34 @@ export const hardwareChangeSchema = z.object({
     previous_hardware: z.unknown().optional(),
     current_hardware: z.unknown().optional(),
   }),
+});
+
+export const bindUserSchema = z.object({
+  body: z.object({
+    device_id: macAddressSchema,
+    user_id: z.string().optional(),
+    userId: z.string().optional(),
+    username: z.string().optional(),
+    full_name: z.string().optional(),
+    fullName: z.string().optional(),
+    current_user: z.string().optional(),
+    status: z.string().optional(),
+    login_at: isoDateSchema.optional(),
+    loginAt: isoDateSchema.optional(),
+    hostname: z.string().optional(),
+    ip_address: z.string().optional(),
+    ipAddress: z.string().optional(),
+    ip_addresses: z.array(z.string()).optional(),
+  }).passthrough(),
+});
+
+export const unbindUserSchema = z.object({
+  body: z.object({
+    device_id: macAddressSchema,
+    user_id: z.string().optional(),
+    username: z.string().optional(),
+    logout_at: isoDateSchema.optional(),
+  }).passthrough(),
 });
 
 function extractApiKey(req: Request): string | null {
@@ -156,6 +206,8 @@ export function createDeviceRouter(controller: DeviceController, deviceAgentRepo
   router.post('/register', validateRequest(registerDeviceSchema), deviceRegistrationMiddleware, (req, res) => controller.register(req, res));
   router.post('/metrics', validateRequest(updateMetricsSchema), deviceAuthMiddleware, (req, res) => controller.updateMetrics(req, res));
   router.post('/alert-hardware-change', validateRequest(hardwareChangeSchema), deviceAuthMiddleware, (req, res) => controller.alertHardwareChange(req, res));
+  router.post('/bind-user', validateRequest(bindUserSchema), deviceAuthMiddleware, (req, res) => controller.bindUser(req, res));
+  router.post('/unbind-user', validateRequest(unbindUserSchema), deviceAuthMiddleware, (req, res) => controller.unbindUser(req, res));
 
   return router;
 }

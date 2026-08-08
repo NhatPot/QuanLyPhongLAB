@@ -69,18 +69,30 @@ X-API-Key: <API_KEY>
   "cpu_cores": 6,
   "gpu_model": "NVIDIA GeForce RTX 2080 Ti",
   "gpu": "NVIDIA GeForce RTX 2080 Ti",
+  "gpus": [
+    "NVIDIA GeForce RTX 2080 Ti"
+  ],
+  "gpu_list": [
+    { "vendor": "NVIDIA", "model": "NVIDIA GeForce RTX 2080 Ti", "vramMb": 11264 }
+  ],
   "total_ram_gb": 31.9,
   "total_disk_gb": 911.9,
   "disk_size_gb": 911.9,
+  "disks": [
+    { "device": "\\\\.\\PHYSICALDRIVE0", "name": "CT480BX200SSD1", "type": "SSD", "sizeGb": 447.1 }
+  ],
   "disk_info": [
-    { "mount": "C:", "sizeGb": 500, "usedGb": 150.2, "usePercent": 30 }
+    { "mount": "C:", "sizeGb": 447.1, "usedGb": 332.2, "usePercent": 74.5 }
   ],
   "mac_address": "24:4b:fe:03:c4:03",
   "ip_address": "192.168.1.100",
   "ip_addresses": [
     "192.168.1.100",
-    "10.8.0.2",
-    "fe80::1234:5678:9abc:def0"
+    "10.8.0.2"
+  ],
+  "ipv4_addresses": [
+    "192.168.1.100",
+    "10.8.0.2"
   ],
   "uuid": "b4de5f15-c674-4139-e7fd-244bfe03c403",
   "status": "IN_USE",

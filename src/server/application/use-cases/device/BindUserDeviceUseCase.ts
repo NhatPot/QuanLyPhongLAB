@@ -2,7 +2,7 @@ import { IComputerRepository } from '../../../domain/repositories/IComputerRepos
 import { IDeviceAgentRepository } from '../../../domain/repositories/IDeviceAgentRepository';
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { Result } from '../../../shared/result/Result';
-import { normalizeDeviceId, isValidMacAddress, normalizeMacAddress, hashDeviceApiKey } from '../../../shared/utils/deviceIdentity';
+import { normalizeDeviceId, normalizeMacAddress, safeJoinIps, hashDeviceApiKey } from '../../../shared/utils/deviceIdentity';
 import { Computer } from '../../../domain/entities/Computer';
 
 export interface BindUserDeviceInput {
@@ -21,6 +21,7 @@ export interface BindUserDeviceInput {
   hostname?: string;
   ip_address?: string;
   ipAddress?: string;
+  ip_addresses?: string[];
 }
 
 export class BindUserDeviceUseCase {
@@ -47,6 +48,7 @@ export class BindUserDeviceUseCase {
       const username = input.username || input.user_id || input.userId || 'Người dùng';
       const fullName = input.full_name || input.fullName || '';
       const boundAt = input.login_at || input.loginAt || new Date().toISOString();
+      const ipAddress = input.ip_address || input.ipAddress || (input.ip_addresses?.length ? safeJoinIps(input.ip_addresses) : undefined);
 
       const deviceId = rawDeviceId ? normalizeDeviceId(rawDeviceId) : undefined;
       if (!existingAgent && deviceId) {
@@ -91,6 +93,7 @@ export class BindUserDeviceUseCase {
           computer.updateInformation({
             status: 'IN_USE',
             note: `Đang được sử dụng bởi ${userText}. Liên kết lúc ${new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(boundAt))}.`.trim(),
+            ipAddress: ipAddress || computer.ipAddress,
           });
           await this.computerRepo.save(computer, transaction);
         }
