@@ -12,6 +12,7 @@ export interface IComputerRepository {
   findById(id: string, transaction?: any): Promise<Computer | null>;
   findByCode(code: string): Promise<Computer | null>;
   findByMacAddress(macAddress: string): Promise<Computer | null>;
+  findIncludingDeletedByMacAddress(macAddress: string): Promise<Computer | null>;
   findAnyMatching(identifier: string): Promise<Computer | null>;
   list(filter: ComputerFilter): Promise<{ data: Computer[]; total: number }>;
   listMaintenanceCandidates(cutoffDate: Date): Promise<Computer[]>;

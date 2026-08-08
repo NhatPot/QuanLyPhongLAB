@@ -120,6 +120,12 @@ export class Computer extends Entity<ComputerProps> {
     this.props.updatedAt = new Date();
   }
 
+  public restore(): void {
+    this.props.deletedAt = undefined;
+    this.props.status = 'ACTIVE';
+    this.props.updatedAt = new Date();
+  }
+
   public isAvailableForBooking(): boolean {
     return this.props.status === 'ACTIVE';
   }

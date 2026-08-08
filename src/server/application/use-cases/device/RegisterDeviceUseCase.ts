@@ -68,10 +68,14 @@ export class RegisterDeviceUseCase {
         computer = await this.computerRepo.findById(existingAgent.computerId);
       }
       if (!computer && macAddress) {
-        computer = await this.computerRepo.findByMacAddress(macAddress);
+        computer = await this.computerRepo.findIncludingDeletedByMacAddress(macAddress);
       }
       if (!computer && hostname) {
         computer = await this.computerRepo.findAnyMatching(hostname);
+      }
+
+      if (computer && computer.deletedAt) {
+        computer.restore();
       }
 
       const apiKey = generateDeviceApiKey();

@@ -64,6 +64,37 @@ export class SqlComputerRepository implements IComputerRepository {
     return this.toDomain(result.recordset[0]);
   }
 
+  public async findIncludingDeletedByMacAddress(macAddress: string): Promise<Computer | null> {
+    if (!macAddress || !macAddress.trim()) return null;
+    const pool = await SqlConnectionFactory.getPool();
+    const rawMac = macAddress.trim();
+    let normalizedMac = rawMac;
+    if (isValidMacAddress(rawMac)) {
+      normalizedMac = normalizeMacAddress(rawMac);
+    }
+
+    const result = await pool.request()
+      .input('rawMac', mssql.NVarChar, rawMac)
+      .input('normalizedMac', mssql.NVarChar, normalizedMac)
+      .query(`
+        SELECT TOP 1 * FROM Computers 
+        WHERE (
+          MacAddress = @rawMac 
+          OR MacAddress = @normalizedMac
+          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = @normalizedMac
+          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = LOWER(@normalizedMac)
+          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = UPPER(@normalizedMac)
+        )
+        ORDER BY CreatedAt DESC
+      `);
+
+    if (result.recordset.length === 0) {
+      return null;
+    }
+
+    return this.toDomain(result.recordset[0]);
+  }
+
   public async findAnyMatching(identifier: string): Promise<Computer | null> {
     if (!identifier || !identifier.trim()) {
       try {
