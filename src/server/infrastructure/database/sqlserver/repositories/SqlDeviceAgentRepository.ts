@@ -39,10 +39,53 @@ export class SqlDeviceAgentRepository implements IDeviceAgentRepository {
             CONSTRAINT FK_DeviceAgents_Computer FOREIGN KEY (ComputerId) REFERENCES Computers(Id) ON DELETE CASCADE
           );
         END
+        ELSE
+        BEGIN
+          IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('DeviceAgents') AND name = 'CurrentUsername')
+          BEGIN
+            ALTER TABLE DeviceAgents ADD CurrentUserId NVARCHAR(100) NULL, CurrentUsername NVARCHAR(255) NULL, CurrentFullName NVARCHAR(255) NULL, BoundAt DATETIME2 NULL;
+          END
+        END
       `);
       SqlDeviceAgentRepository.tableChecked = true;
     } catch {
       // Ignore table check or CREATE TABLE errors due to DB user permissions
+    }
+  }
+
+  public async reconcileInactiveSessions(cutoffMinutes = 5): Promise<void> {
+    await this.ensureTable();
+    try {
+      const pool = await SqlConnectionFactory.getPool();
+      await pool.request()
+        .input('cutoffMinutes', mssql.Int, cutoffMinutes)
+        .query(`
+          -- 1. Clear bound user in DeviceAgents for devices inactive for >= 5 minutes
+          UPDATE da
+          SET da.CurrentUserId = NULL,
+              da.CurrentUsername = NULL,
+              da.CurrentFullName = NULL,
+              da.BoundAt = NULL,
+              da.UpdatedAt = SYSUTCDATETIME()
+          FROM DeviceAgents da
+          INNER JOIN Computers c ON c.Id = da.ComputerId
+          WHERE c.Status = 'IN_USE'
+            AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= (@cutoffMinutes * 60))
+            AND c.DeletedAt IS NULL;
+
+          -- 2. Reset computer status to ACTIVE for devices inactive for >= 5 minutes
+          UPDATE c
+          SET c.Status = 'ACTIVE',
+              c.Note = N'Sẵn sàng sử dụng. (Tự động kết thúc phiên do quá 5 phút không nhận được metrics)',
+              c.UpdatedAt = SYSUTCDATETIME()
+          FROM Computers c
+          LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
+          WHERE c.Status = 'IN_USE'
+            AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= (@cutoffMinutes * 60))
+            AND c.DeletedAt IS NULL;
+        `);
+    } catch {
+      // Ignore if table check or columns missing
     }
   }
 
@@ -193,7 +236,7 @@ export class SqlDeviceAgentRepository implements IDeviceAgentRepository {
   }
 
   public async getAllMetrics(): Promise<Record<string, DeviceMetrics>> {
-    await this.ensureTable();
+    await this.reconcileInactiveSessions(5);
     try {
       const pool = await SqlConnectionFactory.getPool();
       const result = await pool.request().query(`

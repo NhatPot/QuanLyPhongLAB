@@ -19,6 +19,8 @@ export interface BindUserDeviceInput {
   login_at?: string;
   loginAt?: string;
   hostname?: string;
+  ip_address?: string;
+  ipAddress?: string;
 }
 
 export class BindUserDeviceUseCase {
@@ -40,6 +42,7 @@ export class BindUserDeviceUseCase {
         }
       }
 
+      const macInput = input.mac_address || input.macAddress || rawDeviceId;
       const hostname = (input.hostname || '').trim();
       const username = input.username || input.user_id || input.userId || 'Người dùng';
       const fullName = input.full_name || input.fullName || '';
@@ -55,25 +58,24 @@ export class BindUserDeviceUseCase {
         computer = await this.computerRepo.findById(existingAgent.computerId);
       }
 
+      if (!computer && macInput) {
+        computer = await this.computerRepo.findByMacAddress(macInput);
+      }
       if (!computer && rawDeviceId) {
-        let macAddress: string | undefined;
-        if (isValidMacAddress(rawDeviceId)) {
-          macAddress = normalizeMacAddress(rawDeviceId);
-        }
-        if (macAddress) {
-          computer = await this.computerRepo.findByMacAddress(macAddress);
-        }
+        computer = await this.computerRepo.findByCode(rawDeviceId);
       }
       if (!computer && hostname) {
-        computer = await this.computerRepo.findByCode(hostname);
+        computer = await this.computerRepo.findAnyMatching(hostname);
       }
+
+      const targetDeviceId = existingAgent?.deviceId || deviceId || (computer ? computer.code : undefined);
 
       await this.uow.complete(async () => {
         const transaction = this.uow.getTransaction();
 
-        if (deviceId) {
+        if (targetDeviceId) {
           await this.deviceAgentRepo.updateBoundUser(
-            deviceId,
+            targetDeviceId,
             {
               userId: input.user_id || input.userId,
               username,
@@ -94,10 +96,10 @@ export class BindUserDeviceUseCase {
         }
       });
 
-      const displayTarget = computer ? computer.name : (deviceId || hostname || 'Thiết bị');
+      const displayTarget = computer ? computer.name : (targetDeviceId || hostname || 'Thiết bị');
       return Result.ok({
         bound_at: boundAt,
-        message: `Đã liên kết tài khoản ${username} với máy tính ${displayTarget}`,
+        message: `Đã liên kết tài khoản ${username} với máy tính ${displayTarget}. Trạng thái đang sử dụng.`,
       });
     } catch (error: any) {
       return Result.fail(error.message || 'Lỗi khi liên kết tài khoản với thiết bị.');

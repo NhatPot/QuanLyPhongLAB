@@ -16,6 +16,7 @@ export interface UpdateDeviceMetricsInput {
   installed_apps?: DeviceMetrics['installed_apps'];
   ip_address?: string;
   ipAddress?: string;
+  hostname?: string;
 }
 
 export interface UpdateDeviceMetricsOutput {
@@ -42,11 +43,11 @@ export class UpdateDeviceMetricsUseCase {
         }
       }
 
-      if (!rawDeviceId) {
-        rawDeviceId = 'UNKNOWN-DEVICE';
-      }
+      const macInput = input.mac_address || input.macAddress || rawDeviceId;
+      const ipAddress = input.ip_address || input.ipAddress;
+      const hostname = input.hostname;
+      const deviceId = rawDeviceId ? normalizeDeviceId(rawDeviceId) : 'UNKNOWN-DEVICE';
 
-      const deviceId = normalizeDeviceId(rawDeviceId);
       if (!existingAgent && deviceId !== 'UNKNOWN-DEVICE') {
         existingAgent = await this.deviceAgentRepo.findByDeviceId(deviceId);
       }
@@ -56,20 +57,16 @@ export class UpdateDeviceMetricsUseCase {
         computer = await this.computerRepo.findById(existingAgent.computerId);
       }
 
+      if (!computer && macInput) {
+        computer = await this.computerRepo.findByMacAddress(macInput);
+      }
       if (!computer && deviceId !== 'UNKNOWN-DEVICE') {
-        let macAddress: string | undefined;
-        if (isValidMacAddress(rawDeviceId)) {
-          macAddress = normalizeMacAddress(rawDeviceId);
-        }
-        if (macAddress) {
-          computer = await this.computerRepo.findByMacAddress(macAddress);
-        }
-        if (!computer) {
-          computer = await this.computerRepo.findByCode(deviceId);
-        }
+        computer = await this.computerRepo.findByCode(deviceId);
+      }
+      if (!computer && hostname) {
+        computer = await this.computerRepo.findAnyMatching(hostname);
       }
 
-      const ipAddress = input.ip_address || input.ipAddress;
       const metrics: DeviceMetrics = {
         timestamp: input.timestamp || receivedAt.toISOString(),
         status: input.status,
@@ -91,6 +88,7 @@ export class UpdateDeviceMetricsUseCase {
         if (computer) {
           const boundUsername = existingAgent?.currentUsername;
           const boundFullName = existingAgent?.currentFullName;
+
           let targetStatus = computer.status;
           let targetNote = computer.note;
 
@@ -98,16 +96,20 @@ export class UpdateDeviceMetricsUseCase {
             targetStatus = 'IN_USE';
             const userText = boundFullName ? `${boundUsername} (${boundFullName})` : boundUsername;
             targetNote = `Đang được sử dụng bởi ${userText}.`;
+          } else if (computer.status === 'IN_USE' && !computer.note?.includes('Đang được sử dụng bởi')) {
+            targetStatus = 'ACTIVE';
+            targetNote = 'Sẵn sàng sử dụng.';
           }
 
           const hasStatusChange = targetStatus !== computer.status;
+          const hasNoteChange = targetNote !== computer.note;
           const hasIpChange = Boolean(ipAddress && computer.ipAddress !== ipAddress);
           const hasSoftwareChange = installedSoftware !== undefined && computer.installedSoftware !== installedSoftware;
 
-          if (hasStatusChange || hasIpChange || hasSoftwareChange) {
+          if (hasStatusChange || hasNoteChange || hasIpChange || hasSoftwareChange) {
             computer.updateInformation({
               status: targetStatus,
-              note: targetNote ?? computer.note,
+              note: targetNote,
               ipAddress: ipAddress ?? computer.ipAddress,
               installedSoftware: installedSoftware ?? computer.installedSoftware,
             });

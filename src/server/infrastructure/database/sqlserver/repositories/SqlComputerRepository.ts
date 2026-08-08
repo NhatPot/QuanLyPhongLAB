@@ -35,6 +35,7 @@ export class SqlComputerRepository implements IComputerRepository {
   }
 
   public async findByMacAddress(macAddress: string): Promise<Computer | null> {
+    if (!macAddress || !macAddress.trim()) return null;
     const pool = await SqlConnectionFactory.getPool();
     const rawMac = macAddress.trim();
     let normalizedMac = rawMac;
@@ -46,10 +47,13 @@ export class SqlComputerRepository implements IComputerRepository {
       .input('rawMac', mssql.NVarChar, rawMac)
       .input('normalizedMac', mssql.NVarChar, normalizedMac)
       .query(`
-        SELECT * FROM Computers 
+        SELECT TOP 1 * FROM Computers 
         WHERE (
           MacAddress = @rawMac 
-          OR REPLACE(REPLACE(REPLACE(MacAddress, ':', ''), '-', ''), '.', '') = @normalizedMac
+          OR MacAddress = @normalizedMac
+          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = @normalizedMac
+          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = LOWER(@normalizedMac)
+          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = UPPER(@normalizedMac)
         ) AND DeletedAt IS NULL
       `);
 
@@ -60,8 +64,91 @@ export class SqlComputerRepository implements IComputerRepository {
     return this.toDomain(result.recordset[0]);
   }
 
+  public async findAnyMatching(identifier: string): Promise<Computer | null> {
+    if (!identifier || !identifier.trim()) {
+      try {
+        const pool = await SqlConnectionFactory.getPool();
+        const fallbackResult = await pool.request().query(`
+          SELECT TOP 2 * FROM Computers WHERE DeletedAt IS NULL ORDER BY UpdatedAt DESC
+        `);
+        if (fallbackResult.recordset.length === 1) {
+          return this.toDomain(fallbackResult.recordset[0]);
+        }
+      } catch {
+        return null;
+      }
+      return null;
+    }
+
+    const clean = identifier.trim();
+    let normalized = clean;
+    if (isValidMacAddress(clean)) {
+      normalized = normalizeMacAddress(clean);
+    }
+
+    try {
+      const pool = await SqlConnectionFactory.getPool();
+      const result = await pool.request()
+        .input('clean', mssql.NVarChar, clean)
+        .input('normalized', mssql.NVarChar, normalized)
+        .query(`
+          SELECT TOP 1 * FROM Computers
+          WHERE (
+            Code = @clean
+            OR Name = @clean
+            OR Code = @normalized
+            OR MacAddress = @clean
+            OR IpAddress = @clean
+            OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = @normalized
+            OR Name LIKE '%' + @clean + '%'
+            OR Code LIKE '%' + @clean + '%'
+          ) AND DeletedAt IS NULL
+          ORDER BY UpdatedAt DESC
+        `);
+
+      if (result.recordset[0]) {
+        return this.toDomain(result.recordset[0]);
+      }
+
+      // If no direct match, check if there is only 1 computer in database
+      const fallbackResult = await pool.request().query(`
+        SELECT TOP 2 * FROM Computers WHERE DeletedAt IS NULL ORDER BY UpdatedAt DESC
+      `);
+      if (fallbackResult.recordset.length === 1) {
+        return this.toDomain(fallbackResult.recordset[0]);
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   public async list(filter: ComputerFilter): Promise<{ data: Computer[]; total: number }> {
     const pool = await SqlConnectionFactory.getPool();
+
+    try {
+      await pool.request().query(`
+        UPDATE da
+        SET da.CurrentUserId = NULL, da.CurrentUsername = NULL, da.CurrentFullName = NULL, da.BoundAt = NULL, da.UpdatedAt = SYSUTCDATETIME()
+        FROM DeviceAgents da
+        INNER JOIN Computers c ON c.Id = da.ComputerId
+        WHERE c.Status = 'IN_USE'
+          AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 300)
+          AND c.DeletedAt IS NULL;
+
+        UPDATE c
+        SET c.Status = 'ACTIVE', c.Note = N'Sẵn sàng sử dụng. (Tự động kết thúc phiên do quá 5 phút không nhận được metrics)', c.UpdatedAt = SYSUTCDATETIME()
+        FROM Computers c
+        LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
+        WHERE c.Status = 'IN_USE'
+          AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 300)
+          AND c.DeletedAt IS NULL;
+      `);
+    } catch {
+      // Ignore if table missing
+    }
+
     const page = filter.page || 1;
     const pageSize = filter.pageSize || 10;
     const offset = (page - 1) * pageSize;

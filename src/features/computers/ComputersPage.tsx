@@ -101,6 +101,7 @@ export default function ComputersPage() {
   const { data: summary } = useQuery({
     queryKey: ['computers-summary'],
     queryFn: computerApi.getSummary,
+    refetchInterval: 3000,
   });
 
   const {
@@ -111,6 +112,7 @@ export default function ComputersPage() {
   } = useQuery({
     queryKey: ['computers', 'management-dashboard'],
     queryFn: () => computerApi.list({ page: 1, pageSize: 200 }),
+    refetchInterval: 3000,
   });
 
   const { data: metricsData } = useQuery({
@@ -173,6 +175,7 @@ export default function ComputersPage() {
         computer.operatingSystem,
         computer.ipAddress,
         computer.position,
+        computer.installedSoftware,
       ]
         .map(normalize)
         .join(' ');

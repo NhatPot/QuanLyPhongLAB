@@ -12,8 +12,11 @@ import {
   Laptop,
   Monitor,
   Network,
+  PackageCheck,
+  CheckCircle2,
   Radio,
   Save,
+  Search,
   ShieldCheck,
   Trash2,
   X,
@@ -71,6 +74,7 @@ export function ComputerEditorDialog({
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [softwareSearch, setSoftwareSearch] = useState("");
 
   const {
     register,
@@ -96,6 +100,7 @@ export function ComputerEditorDialog({
           }
         : EMPTY_FORM,
     );
+    setSoftwareSearch("");
   }, [computer, open, reset]);
 
   useEffect(() => {
@@ -337,14 +342,91 @@ export function ComputerEditorDialog({
                       ))}
                     </div>
 
-                    <div className="mt-3 rounded-xl border border-slate-200/60 bg-white p-3">
-                      <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400 block mb-1">
-                        Phần mềm đã cài đặt
-                      </span>
-                      <p className="text-xs font-medium text-slate-700 whitespace-pre-wrap leading-relaxed">
-                        {computer?.installedSoftware || "Chưa có danh sách phần mềm từ Device Agent."}
-                      </p>
-                    </div>
+                    {(() => {
+                      const installedAppsList = (computer?.installedSoftware || "")
+                        .split(/[,;\n]+/)
+                        .map((app) => app.trim())
+                        .filter(Boolean);
+
+                      const filteredApps = installedAppsList.filter((app) =>
+                        app.toLowerCase().includes(softwareSearch.toLowerCase().trim())
+                      );
+
+                      return (
+                        <div className="mt-3 rounded-xl border border-slate-200/60 bg-white p-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2.5">
+                            <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 flex items-center gap-1.5">
+                              <PackageCheck className="h-3.5 w-3.5 text-blue-600" />
+                              Phần mềm đã cài đặt
+                            </span>
+                            {installedAppsList.length > 0 && (
+                              <span className="rounded-full bg-blue-50 border border-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 self-start sm:self-auto">
+                                {softwareSearch
+                                  ? `${filteredApps.length}/${installedAppsList.length} phần mềm`
+                                  : `${installedAppsList.length} phần mềm`}
+                              </span>
+                            )}
+                          </div>
+
+                          {installedAppsList.length > 0 && (
+                            <div className="relative mb-2.5">
+                              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                              <input
+                                type="text"
+                                value={softwareSearch}
+                                onChange={(e) => setSoftwareSearch(e.target.value)}
+                                placeholder="Tìm nhanh phần mềm (ví dụ: Chrome, VS Code, Node)..."
+                                className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50/60 pl-8 pr-7 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                              />
+                              {softwareSearch && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSoftwareSearch("")}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {filteredApps.length > 0 ? (
+                            <div className="max-h-48 overflow-y-auto pr-1">
+                              <ul className="grid gap-1.5 sm:grid-cols-2">
+                                {filteredApps.map((app, idx) => (
+                                  <li
+                                    key={idx}
+                                    className="flex items-center gap-2 rounded-lg border border-slate-200/70 bg-slate-50/70 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:border-slate-300"
+                                  >
+                                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white border border-slate-200 text-emerald-600 shadow-2xs">
+                                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                    </div>
+                                    <span className="truncate" title={app}>{app}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : installedAppsList.length > 0 ? (
+                            <div className="text-center py-4 bg-slate-50/50 rounded-lg border border-dashed border-slate-200">
+                              <p className="text-xs font-medium text-slate-500">
+                                Không tìm thấy phần mềm khớp với từ khóa "{softwareSearch}"
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setSoftwareSearch("")}
+                                className="mt-1 text-[11px] font-bold text-blue-600 hover:underline"
+                              >
+                                Xóa từ khóa tìm kiếm
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-xs font-medium text-slate-400 italic py-1">
+                              Chưa có danh sách phần mềm từ Device Agent.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </fieldset>
 

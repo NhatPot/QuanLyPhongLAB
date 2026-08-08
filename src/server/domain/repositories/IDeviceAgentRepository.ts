@@ -52,4 +52,5 @@ export interface IDeviceAgentRepository {
   ): Promise<void>;
   deleteByDeviceId(deviceId: string, transaction?: any): Promise<void>;
   getAllMetrics(): Promise<Record<string, DeviceMetrics>>;
+  reconcileInactiveSessions(cutoffMinutes?: number): Promise<void>;
 }

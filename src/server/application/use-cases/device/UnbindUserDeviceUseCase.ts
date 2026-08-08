@@ -50,20 +50,16 @@ export class UnbindUserDeviceUseCase {
       }
 
       if (!computer && rawDeviceId) {
-        let macAddress: string | undefined;
-        if (isValidMacAddress(rawDeviceId)) {
-          macAddress = normalizeMacAddress(rawDeviceId);
-        }
-        if (macAddress) {
-          computer = await this.computerRepo.findByMacAddress(macAddress);
-        }
+        computer = await this.computerRepo.findAnyMatching(rawDeviceId);
       }
+
+      const targetDeviceId = existingAgent?.deviceId || deviceId || (computer ? computer.code : undefined);
 
       await this.uow.complete(async () => {
         const transaction = this.uow.getTransaction();
 
-        if (deviceId) {
-          await this.deviceAgentRepo.updateBoundUser(deviceId, null, transaction);
+        if (targetDeviceId) {
+          await this.deviceAgentRepo.updateBoundUser(targetDeviceId, null, transaction);
         }
 
         if (computer) {
