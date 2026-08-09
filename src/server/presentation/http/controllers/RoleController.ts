@@ -36,7 +36,7 @@ export class RoleController {
 
   public get = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const role = await this.getRoleUseCase.execute(req.params.code);
+      const role = await this.getRoleUseCase.execute(req.params.code as string);
       res.status(200).json(ApiResponse.success(role, 'Lấy thông tin vai trò thành công.'));
     } catch (error) {
       next(error);
@@ -46,7 +46,7 @@ export class RoleController {
   public updatePermissions = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const role = await this.updateRolePermissionsUseCase.execute({
-        roleCode: req.params.code,
+        roleCode: req.params.code as string,
         permissionCodes: req.body.permissionCodes,
         actorUserId: req.user!.userId,
         ipAddress: req.ip,

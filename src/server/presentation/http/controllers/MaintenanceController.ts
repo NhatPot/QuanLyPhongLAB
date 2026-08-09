@@ -62,7 +62,7 @@ export class MaintenanceController {
   };
 
   public get = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try { res.status(200).json(ApiResponse.success(this.toDto(await this.getUseCase.execute(req.params.id)))); }
+    try { res.status(200).json(ApiResponse.success(this.toDto(await this.getUseCase.execute(req.params.id as string)))); }
     catch (error) { next(error); }
   };
 
@@ -75,21 +75,21 @@ export class MaintenanceController {
 
   public update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.updateUseCase.execute(req.params.id, { ...this.scheduleInput(req), ...this.context(req) });
+      const detail = await this.updateUseCase.execute(req.params.id as string, { ...this.scheduleInput(req), ...this.context(req) });
       res.status(200).json(ApiResponse.success(this.toDto(detail), 'Cập nhật lịch bảo trì thành công.'));
     } catch (error) { next(error); }
   };
 
   public start = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.startUseCase.execute(req.params.id, this.context(req));
+      const detail = await this.startUseCase.execute(req.params.id as string, this.context(req));
       res.status(200).json(ApiResponse.success(this.toDto(detail), 'Đã bắt đầu bảo trì.'));
     } catch (error) { next(error); }
   };
 
   public complete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.completeUseCase.execute(req.params.id, {
+      const detail = await this.completeUseCase.execute(req.params.id as string, {
         ...this.context(req), resultNote: req.body.resultNote, actualCost: req.body.actualCost,
         partsNote: req.body.partsNote, outcome: req.body.outcome as MaintenanceOutcome,
       });
@@ -99,14 +99,14 @@ export class MaintenanceController {
 
   public cancel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.cancelUseCase.execute(req.params.id, req.body.reason, this.context(req));
+      const detail = await this.cancelUseCase.execute(req.params.id as string, req.body.reason, this.context(req));
       res.status(200).json(ApiResponse.success(this.toDto(detail), 'Đã hủy lịch bảo trì.'));
     } catch (error) { next(error); }
   };
 
   public delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      await this.deleteUseCase.execute(req.params.id, this.context(req));
+      await this.deleteUseCase.execute(req.params.id as string, this.context(req));
       res.status(200).json(ApiResponse.success(null, 'Đã xóa lịch bảo trì.'));
     } catch (error) { next(error); }
   };

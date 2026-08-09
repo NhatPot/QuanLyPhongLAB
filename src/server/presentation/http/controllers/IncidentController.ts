@@ -59,7 +59,7 @@ export class IncidentController {
   };
 
   public get = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try { res.status(200).json(ApiResponse.success(this.toDto(await this.getUseCase.execute(req.params.id, this.context(req))))); }
+    try { res.status(200).json(ApiResponse.success(this.toDto(await this.getUseCase.execute(req.params.id as string, this.context(req))))); }
     catch (error) { next(error); }
   };
 
@@ -72,35 +72,35 @@ export class IncidentController {
 
   public update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.updateUseCase.execute(req.params.id, this.content(req), this.context(req));
+      const detail = await this.updateUseCase.execute(req.params.id as string, this.content(req), this.context(req));
       res.status(200).json(ApiResponse.success(this.toDto(detail), 'Đã cập nhật sự cố.'));
     } catch (error) { next(error); }
   };
 
   public assign = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.assignUseCase.execute(req.params.id, req.body.assignedTo, this.context(req));
+      const detail = await this.assignUseCase.execute(req.params.id as string, req.body.assignedTo, this.context(req));
       res.status(200).json(ApiResponse.success(this.toDto(detail), 'Đã phân công người xử lý.'));
     } catch (error) { next(error); }
   };
 
   public start = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.startUseCase.execute(req.params.id, this.context(req));
+      const detail = await this.startUseCase.execute(req.params.id as string, this.context(req));
       res.status(200).json(ApiResponse.success(this.toDto(detail), 'Đã bắt đầu xử lý sự cố.'));
     } catch (error) { next(error); }
   };
 
   public resolve = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.resolveUseCase.execute(req.params.id, req.body.resultNote, this.context(req));
+      const detail = await this.resolveUseCase.execute(req.params.id as string, req.body.resultNote, this.context(req));
       res.status(200).json(ApiResponse.success(this.toDto(detail), 'Đã xác nhận xử lý xong sự cố.'));
     } catch (error) { next(error); }
   };
 
   public close = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.closeUseCase.execute(req.params.id, req.body.resultNote, this.context(req));
+      const detail = await this.closeUseCase.execute(req.params.id as string, req.body.resultNote, this.context(req));
       res.status(200).json(ApiResponse.success(this.toDto(detail), 'Đã đóng hồ sơ sự cố.'));
     } catch (error) { next(error); }
   };

@@ -66,7 +66,7 @@ export class UserController {
 
   public get = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.getUserUseCase.execute(req.params.id);
+      const detail = await this.getUserUseCase.execute(req.params.id as string);
       res.status(200).json(ApiResponse.success(this.toResponseDto(detail), 'Lấy thông tin người dùng thành công.'));
     } catch (error) {
       next(error);
@@ -88,7 +88,7 @@ export class UserController {
   public update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const detail = await this.updateUserUseCase.execute({
-        id: req.params.id,
+        id: req.params.id as string,
         ...req.body,
         ...this.contextOf(req),
       });
@@ -101,7 +101,7 @@ export class UserController {
   public updateStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const detail = await this.updateUserStatusUseCase.execute({
-        id: req.params.id,
+        id: req.params.id as string,
         status: req.body.status,
         ...this.contextOf(req),
       });
@@ -114,7 +114,7 @@ export class UserController {
   public assignRoles = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const detail = await this.assignUserRolesUseCase.execute({
-        id: req.params.id,
+        id: req.params.id as string,
         roleCodes: req.body.roleCodes,
         ...this.contextOf(req),
       });
@@ -127,7 +127,7 @@ export class UserController {
   public resetPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const detail = await this.resetUserPasswordUseCase.execute({
-        id: req.params.id,
+        id: req.params.id as string,
         temporaryPassword: req.body.temporaryPassword,
         ...this.contextOf(req),
       });
@@ -143,7 +143,7 @@ export class UserController {
   public delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       await this.deleteUserUseCase.execute({
-        id: req.params.id,
+        id: req.params.id as string,
         ...this.contextOf(req),
       });
       res.status(200).json(ApiResponse.success(null, 'Xóa tài khoản thành công.'));

@@ -96,7 +96,7 @@ export class BookingController {
   public getById = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = (req as any).user;
-      const booking = await this.getBookingUseCase.execute(req.params.id, user.userId, primaryBookingRole(user));
+      const booking = await this.getBookingUseCase.execute(req.params.id as string, user.userId, primaryBookingRole(user));
       res.status(200).json(this.toDTO(booking));
     } catch (error: any) {
       if (error.message.includes('không có quyền')) {
@@ -133,7 +133,7 @@ export class BookingController {
   public cancel = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = (req as any).user;
-      const booking = await this.cancelBookingUseCase.execute(req.params.id, user.userId, primaryBookingRole(user), req.body.reason);
+      const booking = await this.cancelBookingUseCase.execute(req.params.id as string, user.userId, primaryBookingRole(user), req.body.reason);
       res.status(200).json({ success: true, status: booking.status });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -152,7 +152,7 @@ export class BookingController {
   public approve = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = (req as any).user;
-      const booking = await this.approveBookingUseCase.execute(req.params.id, user.userId);
+      const booking = await this.approveBookingUseCase.execute(req.params.id as string, user.userId);
       res.status(200).json({ success: true, status: booking.status });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -162,7 +162,7 @@ export class BookingController {
   public reject = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = (req as any).user;
-      const booking = await this.rejectBookingUseCase.execute(req.params.id, user.userId, req.body.reason);
+      const booking = await this.rejectBookingUseCase.execute(req.params.id as string, user.userId, req.body.reason);
       res.status(200).json({ success: true, status: booking.status });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -173,7 +173,7 @@ export class BookingController {
     try {
       const user = (req as any).user;
       const result = await this.checkInBookingUseCase.execute({
-        bookingId: req.params.id,
+        bookingId: req.params.id as string,
         userId: user.userId,
         actualPeopleCount: req.body.actualPeopleCount === undefined ? undefined : Number(req.body.actualPeopleCount),
         actualComputerCount: req.body.actualComputerCount === undefined ? undefined : Number(req.body.actualComputerCount),
@@ -198,7 +198,7 @@ export class BookingController {
     try {
       const user = (req as any).user;
       const result = await this.checkOutBookingUseCase.execute({
-        bookingId: req.params.id,
+        bookingId: req.params.id as string,
         userId: user.userId,
         returnCondition: req.body.returnCondition,
         note: req.body.note,

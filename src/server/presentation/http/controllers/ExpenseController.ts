@@ -78,7 +78,7 @@ export class ExpenseController {
   };
 
   public get = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try { res.status(200).json(ApiResponse.success(this.toDto(await this.getUseCase.execute(req.params.id)))); }
+    try { res.status(200).json(ApiResponse.success(this.toDto(await this.getUseCase.execute(req.params.id as string)))); }
     catch (error) { next(error); }
   };
 
@@ -91,23 +91,23 @@ export class ExpenseController {
 
   public update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const detail = await this.updateUseCase.execute(req.params.id, this.input(req), this.context(req));
+      const detail = await this.updateUseCase.execute(req.params.id as string, this.input(req), this.context(req));
       res.status(200).json(ApiResponse.success(this.toDto(detail), 'Đã cập nhật phiếu chi.'));
     } catch (error) { next(error); }
   };
 
-  public submit = this.action((req) => this.submitUseCase.execute(req.params.id, this.context(req)), 'Đã gửi phiếu chi để duyệt.');
-  public approve = this.action((req) => this.approveUseCase.execute(req.params.id, this.context(req)), 'Đã duyệt phiếu chi.');
-  public reject = this.action((req) => this.rejectUseCase.execute(req.params.id, req.body.reason, this.context(req)), 'Đã từ chối phiếu chi.');
-  public cancel = this.action((req) => this.cancelUseCase.execute(req.params.id, req.body.reason, this.context(req)), 'Đã hủy phiếu chi.');
+  public submit = this.action((req) => this.submitUseCase.execute(req.params.id as string, this.context(req)), 'Đã gửi phiếu chi để duyệt.');
+  public approve = this.action((req) => this.approveUseCase.execute(req.params.id as string, this.context(req)), 'Đã duyệt phiếu chi.');
+  public reject = this.action((req) => this.rejectUseCase.execute(req.params.id as string, req.body.reason, this.context(req)), 'Đã từ chối phiếu chi.');
+  public cancel = this.action((req) => this.cancelUseCase.execute(req.params.id as string, req.body.reason, this.context(req)), 'Đã hủy phiếu chi.');
   public markPaid = this.action(
-    (req) => this.paidUseCase.execute(req.params.id, req.body.paymentMethod, req.body.paymentDate, req.body.postInventory, this.context(req)),
+    (req) => this.paidUseCase.execute(req.params.id as string, req.body.paymentMethod, req.body.paymentDate, req.body.postInventory, this.context(req)),
     'Đã xác nhận thanh toán phiếu chi.',
   );
 
   public delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      await this.deleteUseCase.execute(req.params.id, this.context(req));
+      await this.deleteUseCase.execute(req.params.id as string, this.context(req));
       res.status(200).json(ApiResponse.success(null, 'Đã xóa phiếu chi.'));
     } catch (error) { next(error); }
   };
@@ -127,7 +127,7 @@ export class ExpenseController {
 
   public updateCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const result = await this.updateCategoryUseCase.execute(req.params.id, req.body, this.context(req));
+      const result = await this.updateCategoryUseCase.execute(req.params.id as string, req.body, this.context(req));
       res.status(200).json(ApiResponse.success(result, 'Đã cập nhật danh mục chi phí.'));
     } catch (error) { next(error); }
   };

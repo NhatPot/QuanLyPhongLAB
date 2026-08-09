@@ -41,7 +41,7 @@ export class ComputerController {
   };
 
   public get = async (req: Request, res: Response): Promise<void> => {
-    const result = await this.getComputerUseCase.execute(req.params.id);
+    const result = await this.getComputerUseCase.execute(req.params.id as string);
     if (!result.isSuccess) {
       res.status(404).json(ApiResponse.error('NOT_FOUND', result.getError(), null, req.correlationId));
       return;
@@ -76,7 +76,7 @@ export class ComputerController {
   };
 
   public update = async (req: Request, res: Response): Promise<void> => {
-    const id = req.params.id;
+    const id = req.params.id as string;
     const userId = req.user?.userId;
 
     const result = await this.updateComputerUseCase.execute({
@@ -97,7 +97,7 @@ export class ComputerController {
   };
 
   public updateStatus = async (req: Request, res: Response): Promise<void> => {
-    const id = req.params.id;
+    const id = req.params.id as string;
     const { status } = req.body;
     const userId = req.user?.userId;
 
@@ -119,7 +119,7 @@ export class ComputerController {
   };
 
   public delete = async (req: Request, res: Response): Promise<void> => {
-    const id = req.params.id;
+    const id = req.params.id as string;
     const userId = req.user?.userId;
 
     const result = await this.deleteComputerUseCase.execute({

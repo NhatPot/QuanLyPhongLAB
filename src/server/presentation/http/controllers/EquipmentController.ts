@@ -75,7 +75,7 @@ export class EquipmentController {
   };
 
   public get = async (req: Request, res: Response): Promise<void> => {
-    const result = await this.getEquipmentUseCase.execute(req.params.id);
+    const result = await this.getEquipmentUseCase.execute(req.params.id as string);
     if (!result.isSuccess) {
       res.status(404).json(ApiResponse.error('NOT_FOUND', result.getError(), null, req.correlationId));
       return;
@@ -109,7 +109,7 @@ export class EquipmentController {
   };
 
   public update = async (req: Request, res: Response): Promise<void> => {
-    const id = req.params.id;
+    const id = req.params.id as string;
     const userId = req.user?.userId;
 
     const result = await this.updateEquipmentUseCase.execute({
@@ -130,7 +130,7 @@ export class EquipmentController {
   };
 
   public adjustInventory = async (req: Request, res: Response): Promise<void> => {
-    const equipmentId = req.params.id;
+    const equipmentId = req.params.id as string;
     const { delta, note } = req.body;
     const userId = req.user?.userId;
 
@@ -153,7 +153,7 @@ export class EquipmentController {
   };
 
   public reportBroken = async (req: Request, res: Response): Promise<void> => {
-    const equipmentId = req.params.id;
+    const equipmentId = req.params.id as string;
     const { quantity, from, note } = req.body;
     const userId = req.user?.userId;
 
@@ -178,7 +178,7 @@ export class EquipmentController {
 
   public delete = async (req: Request, res: Response): Promise<void> => {
     const result = await this.deleteEquipmentUseCase.execute({
-      id: req.params.id,
+      id: req.params.id as string,
       userId: req.user?.userId,
       ipAddress: req.ip,
       userAgent: req.get('user-agent'),
@@ -194,7 +194,7 @@ export class EquipmentController {
   };
 
   public listTransactions = async (req: Request, res: Response): Promise<void> => {
-    const equipmentId = req.params.id;
+    const equipmentId = req.params.id as string;
     try {
       const txs = await this.transactionRepo.listByEquipmentId(equipmentId);
       const data = txs.map(tx => ({
