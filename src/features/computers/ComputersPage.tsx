@@ -198,14 +198,14 @@ export default function ComputersPage() {
       });
     });
 
-    // Cleanup stale metrics after 5 seconds
+    // Cleanup stale metrics after 30 seconds
     const timer = setInterval(() => {
       const now = Date.now();
       setMetricsData(prev => {
         let hasChanges = false;
         const next = { ...prev };
         for (const [mac, data] of Object.entries(next)) {
-          if (!data.isOffline && data.localTimestamp && now - data.localTimestamp > 5000) {
+          if (!data.isOffline && data.localTimestamp && now - data.localTimestamp > 30000) {
             next[mac] = { ...data, isOffline: true, offlineSince: now };
             hasChanges = true;
           }

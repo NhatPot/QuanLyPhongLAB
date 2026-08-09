@@ -160,20 +160,30 @@ export class SqlComputerRepository implements IComputerRepository {
 
     try {
       await pool.request().query(`
+        UPDATE cal
+        SET cal.EndedAt = SYSUTCDATETIME(), cal.UpdatedAt = SYSUTCDATETIME()
+        FROM ComputerActivityLogs cal
+        INNER JOIN Computers c ON c.Id = cal.ComputerId
+        LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
+        WHERE c.Status = 'IN_USE'
+          AND cal.EndedAt IS NULL
+          AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
+          AND c.DeletedAt IS NULL;
+
         UPDATE da
         SET da.CurrentUserId = NULL, da.CurrentUsername = NULL, da.CurrentFullName = NULL, da.BoundAt = NULL, da.UpdatedAt = SYSUTCDATETIME()
         FROM DeviceAgents da
         INNER JOIN Computers c ON c.Id = da.ComputerId
         WHERE c.Status = 'IN_USE'
-          AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 300)
+          AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
           AND c.DeletedAt IS NULL;
 
         UPDATE c
-        SET c.Status = 'ACTIVE', c.Note = N'Sẵn sàng sử dụng. (Tự động kết thúc phiên do quá 5 phút không nhận được metrics)', c.UpdatedAt = SYSUTCDATETIME()
+        SET c.Status = 'ACTIVE', c.Note = N'Sẵn sàng sử dụng. (Tự động kết thúc phiên do quá 30 giây không nhận được metrics)', c.UpdatedAt = SYSUTCDATETIME()
         FROM Computers c
         LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
         WHERE c.Status = 'IN_USE'
-          AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 300)
+          AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
           AND c.DeletedAt IS NULL;
       `);
     } catch {
