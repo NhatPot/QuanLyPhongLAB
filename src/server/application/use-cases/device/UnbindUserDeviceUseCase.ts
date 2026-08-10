@@ -45,12 +45,14 @@ export class UnbindUserDeviceUseCase {
       }
 
       let computer: Computer | null = null;
-      if (existingAgent) {
+      if (rawDeviceId && isValidMacAddress(rawDeviceId)) {
+        computer = await this.computerRepo.findByMacAddress(normalizeMacAddress(rawDeviceId));
+      }
+      if (!computer && existingAgent) {
         computer = await this.computerRepo.findById(existingAgent.computerId);
       }
-
       if (!computer && rawDeviceId) {
-        computer = await this.computerRepo.findAnyMatching(rawDeviceId);
+        computer = await this.computerRepo.findByCode(rawDeviceId);
       }
 
       const targetDeviceId = existingAgent?.deviceId || deviceId || (computer ? computer.code : undefined);

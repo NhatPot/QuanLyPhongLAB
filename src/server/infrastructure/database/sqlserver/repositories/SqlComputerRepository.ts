@@ -42,18 +42,19 @@ export class SqlComputerRepository implements IComputerRepository {
     if (isValidMacAddress(rawMac)) {
       normalizedMac = normalizeMacAddress(rawMac);
     }
+    const cleanMacHex = normalizedMac.replace(/[:-]|\./g, '').toUpperCase();
 
     const result = await pool.request()
       .input('rawMac', mssql.NVarChar, rawMac)
       .input('normalizedMac', mssql.NVarChar, normalizedMac)
+      .input('cleanMacHex', mssql.NVarChar, cleanMacHex)
       .query(`
         SELECT TOP 1 * FROM Computers 
         WHERE (
           MacAddress = @rawMac 
           OR MacAddress = @normalizedMac
-          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = @normalizedMac
-          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = LOWER(@normalizedMac)
-          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = UPPER(@normalizedMac)
+          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = @cleanMacHex
+          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = LOWER(@cleanMacHex)
         ) AND DeletedAt IS NULL
       `);
 
@@ -72,18 +73,19 @@ export class SqlComputerRepository implements IComputerRepository {
     if (isValidMacAddress(rawMac)) {
       normalizedMac = normalizeMacAddress(rawMac);
     }
+    const cleanMacHex = normalizedMac.replace(/[:-]|\./g, '').toUpperCase();
 
     const result = await pool.request()
       .input('rawMac', mssql.NVarChar, rawMac)
       .input('normalizedMac', mssql.NVarChar, normalizedMac)
+      .input('cleanMacHex', mssql.NVarChar, cleanMacHex)
       .query(`
         SELECT TOP 1 * FROM Computers 
         WHERE (
           MacAddress = @rawMac 
           OR MacAddress = @normalizedMac
-          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = @normalizedMac
-          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = LOWER(@normalizedMac)
-          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = UPPER(@normalizedMac)
+          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = @cleanMacHex
+          OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = LOWER(@cleanMacHex)
         )
         ORDER BY CreatedAt DESC
       `);
@@ -97,17 +99,6 @@ export class SqlComputerRepository implements IComputerRepository {
 
   public async findAnyMatching(identifier: string): Promise<Computer | null> {
     if (!identifier || !identifier.trim()) {
-      try {
-        const pool = await SqlConnectionFactory.getPool();
-        const fallbackResult = await pool.request().query(`
-          SELECT TOP 2 * FROM Computers WHERE DeletedAt IS NULL ORDER BY UpdatedAt DESC
-        `);
-        if (fallbackResult.recordset.length === 1) {
-          return this.toDomain(fallbackResult.recordset[0]);
-        }
-      } catch {
-        return null;
-      }
       return null;
     }
 
@@ -116,12 +107,14 @@ export class SqlComputerRepository implements IComputerRepository {
     if (isValidMacAddress(clean)) {
       normalized = normalizeMacAddress(clean);
     }
+    const cleanMacHex = normalized.replace(/[:-]|\./g, '').toUpperCase();
 
     try {
       const pool = await SqlConnectionFactory.getPool();
       const result = await pool.request()
         .input('clean', mssql.NVarChar, clean)
         .input('normalized', mssql.NVarChar, normalized)
+        .input('cleanMacHex', mssql.NVarChar, cleanMacHex)
         .query(`
           SELECT TOP 1 * FROM Computers
           WHERE (
@@ -129,24 +122,15 @@ export class SqlComputerRepository implements IComputerRepository {
             OR Name = @clean
             OR Code = @normalized
             OR MacAddress = @clean
+            OR MacAddress = @normalized
             OR IpAddress = @clean
-            OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = @normalized
-            OR Name LIKE '%' + @clean + '%'
-            OR Code LIKE '%' + @clean + '%'
+            OR REPLACE(REPLACE(REPLACE(ISNULL(MacAddress, ''), ':', ''), '-', ''), '.', '') = @cleanMacHex
           ) AND DeletedAt IS NULL
           ORDER BY UpdatedAt DESC
         `);
 
       if (result.recordset[0]) {
         return this.toDomain(result.recordset[0]);
-      }
-
-      // If no direct match, check if there is only 1 computer in database
-      const fallbackResult = await pool.request().query(`
-        SELECT TOP 2 * FROM Computers WHERE DeletedAt IS NULL ORDER BY UpdatedAt DESC
-      `);
-      if (fallbackResult.recordset.length === 1) {
-        return this.toDomain(fallbackResult.recordset[0]);
       }
 
       return null;

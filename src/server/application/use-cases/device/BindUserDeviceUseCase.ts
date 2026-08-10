@@ -56,18 +56,17 @@ export class BindUserDeviceUseCase {
       }
 
       let computer: Computer | null = null;
-      if (existingAgent) {
-        computer = await this.computerRepo.findById(existingAgent.computerId);
-      }
-
-      if (!computer && macInput) {
+      if (macInput) {
         computer = await this.computerRepo.findByMacAddress(macInput);
+      }
+      if (!computer && existingAgent) {
+        const agentComp = await this.computerRepo.findById(existingAgent.computerId);
+        if (agentComp && (!macInput || !agentComp.macAddress || agentComp.macAddress === macInput)) {
+          computer = agentComp;
+        }
       }
       if (!computer && rawDeviceId) {
         computer = await this.computerRepo.findByCode(rawDeviceId);
-      }
-      if (!computer && hostname) {
-        computer = await this.computerRepo.findAnyMatching(hostname);
       }
 
       const targetDeviceId = existingAgent?.deviceId || deviceId || (computer ? computer.code : undefined);

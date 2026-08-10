@@ -76,14 +76,14 @@ export class RegisterDeviceUseCase {
 
       const existingAgent = await this.deviceAgentRepo.findByDeviceId(deviceId);
       let computer: Computer | null = null;
-      if (existingAgent) {
-        computer = await this.computerRepo.findById(existingAgent.computerId);
-      }
-      if (!computer && macAddress) {
+      if (macAddress) {
         computer = await this.computerRepo.findIncludingDeletedByMacAddress(macAddress);
       }
-      if (!computer && hostname) {
-        computer = await this.computerRepo.findAnyMatching(hostname);
+      if (!computer && existingAgent) {
+        const agentComp = await this.computerRepo.findById(existingAgent.computerId);
+        if (agentComp && (!macAddress || !agentComp.macAddress || agentComp.macAddress === macAddress)) {
+          computer = agentComp;
+        }
       }
 
       if (computer && computer.deletedAt) {
@@ -183,9 +183,16 @@ export class RegisterDeviceUseCase {
         const transaction = this.uow.getTransaction();
 
         if (!computer) {
+          let computerCode = hostname;
+          const existingCodeComp = await this.computerRepo.findByCode(computerCode);
+          if (existingCodeComp && (!macAddress || existingCodeComp.macAddress !== macAddress)) {
+            const suffix = macAddress ? macAddress.replace(/:/g, '') : Date.now().toString().slice(-4);
+            computerCode = `${hostname}-${suffix}`;
+          }
+
           computer = Computer.create({
-            code: hostname,
-            name: hostname,
+            code: computerCode,
+            name: hostname !== 'UNKNOWN-HOST' ? hostname : (macAddress ? `Máy ${macAddress}` : computerCode),
             cpu: input.cpu_model,
             ram: ramText,
             storage: storageText,

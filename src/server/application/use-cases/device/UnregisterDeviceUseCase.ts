@@ -54,15 +54,18 @@ export class UnregisterDeviceUseCase {
         existingAgent = await this.deviceAgentRepo.findByDeviceId(deviceId);
       }
 
-      let computer: Computer | null = existingAgent ? await this.computerRepo.findById(existingAgent.computerId) : null;
-      if (!computer && macInput) {
+      let computer: Computer | null = null;
+      if (macInput) {
         computer = await this.computerRepo.findByMacAddress(macInput);
+      }
+      if (!computer && existingAgent) {
+        const agentComp = await this.computerRepo.findById(existingAgent.computerId);
+        if (agentComp && (!macInput || !agentComp.macAddress || agentComp.macAddress === macInput)) {
+          computer = agentComp;
+        }
       }
       if (!computer && deviceId) {
         computer = await this.computerRepo.findByCode(deviceId);
-      }
-      if (!computer && rawDeviceId) {
-        computer = await this.computerRepo.findAnyMatching(rawDeviceId);
       }
 
       const computerName = computer ? `${computer.name} (${computer.code})` : deviceId;

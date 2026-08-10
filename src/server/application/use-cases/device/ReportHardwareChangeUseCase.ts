@@ -54,17 +54,17 @@ export class ReportHardwareChangeUseCase {
       }
 
       let computer: Computer | null = null;
-      if (existingAgent) {
-        computer = await this.computerRepo.findById(existingAgent.computerId);
-      }
-      if (!computer && macInput) {
+      if (macInput) {
         computer = await this.computerRepo.findByMacAddress(macInput);
+      }
+      if (!computer && existingAgent) {
+        const agentComp = await this.computerRepo.findById(existingAgent.computerId);
+        if (agentComp && (!macInput || !agentComp.macAddress || agentComp.macAddress === macInput)) {
+          computer = agentComp;
+        }
       }
       if (!computer && deviceId !== 'UNKNOWN-DEVICE') {
         computer = await this.computerRepo.findByCode(deviceId);
-      }
-      if (!computer && rawDeviceId) {
-        computer = await this.computerRepo.findAnyMatching(rawDeviceId);
       }
 
       const computerName = computer ? `${computer.name} (${computer.code})` : deviceId;
