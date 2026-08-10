@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import cryptoNode from 'crypto';
+import '../../config/load-environment';
 import { ITokenService, TokenPayload } from '../../application/ports/ITokenService';
 import { UnauthorizedError } from '../../shared/errors/AppError';
 

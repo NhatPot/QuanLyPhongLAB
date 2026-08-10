@@ -1,7 +1,5 @@
 import mssql from 'mssql';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import '../../../config/load-environment';
 
 const dbConfig: mssql.config = {
   user: process.env.DB_USER || 'sa',

@@ -1,5 +1,6 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,6 +30,27 @@ const categorySchema = z.object({
 
 type FormFields = z.infer<typeof equipmentSchema>;
 type CategoryFields = z.infer<typeof categorySchema>;
+
+/**
+ * Render modal layers at the document root so they always cover the complete
+ * viewport, including the sticky dashboard header and sidebar.
+ */
+function EquipmentModalLayer({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/50 p-4 backdrop-blur-sm">
+      <div className="flex min-h-full items-center justify-center">{children}</div>
+    </div>,
+    document.body,
+  );
+}
 
 const EquipmentsPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -336,7 +358,7 @@ const EquipmentsPage: React.FC = () => {
       </div>
 
       {isEqModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+        <EquipmentModalLayer>
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-lg font-bold text-slate-950">
@@ -440,11 +462,11 @@ const EquipmentsPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </EquipmentModalLayer>
       )}
 
       {isCatModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+        <EquipmentModalLayer>
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-lg font-bold text-slate-950">Thêm danh mục thiết bị</h3>
@@ -499,11 +521,11 @@ const EquipmentsPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </EquipmentModalLayer>
       )}
 
       {adjustState?.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+        <EquipmentModalLayer>
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-lg font-bold text-slate-955">Điều chỉnh số lượng kho</h3>
@@ -555,11 +577,11 @@ const EquipmentsPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </EquipmentModalLayer>
       )}
 
       {brokenState?.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+        <EquipmentModalLayer>
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-lg font-bold text-slate-950">Báo hỏng thiết bị</h3>
@@ -621,11 +643,11 @@ const EquipmentsPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </EquipmentModalLayer>
       )}
 
       {txHistoryState?.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+        <EquipmentModalLayer>
           <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <h3 className="text-lg font-bold text-slate-955">Lịch sử biến động kho: {txHistoryState.code}</h3>
@@ -671,7 +693,7 @@ const EquipmentsPage: React.FC = () => {
               </div>
             )}
           </div>
-        </div>
+        </EquipmentModalLayer>
       )}
       <ConfirmDialog
         open={Boolean(deleteTarget)}

@@ -1,13 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import mssql from 'mssql';
-import dotenv from 'dotenv';
+import '../../src/server/config/load-environment';
 
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const dbConfig: mssql.config = {
   user: process.env.DB_USER || 'sa',

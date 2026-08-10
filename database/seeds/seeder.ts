@@ -1,9 +1,6 @@
 import mssql from 'mssql';
 import bcrypt from 'bcrypt';
-import dotenv from 'dotenv';
-import path from 'path';
-
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+import '../../src/server/config/load-environment';
 
 const dbConfig: mssql.config = {
   user: process.env.DB_USER || 'sa',
