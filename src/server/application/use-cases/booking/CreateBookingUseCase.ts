@@ -100,7 +100,7 @@ export class CreateBookingUseCase {
       requesterId,
       bookingType: input.bookingType,
       purpose: input.purpose,
-      purposeGroupId: purposeGroup?.id.toString() || input.purposeGroupId || null,
+      purposeGroupId: purposeGroup?.id.toString() || null,
       startTime: input.startTime,
       endTime: input.endTime,
       expectedReturnTime: input.expectedReturnTime,
@@ -147,23 +147,29 @@ export class CreateBookingUseCase {
   private async resolvePurposeGroup(purpose: string, purposeGroupId?: string): Promise<BookingPurposeGroup | null> {
     if (!this.purposeGroupRepo) return null;
 
-    if (purposeGroupId) {
-      const selected = await this.purposeGroupRepo.findById(purposeGroupId);
-      if (!selected) throw new ValidationError('Nhóm mục đích không tồn tại hoặc đã ngừng sử dụng.');
-      return selected;
+    try {
+      if (purposeGroupId) {
+        const selected = await this.purposeGroupRepo.findById(purposeGroupId);
+        if (!selected) throw new ValidationError('Nhóm mục đích không tồn tại hoặc đã ngừng sử dụng.');
+        return selected;
+      }
+
+      const groups = await this.purposeGroupRepo.list();
+      const matching = findMatchingPurposeGroup(purpose, groups);
+      if (matching) return matching;
+
+      const normalizedKey = normalizePurposeKey(purpose);
+      const group = BookingPurposeGroup.create({
+        code: purposeGroupCode(normalizedKey),
+        name: purpose.trim().replace(/\s+/g, ' ').slice(0, 255),
+        normalizedKey,
+      });
+      await this.purposeGroupRepo.save(group);
+      return group;
+    } catch (error) {
+      if (error instanceof ValidationError) throw error;
+      console.warn('[CreateBookingUseCase] Không thể resolve purpose group, bỏ qua:', (error as Error).message);
+      return null;
     }
-
-    const groups = await this.purposeGroupRepo.list();
-    const matching = findMatchingPurposeGroup(purpose, groups);
-    if (matching) return matching;
-
-    const normalizedKey = normalizePurposeKey(purpose);
-    const group = BookingPurposeGroup.create({
-      code: purposeGroupCode(normalizedKey),
-      name: purpose.trim().replace(/\s+/g, ' ').slice(0, 255),
-      normalizedKey,
-    });
-    await this.purposeGroupRepo.save(group);
-    return group;
   }
 }

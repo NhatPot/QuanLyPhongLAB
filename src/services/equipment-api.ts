@@ -79,6 +79,10 @@ export const equipmentApi = {
     return response.data.data;
   },
 
+  deleteCategory: async (id: string): Promise<void> => {
+    await apiClient.delete(`/equipments/categories/${id}`);
+  },
+
   list: async (filter: EquipmentFilter): Promise<EquipmentListResponse> => {
     const response = await apiClient.get('/equipments', { params: filter });
     return response.data;

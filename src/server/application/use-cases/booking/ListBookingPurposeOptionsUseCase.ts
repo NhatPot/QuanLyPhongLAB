@@ -8,7 +8,13 @@ export class ListBookingPurposeOptionsUseCase {
   constructor(private purposeGroupRepo: IBookingPurposeGroupRepository) {}
 
   public async execute(): Promise<BookingPurposeSuggestion[]> {
-    const suggestions = await this.purposeGroupRepo.listSuggestions();
+    let suggestions: BookingPurposeSuggestion[];
+    try {
+      suggestions = await this.purposeGroupRepo.listSuggestions();
+    } catch (error) {
+      console.warn('[ListBookingPurposeOptionsUseCase] Không thể tải danh sách mục đích, bỏ qua:', (error as Error).message);
+      return [];
+    }
     const canonicalKeys = new Set(
       suggestions
         .filter((suggestion) => suggestion.source === 'GROUP')

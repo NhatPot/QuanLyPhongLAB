@@ -65,6 +65,7 @@ import { DeleteComputerUseCase } from '../application/use-cases/computer/DeleteC
 
 import { CreateEquipmentCategoryUseCase } from '../application/use-cases/equipment-category/CreateEquipmentCategoryUseCase';
 import { ListEquipmentCategoriesUseCase } from '../application/use-cases/equipment-category/ListEquipmentCategoriesUseCase';
+import { DeleteEquipmentCategoryUseCase } from '../application/use-cases/equipment-category/DeleteEquipmentCategoryUseCase';
 import { CreateEquipmentUseCase } from '../application/use-cases/equipment/CreateEquipmentUseCase';
 import { GetEquipmentUseCase } from '../application/use-cases/equipment/GetEquipmentUseCase';
 import { ListEquipmentUseCase } from '../application/use-cases/equipment/ListEquipmentUseCase';
@@ -80,6 +81,8 @@ import { GetMyBookingsUseCase } from '../application/use-cases/booking/GetMyBook
 import { GetBookingCalendarUseCase } from '../application/use-cases/booking/GetBookingCalendarUseCase';
 import { ListBookingRequesterOptionsUseCase } from '../application/use-cases/booking/ListBookingRequesterOptionsUseCase';
 import { ListBookingPurposeOptionsUseCase } from '../application/use-cases/booking/ListBookingPurposeOptionsUseCase';
+import { CreatePurposeGroupUseCase } from '../application/use-cases/booking/CreatePurposeGroupUseCase';
+import { DeletePurposeGroupUseCase } from '../application/use-cases/booking/DeletePurposeGroupUseCase';
 import { CancelBookingUseCase } from '../application/use-cases/booking/CancelBookingUseCase';
 import { ListPendingBookingsUseCase } from '../application/use-cases/booking/ListPendingBookingsUseCase';
 import { ApproveBookingUseCase } from '../application/use-cases/booking/ApproveBookingUseCase';
@@ -250,6 +253,7 @@ class DependencyContainer {
 
   public readonly createEquipmentCategoryUseCase: CreateEquipmentCategoryUseCase;
   public readonly listEquipmentCategoriesUseCase: ListEquipmentCategoriesUseCase;
+  public readonly deleteEquipmentCategoryUseCase: DeleteEquipmentCategoryUseCase;
   public readonly createEquipmentUseCase: CreateEquipmentUseCase;
   public readonly getEquipmentUseCase: GetEquipmentUseCase;
   public readonly listEquipmentUseCase: ListEquipmentUseCase;
@@ -265,6 +269,8 @@ class DependencyContainer {
   public readonly getBookingCalendarUseCase: GetBookingCalendarUseCase;
   public readonly listBookingRequesterOptionsUseCase: ListBookingRequesterOptionsUseCase;
   public readonly listBookingPurposeOptionsUseCase: ListBookingPurposeOptionsUseCase;
+  public readonly createPurposeGroupUseCase: CreatePurposeGroupUseCase;
+  public readonly deletePurposeGroupUseCase: DeletePurposeGroupUseCase;
   public readonly cancelBookingUseCase: CancelBookingUseCase;
   public readonly listPendingBookingsUseCase: ListPendingBookingsUseCase;
   public readonly approveBookingUseCase: ApproveBookingUseCase;
@@ -393,6 +399,7 @@ class DependencyContainer {
 
     this.createEquipmentCategoryUseCase = new CreateEquipmentCategoryUseCase(this.equipmentCategoryRepo);
     this.listEquipmentCategoriesUseCase = new ListEquipmentCategoriesUseCase(this.equipmentCategoryRepo);
+    this.deleteEquipmentCategoryUseCase = new DeleteEquipmentCategoryUseCase(this.equipmentCategoryRepo, this.equipmentRepo);
     this.createEquipmentUseCase = new CreateEquipmentUseCase(this.equipmentRepo, this.equipmentCategoryRepo, this.uow, this.auditLogRepo);
     this.getEquipmentUseCase = new GetEquipmentUseCase(this.equipmentRepo);
     this.listEquipmentUseCase = new ListEquipmentUseCase(this.equipmentRepo);
@@ -410,7 +417,8 @@ class DependencyContainer {
       this.adjustInventoryUseCase,
       this.reportBrokenEquipmentUseCase,
       this.deleteEquipmentUseCase,
-      this.equipmentTxRepo
+      this.equipmentTxRepo,
+      this.deleteEquipmentCategoryUseCase
     );
 
     this.checkAvailabilityUseCase = new CheckAvailabilityUseCase(
@@ -422,6 +430,7 @@ class DependencyContainer {
 
     this.availabilityController = new AvailabilityController(this.checkAvailabilityUseCase);
 
+    const bookingPurposeGroupRepo = new SqlBookingPurposeGroupRepository();
     this.createBookingUseCase = new CreateBookingUseCase(
       this.bookingRepo,
       this.bookingEqItemRepo,
@@ -429,12 +438,15 @@ class DependencyContainer {
       this.uow,
       this.auditLogRepo,
       this.userRepo,
+      bookingPurposeGroupRepo,
     );
     this.getBookingUseCase = new GetBookingUseCase(this.bookingRepo, this.bookingEqItemRepo);
     this.getMyBookingsUseCase = new GetMyBookingsUseCase(this.bookingRepo, this.bookingEqItemRepo, this.userRepo);
     this.getBookingCalendarUseCase = new GetBookingCalendarUseCase(this.bookingRepo, this.userRepo);
     this.listBookingRequesterOptionsUseCase = new ListBookingRequesterOptionsUseCase(this.userRepo);
-    this.listBookingPurposeOptionsUseCase = new ListBookingPurposeOptionsUseCase(new SqlBookingPurposeGroupRepository());
+    this.listBookingPurposeOptionsUseCase = new ListBookingPurposeOptionsUseCase(bookingPurposeGroupRepo);
+    this.createPurposeGroupUseCase = new CreatePurposeGroupUseCase(bookingPurposeGroupRepo);
+    this.deletePurposeGroupUseCase = new DeletePurposeGroupUseCase(bookingPurposeGroupRepo);
     this.cancelBookingUseCase = new CancelBookingUseCase(this.bookingRepo, this.bookingEqItemRepo, this.uow, this.auditLogRepo);
     this.listPendingBookingsUseCase = new ListPendingBookingsUseCase(this.bookingRepo, this.bookingEqItemRepo, this.userRepo);
     this.approveBookingUseCase = new ApproveBookingUseCase(this.bookingRepo, this.bookingEqItemRepo, this.checkAvailabilityUseCase, this.uow, this.auditLogRepo);
@@ -456,6 +468,9 @@ class DependencyContainer {
       this.checkOutBookingUseCase,
       this.getLabUsageStatisticsUseCase,
       this.listBookingRequesterOptionsUseCase,
+      this.listBookingPurposeOptionsUseCase,
+      this.createPurposeGroupUseCase,
+      this.deletePurposeGroupUseCase,
     );
 
     this.loginUseCase = new LoginUseCase(

@@ -6,7 +6,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { ColumnDef } from "@tanstack/react-table";
-import { CalendarPlus, Check, Clock3, Plus, Search, UserRound, XCircle } from "lucide-react";
+import { CalendarPlus, Check, Clock3, Plus, Search, UserRound, XCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   bookingApi,
@@ -45,29 +45,40 @@ const schema = z
     numberOfPeople: z.coerce.number().min(1),
     numberOfComputers: z.coerce.number().min(0),
     equipments: z.array(z.object({
-      equipmentId: z.string().min(1, "Chọn thiết bị cho mượn."),
+      equipmentId: z.string(),
       quantity: z.coerce.number().int().min(1, "Số lượng phải từ 1."),
     })),
     note: z.string().optional(),
   })
   .superRefine((value, context) => {
-    if (value.bookingType === "EQUIPMENT_ONLY" && value.equipments.length === 0) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["equipments"],
-        message: "Cần chọn ít nhất một thiết bị cho mượn.",
+    if (value.bookingType === "EQUIPMENT_ONLY") {
+      if (value.equipments.length === 0) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["equipments"],
+          message: "Cần chọn ít nhất một thiết bị cho mượn.",
+        });
+      }
+      value.equipments.forEach((item, index) => {
+        if (!item.equipmentId || item.equipmentId.length === 0) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["equipments", index, "equipmentId"],
+            message: "Chọn thiết bị cho mượn.",
+          });
+        }
       });
     }
     const seen = new Set<string>();
     value.equipments.forEach((item, index) => {
-      if (seen.has(item.equipmentId)) {
+      if (item.equipmentId && seen.has(item.equipmentId)) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["equipments", index, "equipmentId"],
           message: "Thiết bị đã được chọn ở dòng khác.",
         });
       }
-      seen.add(item.equipmentId);
+      if (item.equipmentId) seen.add(item.equipmentId);
     });
   })
   .refine((value) => new Date(value.startTime) < new Date(value.endTime), {
@@ -109,7 +120,8 @@ export default function BookingsPage() {
   const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
-  const [tab, setTab] = useState<"mine" | "pending">("mine");
+  const [tab, setTab] = useState<"mine" | "pending" | "categories">("mine");
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [rejectTarget, setRejectTarget] = useState<BookingData | null>(null);
   const [cancelTarget, setCancelTarget] = useState<BookingData | null>(null);
   const [actionError, setActionError] = useState("");
@@ -126,6 +138,33 @@ export default function BookingsPage() {
     email: user.email,
     department: null,
   }) : null, [user]);
+
+  const { data: purposeGroups = [], isLoading: loadingGroups } = useQuery({
+    queryKey: ["booking-purpose-options"],
+    queryFn: bookingApi.purposeOptions,
+    enabled: tab === "categories" && canApprove,
+  });
+
+  const createGroupMutation = useMutation({
+    mutationFn: (name: string) => bookingApi.createPurposeGroup(name),
+    onSuccess: () => {
+      toast.success("Đã thêm danh mục mục đích");
+      setNewCategoryName("");
+      void queryClient.invalidateQueries({ queryKey: ["booking-purpose-options"] });
+    },
+    onError: (error: unknown) =>
+      toast.error(errorMessage(error, "Không thể thêm danh mục.")),
+  });
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: (id: string) => bookingApi.deletePurposeGroup(id),
+    onSuccess: () => {
+      toast.success("Đã xóa danh mục mục đích");
+      void queryClient.invalidateQueries({ queryKey: ["booking-purpose-options"] });
+    },
+    onError: (error: unknown) =>
+      toast.error(errorMessage(error, "Không thể xóa danh mục.")),
+  });
 
   const { data: purposeOptions = [], isLoading: loadingPurposeOptions } = useQuery({
     queryKey: ["booking-purpose-options"],
@@ -462,22 +501,94 @@ export default function BookingsPage() {
                 Chờ phê duyệt
               </button>
             )}
+            {canApprove && (
+              <button
+                type="button"
+                onClick={() => setTab("categories")}
+                className={`rounded-lg px-4 py-2 text-xs font-bold transition ${tab === "categories" ? "bg-white text-blue-700 shadow-sm" : "text-slate-500"}`}
+              >
+                Danh mục mục đích
+              </button>
+            )}
           </div>
-          {tab === "pending" && pendingError && (
-            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-              Backend hiện chưa trả được danh sách chờ duyệt qua endpoint hiện
-              tại. Các chức năng khác vẫn hoạt động bình thường.
+          {tab === "categories" && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="mb-1.5 block text-xs font-bold text-slate-700">Tên danh mục mới</label>
+                  <Input
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="Ví dụ: Thực hành môn IoT"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newCategoryName.trim().length >= 3) {
+                        createGroupMutation.mutate(newCategoryName.trim());
+                      }
+                    }}
+                  />
+                </div>
+                <Button
+                  onClick={() => createGroupMutation.mutate(newCategoryName.trim())}
+                  disabled={newCategoryName.trim().length < 3 || createGroupMutation.isPending}
+                >
+                  <Plus />
+                  {createGroupMutation.isPending ? "Đang thêm..." : "Thêm danh mục"}
+                </Button>
+              </div>
+
+              {loadingGroups ? (
+                <div className="h-48 animate-pulse rounded-2xl bg-slate-100" />
+              ) : purposeGroups.length === 0 ? (
+                <div className="flex h-48 items-center justify-center rounded-2xl border border-dashed border-slate-200 text-sm text-slate-400">
+                  Chưa có danh mục mục đích nào.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200">
+                  {purposeGroups.map((group) => (
+                    <div key={group.id || group.name} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-800">{group.name}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          {group.source === "GROUP" ? "Danh mục" : "Mục đích cũ"}
+                          {" · "}{group.usageCount} lần sử dụng
+                        </p>
+                      </div>
+                      {group.id && group.source === "GROUP" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="shrink-0 text-red-500 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => deleteGroupMutation.mutate(group.id!)}
+                          disabled={deleteGroupMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-          {(isLoading || loadingPending) && data.length === 0 ? (
-            <div className="h-48 animate-pulse rounded-2xl bg-slate-100" />
-          ) : (
-            <DataTable
-              columns={columns}
-              data={data}
-              searchPlaceholder="Tìm theo mã, người đăng ký hoặc mục đích..."
-              emptyMessage="Chưa có yêu cầu đăng ký."
-            />
+          {tab !== "categories" && (
+            <>
+              {tab === "pending" && pendingError && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  Backend hiện chưa trả được danh sách chờ duyệt qua endpoint hiện
+                  tại. Các chức năng khác vẫn hoạt động bình thường.
+                </div>
+              )}
+              {(isLoading || loadingPending) && data.length === 0 ? (
+                <div className="h-48 animate-pulse rounded-2xl bg-slate-100" />
+              ) : (
+                <DataTable
+                  columns={columns}
+                  data={data}
+                  searchPlaceholder="Tìm theo mã, người đăng ký hoặc mục đích..."
+                  emptyMessage="Chưa có yêu cầu đăng ký."
+                />
+              )}
+            </>
           )}
         </CardContent>
       </Card>

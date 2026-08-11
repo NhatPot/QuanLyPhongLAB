@@ -56,6 +56,8 @@ const EquipmentsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   
+  const [activeTab, setActiveTab] = useState<'equipments' | 'categories'>('equipments');
+
   const [keyword, setKeyword] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [page, setPage] = useState(1);
@@ -130,6 +132,18 @@ const EquipmentsPage: React.FC = () => {
     }
   });
 
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (id: string) => equipmentApi.deleteCategory(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['equipment-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['equipments'] });
+    },
+    onError: (error) => {
+      const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
+      alert(response?.data?.error?.message || 'Không thể xóa danh mục.');
+    }
+  });
+
   const adjustMutation = useMutation({
     mutationFn: (data: { id: string; delta: number; note?: string }) => equipmentApi.adjust(data.id, data.delta, data.note),
     onSuccess: () => {
@@ -200,17 +214,17 @@ const EquipmentsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Danh mục thiết bị" description="Quản lý thông tin và số lượng tồn kho các thiết bị mượn kèm.">
+      <PageHeader title="Quản lý thiết bị" description="Quản lý danh mục và thông tin thiết bị.">
         <div className="flex gap-2">
-          {canCategoryCreate && (
+          {activeTab === 'categories' && canCategoryCreate && (
             <button
               onClick={() => setIsCatModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition"
             >
-              Thêm danh mục
+              <Plus className="h-4 w-4" /> Thêm danh mục
             </button>
           )}
-          {canCreate && (
+          {activeTab === 'equipments' && canCreate && (
             <button
               onClick={openAddEqModal}
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition"
@@ -221,7 +235,26 @@ const EquipmentsPage: React.FC = () => {
         </div>
       </PageHeader>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('equipments')}
+          className={`rounded-lg px-4 py-2 text-xs font-bold transition ${activeTab === 'equipments' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}
+        >
+          Thiết bị
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('categories')}
+          className={`rounded-lg px-4 py-2 text-xs font-bold transition ${activeTab === 'categories' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}
+        >
+          Danh mục
+        </button>
+      </div>
+
+      {activeTab === 'equipments' && (
+        <>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
         <div className="relative flex-1 max-w-md">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3">
             <Search className="h-4 w-4 text-slate-400" />
@@ -356,6 +389,41 @@ const EquipmentsPage: React.FC = () => {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {activeTab === 'categories' && (
+        <div className="space-y-4">
+          {!categories || categories.length === 0 ? (
+            <div className="flex h-48 items-center justify-center rounded-2xl border border-dashed border-slate-200 text-sm text-slate-400">
+              Chưa có danh mục thiết bị nào.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
+              {categories.map((cat) => (
+                <div key={cat.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-800">{cat.name}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-400">
+                      Mã: {cat.code}{cat.description ? ` · ${cat.description}` : ''}
+                    </p>
+                  </div>
+                  {canCategoryCreate && (
+                    <button
+                      className="shrink-0 rounded-lg p-2 text-red-500 hover:bg-red-50 hover:text-red-700 transition"
+                      onClick={() => deleteCategoryMutation.mutate(cat.id)}
+                      disabled={deleteCategoryMutation.isPending}
+                      title="Xóa danh mục"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {isEqModalOpen && (
         <EquipmentModalLayer>

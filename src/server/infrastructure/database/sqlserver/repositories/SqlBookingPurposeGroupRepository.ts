@@ -85,6 +85,16 @@ export class SqlBookingPurposeGroupRepository implements IBookingPurposeGroupRep
       `);
   }
 
+  public async softDelete(id: string): Promise<void> {
+    const pool = await SqlConnectionFactory.getPool();
+    await pool.request()
+      .input('id', mssql.UniqueIdentifier, id)
+      .query(`
+        UPDATE BookingPurposeGroups SET IsActive = 0, UpdatedAt = SYSUTCDATETIME() WHERE Id = @id;
+        UPDATE BookingRequests SET PurposeGroupId = NULL WHERE PurposeGroupId = @id;
+      `);
+  }
+
   private toDomain(raw: any): BookingPurposeGroup {
     return BookingPurposeGroup.create({
       id: String(raw.Id),

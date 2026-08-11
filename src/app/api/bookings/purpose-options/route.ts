@@ -5,3 +5,7 @@ import { handleExpressRoute } from '@/server/utils/route-helper';
 export async function GET(req: NextRequest) {
   return handleExpressRoute(req, undefined, container.bookingController.listPurposeOptions, { permissions: ['BOOKING_CREATE'] });
 }
+
+export async function POST(req: NextRequest) {
+  return handleExpressRoute(req, undefined, container.bookingController.createPurposeGroup, { permissions: ['BOOKING_APPROVE'] });
+}

@@ -13,7 +13,6 @@ export interface UpdateDeviceMetricsInput {
   apiKey?: string;
   timestamp?: string;
   status?: DeviceMetrics['status'];
-  installed_apps?: DeviceMetrics['installed_apps'];
   ip_address?: string;
   ipAddress?: string;
   ip_addresses?: string[];
@@ -76,10 +75,8 @@ export class UpdateDeviceMetricsUseCase {
       const metrics: DeviceMetrics = {
         timestamp: input.timestamp || receivedAt.toISOString(),
         status: input.status,
-        installed_apps: input.installed_apps,
         ipAddress,
       };
-      const installedSoftware = input.installed_apps?.map((app) => app.name).join(', ');
 
       await this.uow.complete(async () => {
         const transaction = this.uow.getTransaction();
@@ -114,14 +111,12 @@ export class UpdateDeviceMetricsUseCase {
           const hasStatusChange = targetStatus !== computer.status;
           const hasNoteChange = targetNote !== computer.note;
           const hasIpChange = Boolean(ipAddress && computer.ipAddress !== ipAddress);
-          const hasSoftwareChange = installedSoftware !== undefined && computer.installedSoftware !== installedSoftware;
 
-          if (hasStatusChange || hasNoteChange || hasIpChange || hasSoftwareChange) {
+          if (hasStatusChange || hasNoteChange || hasIpChange) {
             computer.updateInformation({
               status: targetStatus,
               note: targetNote,
               ipAddress: ipAddress ?? computer.ipAddress,
-              installedSoftware: installedSoftware ?? computer.installedSoftware,
             });
             await this.computerRepo.save(computer, transaction);
           }

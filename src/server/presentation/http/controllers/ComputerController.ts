@@ -140,9 +140,49 @@ export class ComputerController {
 
   public getAvailabilitySummary = async (req: Request, res: Response): Promise<void> => {
     try {
-      const activeCount = await this.computerRepo.countActive();
       const pool = await SqlConnectionFactory.getPool();
-      
+
+      // Tự động chuyển IN_USE → ACTIVE nếu DeviceAgent mất tín hiệu > 30 giây
+      try {
+        await pool.request().query(`
+          UPDATE cal
+          SET cal.EndedAt = SYSUTCDATETIME(), cal.UpdatedAt = SYSUTCDATETIME()
+          FROM ComputerActivityLogs cal
+          INNER JOIN Computers c ON c.Id = cal.ComputerId
+          LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
+          WHERE c.Status = 'IN_USE'
+            AND cal.EndedAt IS NULL
+            AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
+            AND c.DeletedAt IS NULL;
+
+          UPDATE da
+          SET da.CurrentUserId = NULL, da.CurrentUsername = NULL, da.CurrentFullName = NULL, da.BoundAt = NULL, da.UpdatedAt = SYSUTCDATETIME()
+          FROM DeviceAgents da
+          INNER JOIN Computers c ON c.Id = da.ComputerId
+          WHERE c.Status = 'IN_USE'
+            AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
+            AND c.DeletedAt IS NULL;
+
+          UPDATE c
+          SET c.Status = 'ACTIVE', c.Note = N'Sẵn sàng sử dụng. (Tự động kết thúc phiên do quá 30 giây không nhận được metrics)', c.UpdatedAt = SYSUTCDATETIME()
+          FROM Computers c
+          LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
+          WHERE c.Status = 'IN_USE'
+            AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
+            AND c.DeletedAt IS NULL;
+        `);
+      } catch {
+        // Fallback: nếu bảng DeviceAgents/ComputerActivityLogs chưa tồn tại,
+        // ép tất cả IN_USE → ACTIVE (vì không có agent nào xác nhận đang dùng)
+        try {
+          await pool.request().query(`
+            UPDATE Computers
+            SET Status = 'ACTIVE', Note = N'Sẵn sàng sử dụng.', UpdatedAt = SYSUTCDATETIME()
+            WHERE Status = 'IN_USE' AND DeletedAt IS NULL
+          `);
+        } catch { /* ignore */ }
+      }
+
       const statusCounts = await pool.request().query(`
         SELECT Status, COUNT(*) as Count 
         FROM Computers 
@@ -152,7 +192,7 @@ export class ComputerController {
 
       const summary = {
         total: 0,
-        active: activeCount,
+        active: 0,
         inUse: 0,
         broken: 0,
         maintenance: 0,

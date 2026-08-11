@@ -13,6 +13,8 @@ import { GetLabUsageStatisticsUseCase } from '../../../application/use-cases/boo
 import { ListBookingRequesterOptionsUseCase } from '../../../application/use-cases/booking/ListBookingRequesterOptionsUseCase';
 import { BookingType } from '../../../domain/entities/BookingRequest';
 import { ListBookingPurposeOptionsUseCase } from '../../../application/use-cases/booking/ListBookingPurposeOptionsUseCase';
+import { CreatePurposeGroupUseCase } from '../../../application/use-cases/booking/CreatePurposeGroupUseCase';
+import { DeletePurposeGroupUseCase } from '../../../application/use-cases/booking/DeletePurposeGroupUseCase';
 
 function primaryBookingRole(user: any): string {
   if (Array.isArray(user?.roles) && user.roles.includes('ADMIN')) return 'ADMIN';
@@ -35,6 +37,8 @@ export class BookingController {
     private getLabUsageStatisticsUseCase: GetLabUsageStatisticsUseCase,
     private listBookingRequesterOptionsUseCase: ListBookingRequesterOptionsUseCase,
     private listBookingPurposeOptionsUseCase?: ListBookingPurposeOptionsUseCase,
+    private createPurposeGroupUseCase?: CreatePurposeGroupUseCase,
+    private deletePurposeGroupUseCase?: DeletePurposeGroupUseCase,
   ) {}
 
   public create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -68,6 +72,38 @@ export class BookingController {
         purposeGroupId: booking.purposeGroupId,
       });
     } catch (error: any) {
+      next(error);
+    }
+  };
+
+  public createPurposeGroup = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.createPurposeGroupUseCase) {
+        res.status(501).json({ error: 'Chức năng chưa được kích hoạt.' });
+        return;
+      }
+      const group = await this.createPurposeGroupUseCase.execute(req.body.name);
+      res.status(201).json({
+        data: {
+          id: group.id.toString(),
+          code: group.code,
+          name: group.name,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public deletePurposeGroup = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!this.deletePurposeGroupUseCase) {
+        res.status(501).json({ error: 'Chức năng chưa được kích hoạt.' });
+        return;
+      }
+      await this.deletePurposeGroupUseCase.execute(req.params.id as string);
+      res.status(200).json({ success: true });
+    } catch (error) {
       next(error);
     }
   };

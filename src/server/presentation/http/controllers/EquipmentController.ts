@@ -8,6 +8,7 @@ import { UpdateEquipmentUseCase } from '../../../application/use-cases/equipment
 import { AdjustInventoryUseCase } from '../../../application/use-cases/equipment/AdjustInventoryUseCase';
 import { ReportBrokenEquipmentUseCase } from '../../../application/use-cases/equipment/ReportBrokenEquipmentUseCase';
 import { DeleteEquipmentUseCase } from '../../../application/use-cases/equipment/DeleteEquipmentUseCase';
+import { DeleteEquipmentCategoryUseCase } from '../../../application/use-cases/equipment-category/DeleteEquipmentCategoryUseCase';
 import { IEquipmentInventoryTransactionRepository } from '../../../domain/repositories/IEquipmentInventoryTransactionRepository';
 import { ApiResponse } from '../presenters/ApiResponse';
 import { Equipment } from '../../../domain/entities/Equipment';
@@ -23,7 +24,8 @@ export class EquipmentController {
     private adjustInventoryUseCase: AdjustInventoryUseCase,
     private reportBrokenEquipmentUseCase: ReportBrokenEquipmentUseCase,
     private deleteEquipmentUseCase: DeleteEquipmentUseCase,
-    private transactionRepo: IEquipmentInventoryTransactionRepository
+    private transactionRepo: IEquipmentInventoryTransactionRepository,
+    private deleteCategoryUseCase: DeleteEquipmentCategoryUseCase
   ) {}
 
   public createCategory = async (req: Request, res: Response): Promise<void> => {
@@ -54,6 +56,15 @@ export class EquipmentController {
       description: cat.description
     }));
     res.status(200).json(ApiResponse.success(list));
+  };
+
+  public deleteCategory = async (req: Request, res: Response): Promise<void> => {
+    const result = await this.deleteCategoryUseCase.execute(req.params.id as string);
+    if (!result.isSuccess) {
+      res.status(400).json(ApiResponse.error('BAD_REQUEST', result.getError(), null, req.correlationId));
+      return;
+    }
+    res.status(200).json(ApiResponse.success(null, 'Xóa danh mục thiết bị thành công.'));
   };
 
   public create = async (req: Request, res: Response): Promise<void> => {

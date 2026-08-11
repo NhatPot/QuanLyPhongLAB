@@ -35,11 +35,7 @@ export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [isExporting, setIsExporting] = useState(false);
 
-  const summaryQuery = useQuery({
-    queryKey: ['computer-summary', 'reports'],
-    queryFn: computerApi.getSummary,
-    staleTime: 30_000,
-  });
+
   const computersQuery = useQuery({
     queryKey: ['computers', 'reports'],
     queryFn: () => computerApi.list({ page: 1, pageSize: 100 }),
@@ -70,17 +66,30 @@ export default function ReportsPage() {
     retry: false,
   });
 
-  const summary = summaryQuery.data;
   const computers = computersQuery.data?.data ?? [];
   const equipment = equipmentQuery.data?.data ?? [];
   const usage = usageQuery.data;
   const expenseSummary = expenseSummaryQuery.data;
-  const isLoading = summaryQuery.isLoading || computersQuery.isLoading || equipmentQuery.isLoading || usageQuery.isLoading || expenseSummaryQuery.isLoading;
-  const hasError = summaryQuery.isError || computersQuery.isError || equipmentQuery.isError || usageQuery.isError || expenseSummaryQuery.isError;
+  const isLoading = computersQuery.isLoading || equipmentQuery.isLoading || usageQuery.isLoading || expenseSummaryQuery.isLoading;
+  const hasError = computersQuery.isError || equipmentQuery.isError || usageQuery.isError || expenseSummaryQuery.isError;
+
+  // Tính summary từ danh sách máy tính (DB đã tự dọn IN_USE cũ qua auto-cleanup)
+  const summary = useMemo(() => {
+    const count = (status: string) => computers.filter((c) => c.status === status).length;
+    return {
+      total: computers.length,
+      active: count('ACTIVE'),
+      inUse: count('IN_USE'),
+      broken: count('BROKEN'),
+      maintenance: count('MAINTENANCE'),
+      locked: count('LOCKED'),
+      inactive: count('INACTIVE'),
+    };
+  }, [computers]);
 
   const totalEquipment = equipment.reduce((sum, item) => sum + item.totalQuantity, 0);
   const borrowedEquipment = equipment.reduce((sum, item) => sum + item.borrowedQuantity, 0);
-  const attentionCount = (summary?.broken ?? 0) + (summary?.maintenance ?? 0) + equipment.reduce((sum, item) => sum + item.brokenQuantity + item.maintenanceQuantity, 0);
+  const attentionCount = (summary.broken) + (summary.maintenance) + equipment.reduce((sum, item) => sum + item.brokenQuantity + item.maintenanceQuantity, 0);
 
   const computerOption = useMemo<EChartsOption>(() => ({
     grid: { left: 20, right: 20, top: 28, bottom: 12, containLabel: true },
@@ -101,7 +110,7 @@ export default function ReportsPage() {
       type: 'bar',
       barMaxWidth: 34,
       data: STATUS_ORDER.map((status) => ({
-        value: summary?.[status === 'ACTIVE' ? 'active' : status === 'IN_USE' ? 'inUse' : status === 'MAINTENANCE' ? 'maintenance' : status === 'BROKEN' ? 'broken' : status === 'LOCKED' ? 'locked' : 'inactive'] ?? 0,
+        value: summary[status === 'ACTIVE' ? 'active' : status === 'IN_USE' ? 'inUse' : status === 'MAINTENANCE' ? 'maintenance' : status === 'BROKEN' ? 'broken' : status === 'LOCKED' ? 'locked' : 'inactive'],
         itemStyle: { color: COMPUTER_STATUS_THEME[status].chart, borderRadius: [7, 7, 0, 0] },
       })),
     }],
@@ -111,8 +120,27 @@ export default function ReportsPage() {
   const equipmentOption = useMemo<EChartsOption>(() => ({
     grid: { left: 16, right: 20, top: 12, bottom: 34, containLabel: true },
     xAxis: { type: 'value', minInterval: 1, axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: '#eef2f7' } } },
-    yAxis: { type: 'category', data: topEquipment.map((item) => item.code).reverse(), axisLabel: { color: '#64748b', fontSize: 10 } },
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    yAxis: {
+      type: 'category',
+      data: topEquipment.map((item) => item.name.length > 14 ? item.name.slice(0, 14) + '…' : item.name).reverse(),
+      axisLabel: { color: '#64748b', fontSize: 10 },
+      triggerEvent: true,
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: any) => {
+        const items = Array.isArray(params) ? params : [params];
+        const idx = items[0]?.dataIndex;
+        if (idx === undefined) return '';
+        const eq = [...topEquipment].reverse()[idx];
+        let html = `<div style="font-weight:700;margin-bottom:4px">${eq?.name ?? ''}</div>`;
+        items.forEach((p: any) => {
+          if (p.value > 0) html += `<div>${p.marker} ${p.seriesName}: <b>${p.value}</b></div>`;
+        });
+        return html;
+      },
+    },
     legend: { bottom: 0, textStyle: { color: '#64748b', fontSize: 10 }, itemWidth: 12, itemHeight: 8 },
     series: EQUIPMENT_SERIES.map((series) => ({
       name: series.name,
@@ -140,7 +168,6 @@ export default function ReportsPage() {
   }, [usage]);
 
   const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['computer-summary', 'reports'] });
     await queryClient.invalidateQueries({ queryKey: ['computers', 'reports'] });
     await queryClient.invalidateQueries({ queryKey: ['equipments', 'reports'] });
     await queryClient.invalidateQueries({ queryKey: ['booking-usage-statistics'] });
@@ -170,7 +197,7 @@ export default function ReportsPage() {
       {hasError && <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertTriangle className="h-4 w-4 shrink-0" /> Không thể tải một phần dữ liệu báo cáo. Hãy kiểm tra kết nối API và thử làm mới.</div>}
 
       <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-        <Kpi label="Tổng máy tính" value={summary?.total ?? 0} caption="Tất cả trạng thái" icon={Monitor} tone="blue" loading={isLoading} />
+        <Kpi label="Tổng máy tính" value={summary.total} caption="Tất cả trạng thái" icon={Monitor} tone="blue" loading={isLoading} />
         <Kpi label="Tổng thiết bị" value={totalEquipment} caption={`${equipment.length} nhóm tài sản`} icon={PackageOpen} tone="teal" loading={isLoading} />
         <Kpi label="Giờ dùng phòng" value={usage?.totalUsageHours ?? 0} caption={`Tháng ${selectedMonth}`} icon={Activity} tone="indigo" loading={isLoading} unit="giờ" />
         <Kpi label="Giờ-máy" value={usage?.totalComputerHours ?? 0} caption="Tổng thời lượng từng máy" icon={Monitor} tone="teal" loading={isLoading} unit="giờ-máy" />

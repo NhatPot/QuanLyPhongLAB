@@ -1,10 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ChevronLeft,
-  ChevronRight,
   CircleOff,
   KeyRound,
   LockKeyhole,
@@ -42,7 +40,7 @@ import {
 import { ResetPasswordDialog } from "./ResetPasswordDialog";
 import { UserEditorDialog, type UserFormValues } from "./UserEditorDialog";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 15;
 
 const ROLE_TONES: Record<RoleTone, string> = {
   violet: "border-violet-200 bg-violet-50 text-violet-700",
@@ -123,7 +121,6 @@ export default function UsersPage() {
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<UserStatus | "">("");
   const [roleFilter, setRoleFilter] = useState<RoleCode | "">("");
-  const [page, setPage] = useState(1);
   const [editorOpen, setEditorOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
   const [resetTarget, setResetTarget] = useState<UserRecord | null>(null);
@@ -134,6 +131,7 @@ export default function UsersPage() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const canCreate = hasPermission("USER_CREATE");
   const canUpdate = hasPermission("USER_UPDATE");
@@ -141,29 +139,58 @@ export default function UsersPage() {
   const canAssignRole = hasPermission("ROLE_ASSIGN");
   const canDelete = hasPermission("USER_DELETE");
 
-  const listQuery = useQuery({
-    queryKey: ["users", { page, keyword, statusFilter, roleFilter }],
-    queryFn: () =>
+  const listQuery = useInfiniteQuery({
+    queryKey: ["users", { keyword, statusFilter, roleFilter }],
+    queryFn: ({ pageParam = 1 }) =>
       userApi.list({
-        page,
+        page: pageParam,
         pageSize: PAGE_SIZE,
         keyword: keyword || undefined,
         status: statusFilter || undefined,
         roleCode: roleFilter || undefined,
       }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage || !lastPage.meta) return undefined;
+      const { page, totalPages } = lastPage.meta;
+      return page < totalPages ? page + 1 : undefined;
+    },
   });
+
   const summaryQuery = useQuery({
     queryKey: ["users-summary"],
     queryFn: userApi.summary,
   });
 
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (
+          entries[0].isIntersecting &&
+          listQuery.hasNextPage &&
+          !listQuery.isFetchingNextPage
+        ) {
+          void listQuery.fetchNextPage();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [listQuery.hasNextPage, listQuery.isFetchingNextPage, listQuery.fetchNextPage]);
+
   const users = useMemo(() => {
-    const data = Array.isArray(listQuery.data) ? listQuery.data : (listQuery.data?.data || []);
-    return data.map(apiUserToRecord);
+    if (!listQuery.data?.pages) return [];
+    return listQuery.data.pages.flatMap((pageData) => {
+      const data = Array.isArray(pageData) ? pageData : pageData.data || [];
+      return data.map(apiUserToRecord);
+    });
   }, [listQuery.data]);
-  const totalItems = listQuery.data?.meta?.totalItems ?? (Array.isArray(listQuery.data) ? listQuery.data.length : 0);
-  const totalPages = Math.max(1, listQuery.data?.meta?.totalPages ?? Math.ceil(totalItems / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
+
+  const totalItems =
+    listQuery.data?.pages?.[0]?.meta?.totalItems ?? users.length;
   const summary = summaryQuery.data || {
     total: totalItems,
     active: 0,
@@ -311,11 +338,10 @@ export default function UsersPage() {
     setKeyword("");
     setStatusFilter("");
     setRoleFilter("");
-    setPage(1);
   };
 
   return (
-    <div className="animate-float-in space-y-4">
+    <div className="flex flex-col gap-4 h-[calc(100vh-68px-2rem)] sm:h-[calc(100vh-68px-3rem)] xl:h-[calc(100vh-68px-3.5rem)] overflow-hidden">
       <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="mb-1.5 flex items-center gap-2">
@@ -387,7 +413,7 @@ export default function UsersPage() {
         />
       </section>
 
-      <section className="dashboard-card overflow-hidden">
+      <section className="dashboard-card flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-sm font-extrabold text-slate-900">
@@ -402,20 +428,14 @@ export default function UsersPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={keyword}
-                onChange={(event) => {
-                  setKeyword(event.target.value);
-                  setPage(1);
-                }}
+                onChange={(event) => setKeyword(event.target.value)}
                 placeholder="Tìm tên, email, tài khoản..."
                 className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
               />
             </div>
             <select
               value={roleFilter}
-              onChange={(event) => {
-                setRoleFilter(event.target.value as RoleCode | "");
-                setPage(1);
-              }}
+              onChange={(event) => setRoleFilter(event.target.value as RoleCode | "")}
               aria-label="Lọc theo vai trò"
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
             >
@@ -428,10 +448,7 @@ export default function UsersPage() {
             </select>
             <select
               value={statusFilter}
-              onChange={(event) => {
-                setStatusFilter(event.target.value as UserStatus | "");
-                setPage(1);
-              }}
+              onChange={(event) => setStatusFilter(event.target.value as UserStatus | "")}
               aria-label="Lọc theo trạng thái"
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
             >
@@ -453,7 +470,7 @@ export default function UsersPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto scrollbar-thin">
+        <div className="min-h-0 flex-1 overflow-auto scrollbar-thin">
           {listQuery.isLoading ? (
             <div className="flex min-h-64 items-center justify-center">
               <RefreshCw className="h-7 w-7 animate-spin text-blue-600" />
@@ -472,213 +489,209 @@ export default function UsersPage() {
               </button>
             </div>
           ) : (
-            <table className="w-full min-w-[1080px] text-left">
-              <thead className="bg-slate-50/80">
-                <tr className="text-[10px] font-extrabold uppercase tracking-[.1em] text-slate-400">
-                  <th className="px-4 py-3">Người dùng</th>
-                  <th className="px-4 py-3">Liên hệ</th>
-                  <th className="px-4 py-3">Vai trò</th>
-                  <th className="px-4 py-3">Đơn vị</th>
-                  <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3">Đăng nhập gần nhất</th>
-                  <th className="px-4 py-3 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {users.map((item, index) => (
-                  <tr
-                    key={item.id}
-                    className="group transition hover:bg-blue-50/30"
-                  >
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 rounded-xl ring-1 ring-slate-200/80">
-                          <AvatarImage
-                            src={item.avatarUrl || undefined}
-                            alt={`Ảnh đại diện của ${item.fullName}`}
-                            className="rounded-xl"
-                          />
-                          <AvatarFallback
-                            className={cn(
-                              "rounded-xl text-xs font-extrabold",
-                              avatarTone(index),
-                            )}
-                          >
-                            {initialsOf(item.fullName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="max-w-48 truncate text-sm font-extrabold text-slate-800">
-                            {item.fullName}
+            <>
+              <table className="w-full min-w-[1080px] text-left">
+                <thead className="sticky top-0 z-10 bg-slate-50 shadow-sm">
+                  <tr className="text-[10px] font-extrabold uppercase tracking-[.1em] text-slate-400">
+                    <th className="px-4 py-3">Người dùng</th>
+                    <th className="px-4 py-3">Liên hệ</th>
+                    <th className="px-4 py-3">Vai trò</th>
+                    <th className="px-4 py-3">Đơn vị</th>
+                    <th className="px-4 py-3">Trạng thái</th>
+                    <th className="px-4 py-3">Đăng nhập gần nhất</th>
+                    <th className="px-4 py-3 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {users.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className="group transition hover:bg-blue-50/30"
+                    >
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10 rounded-xl ring-1 ring-slate-200/80">
+                            <AvatarImage
+                              src={item.avatarUrl || undefined}
+                              alt={`Ảnh đại diện của ${item.fullName}`}
+                              className="rounded-xl"
+                            />
+                            <AvatarFallback
+                              className={cn(
+                                "rounded-xl text-xs font-extrabold",
+                                avatarTone(index),
+                              )}
+                            >
+                              {initialsOf(item.fullName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="max-w-48 truncate text-sm font-extrabold text-slate-800">
+                              {item.fullName}
+                            </p>
+                            <p className="mt-0.5 text-[11px] font-medium text-slate-400">
+                              @{item.username}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <p className="text-xs font-semibold text-slate-600">
+                          {item.email}
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          {item.phone || "Chưa cập nhật SĐT"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex max-w-48 flex-wrap gap-1">
+                          {item.roles.map((code) => (
+                            <RoleBadge key={code} code={code} />
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <p
+                          className="max-w-44 truncate text-xs text-slate-600"
+                          title={item.department}
+                        >
+                          {item.department || "Chưa cập nhật"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <StatusBadge status={item.status} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <p className="text-xs font-semibold text-slate-600">
+                          {formatDateTime(item.lastLoginAt)}
+                        </p>
+                        {item.id === currentUser?.id && (
+                          <p className="mt-1 text-[10px] font-bold text-blue-600">
+                            Phiên hiện tại
                           </p>
-                          <p className="mt-0.5 text-[11px] font-medium text-slate-400">
-                            @{item.username}
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center justify-end gap-1">
+                          {canUpdate && (
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              title="Chỉnh sửa"
+                              aria-label={`Sửa ${item.fullName}`}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {canUpdate && (
+                            <button
+                              type="button"
+                              onClick={() => setResetTarget(item)}
+                              title="Đặt lại mật khẩu"
+                              aria-label={`Đặt lại mật khẩu ${item.fullName}`}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600"
+                            >
+                              <KeyRound className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {canUpdateStatus && (
+                            <button
+                              type="button"
+                              onClick={() => openStatusConfirmation(item)}
+                              disabled={
+                                statusMutation.isPending ||
+                                item.id === currentUser?.id
+                              }
+                              title={
+                                item.status === "ACTIVE"
+                                  ? "Khóa tài khoản"
+                                  : "Mở khóa tài khoản"
+                              }
+                              className={cn(
+                                "flex h-8 w-8 items-center justify-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-40",
+                                item.status === "ACTIVE"
+                                  ? "text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                  : "text-slate-400 hover:bg-emerald-50 hover:text-emerald-600",
+                              )}
+                            >
+                              {item.status === "ACTIVE" ? (
+                                <LockKeyhole className="h-3.5 w-3.5" />
+                              ) : (
+                                <UserCheck className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteError(null);
+                                setDeleteTarget(item);
+                              }}
+                              disabled={
+                                deleteMutation.isPending ||
+                                item.id === currentUser?.id
+                              }
+                              title="Xóa tài khoản"
+                              aria-label={`Xóa tài khoản ${item.fullName}`}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="h-56 text-center">
+                        <div className="mx-auto flex max-w-xs flex-col items-center">
+                          <span className="rounded-2xl bg-slate-100 p-4 text-slate-400">
+                            <Users className="h-7 w-7" />
+                          </span>
+                          <p className="mt-3 text-sm font-extrabold text-slate-700">
+                            Không tìm thấy người dùng
+                          </p>
+                          <p className="mt-1 text-xs text-slate-400">
+                            Hãy thử thay đổi từ khóa hoặc điều kiện lọc.
                           </p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <p className="text-xs font-semibold text-slate-600">
-                        {item.email}
-                      </p>
-                      <p className="mt-1 text-[10px] text-slate-400">
-                        {item.phone || "Chưa cập nhật SĐT"}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex max-w-48 flex-wrap gap-1">
-                        {item.roles.map((code) => (
-                          <RoleBadge key={code} code={code} />
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <p
-                        className="max-w-44 truncate text-xs text-slate-600"
-                        title={item.department}
-                      >
-                        {item.department || "Chưa cập nhật"}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <StatusBadge status={item.status} />
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <p className="text-xs font-semibold text-slate-600">
-                        {formatDateTime(item.lastLoginAt)}
-                      </p>
-                      {item.id === currentUser?.id && (
-                        <p className="mt-1 text-[10px] font-bold text-blue-600">
-                          Phiên hiện tại
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center justify-end gap-1">
-                        {canUpdate && (
-                          <button
-                            type="button"
-                            onClick={() => openEdit(item)}
-                            title="Chỉnh sửa"
-                            aria-label={`Sửa ${item.fullName}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {canUpdate && (
-                          <button
-                            type="button"
-                            onClick={() => setResetTarget(item)}
-                            title="Đặt lại mật khẩu"
-                            aria-label={`Đặt lại mật khẩu ${item.fullName}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600"
-                          >
-                            <KeyRound className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {canUpdateStatus && (
-                          <button
-                            type="button"
-                            onClick={() => openStatusConfirmation(item)}
-                            disabled={
-                              statusMutation.isPending ||
-                              item.id === currentUser?.id
-                            }
-                            title={
-                              item.status === "ACTIVE"
-                                ? "Khóa tài khoản"
-                                : "Mở khóa tài khoản"
-                            }
-                            className={cn(
-                              "flex h-8 w-8 items-center justify-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-40",
-                              item.status === "ACTIVE"
-                                ? "text-slate-400 hover:bg-red-50 hover:text-red-600"
-                                : "text-slate-400 hover:bg-emerald-50 hover:text-emerald-600",
-                            )}
-                          >
-                            {item.status === "ACTIVE" ? (
-                              <LockKeyhole className="h-3.5 w-3.5" />
-                            ) : (
-                              <UserCheck className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDeleteError(null);
-                              setDeleteTarget(item);
-                            }}
-                            disabled={
-                              deleteMutation.isPending ||
-                              item.id === currentUser?.id
-                            }
-                            title="Xóa tài khoản"
-                            aria-label={`Xóa tài khoản ${item.fullName}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="h-56 text-center">
-                      <div className="mx-auto flex max-w-xs flex-col items-center">
-                        <span className="rounded-2xl bg-slate-100 p-4 text-slate-400">
-                          <Users className="h-7 w-7" />
-                        </span>
-                        <p className="mt-3 text-sm font-extrabold text-slate-700">
-                          Không tìm thấy người dùng
-                        </p>
-                        <p className="mt-1 text-xs text-slate-400">
-                          Hãy thử thay đổi từ khóa hoặc điều kiện lọc.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <div ref={loadMoreRef} className="h-4 w-full" />
+            </>
           )}
         </div>
 
         {!listQuery.isLoading && !listQuery.isError && (
-          <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[11px] text-slate-400">
-              Hiển thị {users.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0}–
-              {Math.min(currentPage * PAGE_SIZE, totalItems)} trong {totalItems}{" "}
-              người dùng
+          <div className="flex flex-col gap-2 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[11px] font-medium text-slate-500">
+              Đã hiển thị <span className="font-extrabold text-slate-800">{users.length}</span> trong <span className="font-extrabold text-slate-800">{totalItems}</span> người dùng
             </p>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={currentPage === 1}
-                onClick={() => setPage((value) => Math.max(1, value - 1))}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 disabled:opacity-40"
-                aria-label="Trang trước"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="px-2 text-xs font-bold text-slate-600">
-                Trang {currentPage}/{totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={currentPage === totalPages}
-                onClick={() =>
-                  setPage((value) => Math.min(totalPages, value + 1))
-                }
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 disabled:opacity-40"
-                aria-label="Trang sau"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              {listQuery.isFetchingNextPage ? (
+                <div className="flex items-center gap-2 text-xs font-bold text-blue-600">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  Đang tải thêm người dùng...
+                </div>
+              ) : listQuery.hasNextPage ? (
+                <button
+                  type="button"
+                  onClick={() => void listQuery.fetchNextPage()}
+                  className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600 transition hover:bg-blue-100"
+                >
+                  Tải thêm
+                </button>
+              ) : (
+                <span className="text-[11px] font-semibold text-slate-400">
+                  Đã tải tất cả người dùng
+                </span>
+              )}
             </div>
           </div>
         )}

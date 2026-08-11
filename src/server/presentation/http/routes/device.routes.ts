@@ -41,6 +41,11 @@ export const registerDeviceSchema = z.object({
     current_user: z.string().optional(),
     user_token: z.string().optional(),
     registered_at: isoDateSchema.optional(),
+    installed_apps: z.array(z.object({
+      name: z.string().trim().min(1).max(500),
+      version: z.string().trim().max(100).optional(),
+      publisher: z.string().trim().max(255).optional(),
+    })).max(10000).optional(),
   }).passthrough().superRefine((body, context) => {
     if (normalizeMacAddress(body.device_id) !== normalizeMacAddress(body.mac_address)) {
       context.addIssue({
@@ -82,11 +87,6 @@ export const updateMetricsSchema = z.object({
       }).optional(),
       network: z.record(z.unknown()).optional(),
     }).passthrough().optional(),
-    installed_apps: z.array(z.object({
-      name: z.string().trim().min(1).max(500),
-      version: z.string().trim().max(100).optional(),
-      publisher: z.string().trim().max(255).optional(),
-    })).max(10000).optional(),
   }).passthrough(),
 });
 

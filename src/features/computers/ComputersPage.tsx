@@ -279,7 +279,7 @@ export default function ComputersPage() {
     };
   }, [allComputers]);
 
-  const summaryData = summary ?? computedSummary;
+  const summaryData = computedSummary;
   const totalComputers = summaryData.total || allComputers.length;
   const unusedComputers = (summaryData.locked || 0) + (summaryData.inactive || 0);
 

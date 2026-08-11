@@ -12,4 +12,5 @@ export interface IBookingPurposeGroupRepository {
   list(): Promise<BookingPurposeGroup[]>;
   listSuggestions(): Promise<BookingPurposeSuggestion[]>;
   save(group: BookingPurposeGroup, transaction?: any): Promise<void>;
+  softDelete(id: string): Promise<void>;
 }

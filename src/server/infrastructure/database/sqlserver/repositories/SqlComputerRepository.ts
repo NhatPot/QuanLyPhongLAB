@@ -171,7 +171,14 @@ export class SqlComputerRepository implements IComputerRepository {
           AND c.DeletedAt IS NULL;
       `);
     } catch {
-      // Ignore if table missing
+      // Fallback: nếu bảng DeviceAgents/ComputerActivityLogs chưa tồn tại
+      try {
+        await pool.request().query(`
+          UPDATE Computers
+          SET Status = 'ACTIVE', Note = N'Sẵn sàng sử dụng.', UpdatedAt = SYSUTCDATETIME()
+          WHERE Status = 'IN_USE' AND DeletedAt IS NULL
+        `);
+      } catch { /* ignore */ }
     }
 
     const page = filter.page || 1;

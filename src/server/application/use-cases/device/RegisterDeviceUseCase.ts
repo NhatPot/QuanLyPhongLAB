@@ -47,6 +47,7 @@ export interface RegisterDeviceInput {
   is_in_use?: boolean;
   current_user?: string;
   user_token?: string;
+  installed_apps?: Array<{ name: string; version?: string; publisher?: string }>;
 }
 
 export class RegisterDeviceUseCase {
@@ -179,6 +180,9 @@ export class RegisterDeviceUseCase {
         ramText = `${formattedRam}GB`;
       }
 
+      // Resolution for Installed Apps
+      const installedSoftware = input.installed_apps?.map((app) => app.name).join(', ');
+
       await this.uow.complete(async () => {
         const transaction = this.uow.getTransaction();
 
@@ -198,6 +202,7 @@ export class RegisterDeviceUseCase {
             storage: storageText,
             gpu: gpuModel,
             operatingSystem: input.os ? `${input.os} ${input.os_version || ''}`.trim() : undefined,
+            installedSoftware,
             macAddress,
             ipAddress,
             status: input.status === 'IN_USE' ? 'IN_USE' : 'ACTIVE',
@@ -213,6 +218,7 @@ export class RegisterDeviceUseCase {
             storage: storageText || computer.storage,
             gpu: gpuModel || computer.gpu,
             operatingSystem: input.os ? `${input.os} ${input.os_version || ''}`.trim() : computer.operatingSystem,
+            installedSoftware: installedSoftware ?? computer.installedSoftware,
             macAddress: macAddress || computer.macAddress,
             ipAddress: ipAddress || computer.ipAddress,
             status: newStatus,

@@ -176,6 +176,14 @@ export const bookingApi = {
     const response = await apiClient.get('/bookings/purpose-options');
     return response.data.data;
   },
+  createPurposeGroup: async (name: string) => {
+    const response = await apiClient.post('/bookings/purpose-options', { name });
+    return response.data.data;
+  },
+  deletePurposeGroup: async (id: string) => {
+    const response = await apiClient.delete(`/bookings/purpose-options/${id}`);
+    return response.data;
+  },
   requesterOptions: async (keyword?: string): Promise<BookingRequester[]> => {
     const response = await apiClient.get('/bookings/requester-options', { params: { keyword: keyword || undefined } });
     return response.data.data;
