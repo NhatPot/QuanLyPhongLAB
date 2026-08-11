@@ -198,6 +198,75 @@ export const openApiSpec = {
           invoiceNumber: { type: "string", nullable: true },
           note: { type: "string", nullable: true }
         }
+      },
+      DeviceMetricsStatus: {
+        type: "object",
+        description: "Chi tiết trạng thái vận hành và tài nguyên máy tính",
+        example: {
+          "device_status": "IN_USE",
+          "current_user": "long"
+        },
+        properties: {
+          device_status: { type: "string", example: "IN_USE", description: "Trạng thái vận hành máy tính (IN_USE: Đang sử dụng, ACTIVE: Sẵn sàng, BROKEN: Hỏng, MAINTENANCE: Bảo trì)" },
+          current_user: { type: "string", example: "long", description: "Tên đăng nhập người dùng hiện tại" },
+          cpu: {
+            type: "object",
+            description: "Thông số CPU (Tùy chọn)",
+            properties: {
+              usage: { type: "number", example: 12.5, description: "Phần trăm sử dụng CPU toàn hệ thống (%)" },
+              cores: { type: "array", items: { type: "number" }, example: [10.2, 14.5, 11.0, 13.8], description: "Phần trăm sử dụng từng lõi CPU" },
+              temperature: { type: "number", example: 45, description: "Nhiệt độ CPU (°C)" }
+            }
+          },
+          ram: {
+            type: "object",
+            description: "Thông số RAM (Tùy chọn)",
+            properties: {
+              used: { type: "number", example: 3.2, description: "Dung lượng RAM đã dùng (GB)" },
+              total: { type: "number", example: 8.0, description: "Tổng dung lượng RAM (GB)" },
+              free: { type: "number", example: 4.8, description: "Dung lượng RAM còn trống (GB)" },
+              usagePercent: { type: "number", example: 45.2, description: "Phần trăm RAM đã dùng (%)" }
+            }
+          },
+          disk: {
+            type: "object",
+            description: "Thông số ổ cứng (Tùy chọn)",
+            properties: {
+              used: { type: "number", example: 120, description: "Dung lượng ổ cứng đã dùng (GB)" },
+              total: { type: "number", example: 256, description: "Tổng dung lượng ổ cứng (GB)" },
+              usagePercent: { type: "number", example: 46.8, description: "Phần trăm ổ cứng đã dùng (%)" }
+            }
+          },
+          network: {
+            type: "object",
+            description: "Thông số mạng (Tùy chọn)",
+            properties: {
+              download_kbps: { type: "number", example: 120, description: "Tốc độ tải xuống (KB/s)" },
+              upload_kbps: { type: "number", example: 45, description: "Tốc độ tải lên (KB/s)" },
+              ip_addresses: { type: "array", items: { type: "string" }, example: ["172.16.29.178"] }
+            }
+          }
+        }
+      },
+      DeviceMetricsPayload: {
+        type: "object",
+        required: ["device_id"],
+        description: "Payload thông số tài nguyên & trạng thái thiết bị đẩy từ Client Agent qua HTTP POST hoặc MQTT Topic `devices/{deviceId}/metrics`",
+        example: {
+          "device_id": "849cd2a5-ef21-5620-942b-fcc4d745cbda",
+          "user_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          "timestamp": "2026-08-11T10:44:10.599Z",
+          "status": {
+            "device_status": "IN_USE",
+            "current_user": "long"
+          }
+        },
+        properties: {
+          device_id: { type: "string", example: "849cd2a5-ef21-5620-942b-fcc4d745cbda", description: "Mã định danh duy nhất (UUID 36 ký tự hoặc MAC Address)" },
+          timestamp: { type: "string", format: "date-time", example: "2026-08-11T10:44:10.599Z", description: "Thời gian ghi nhận thông số trên Client" },
+          user_token: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", description: "JWT Access Token của người dùng đang đăng nhập" },
+          status: { $ref: "#/components/schemas/DeviceMetricsStatus" }
+        }
       }
     }
   },
@@ -522,6 +591,17 @@ export const openApiSpec = {
           content: { "application/json": { schema: { type: "object", required: ["code", "name"], properties: { code: { type: "string" }, name: { type: "string" }, description: { type: "string" } } } } }
         },
         responses: { 201: { description: "Tạo thành công" } }
+      }
+    },
+    "/equipments/categories/{id}": {
+      delete: {
+        tags: ["Quản Lý Thiết Bị (Equipments)"],
+        summary: "Xóa danh mục thiết bị",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Xóa danh mục thành công" },
+          422: { description: "Không thể xóa danh mục đang có thiết bị sử dụng" }
+        }
       }
     },
     "/equipments/{id}": {
@@ -1039,45 +1119,143 @@ export const openApiSpec = {
       get: {
         tags: ["Thiết Bị Agent & Realtime Monitoring (Devices)"],
         summary: "Lấy thông số giám sát realtime (CPU, RAM, Disk, Traffic) của tất cả máy tính",
-        responses: { 200: { description: "Thành công" } }
+        description: "Thông số giám sát realtime được push tự động qua MQTT Broker (Topic: `devices/{deviceId}/metrics`). WebSocket Client kết nối qua SSL WebSocket WSS để nhận dữ liệu đẩy tức thì.",
+        responses: {
+          200: {
+            description: "Thành công",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    message: { type: "string", example: "Lấy dữ liệu metrics thiết bị thành công." },
+                    data: {
+                      type: "object",
+                      additionalProperties: {
+                        type: "object",
+                        properties: {
+                          timestamp: { type: "string", format: "date-time", example: "2026-08-11T10:44:10.599Z" },
+                          isOffline: { type: "boolean", example: false },
+                          status: { $ref: "#/components/schemas/DeviceMetricsStatus" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       post: {
         tags: ["Thiết Bị Agent & Realtime Monitoring (Devices)"],
-        summary: "Client Device Agent đẩy thông số tài nguyên & phần mềm định kỳ về Server",
+        summary: "Client Device Agent đẩy thông số tài nguyên, trạng thái và người dùng định kỳ về Server (HTTP Fallback hoặc MQTT)",
+        description: "Hỗ trợ đẩy dữ liệu qua HTTP POST hoặc qua MQTT Topic `devices/{deviceId}/metrics`. Định danh `device_id` chấp nhận định dạng UUID hoặc MAC Address.",
         security: [{ ApiKeyAuth: [] }],
         requestBody: {
           required: true,
           content: {
             "application/json": {
-              schema: {
-                type: "object",
-                required: ["device_id"],
-                properties: {
-                  device_id: { type: "string", example: "00:1A:2B:3C:4D:5E" },
-                  timestamp: { type: "string", format: "date-time" },
-                  status: {
-                    type: "object",
-                    properties: {
-                      cpu: { type: "object", properties: { usage: { type: "number", example: 12.5 } } },
-                      ram: { type: "object", properties: { usagePercent: { type: "number", example: 45.2 } } },
-                      disk: { type: "object", properties: { usagePercent: { type: "number", example: 60.8 } } }
-                    }
-                  },
-                  installed_apps: { type: "array", items: { type: "object", properties: { name: { type: "string" }, version: { type: "string" } } } }
+              schema: { $ref: "#/components/schemas/DeviceMetricsPayload" },
+              example: {
+                "device_id": "849cd2a5-ef21-5620-942b-fcc4d745cbda",
+                "user_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "timestamp": "2026-08-11T10:44:10.599Z",
+                "status": {
+                  "device_status": "IN_USE",
+                  "current_user": "long"
                 }
               }
             }
           }
         },
-        responses: { 200: { description: "Đã nhận dữ liệu thành công" } }
+        responses: {
+          200: {
+            description: "Đã nhận dữ liệu metrics thành công",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    status: { type: "string", example: "success" },
+                    message: { type: "string", example: "Đã nhận dữ liệu metrics thành công" },
+                    received_at: { type: "string", format: "date-time", example: "2026-08-11T10:44:10.627Z" }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/devices/register": {
       post: {
         tags: ["Thiết Bị Agent & Realtime Monitoring (Devices)"],
         summary: "Đăng ký thiết bị Device Agent mới vào hệ thống",
+        description: "Hỗ trợ định danh thiết bị bằng UUID hoặc MAC address. Chấp nhận danh sách phần mềm đã cài đặt theo dạng apps, installed_apps, hoặc installed_software.",
         security: [],
-        responses: { 200: { description: "Đăng ký thành công" } }
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["device_id", "hostname"],
+                properties: {
+                  device_id: { type: "string", example: "849cd2a5-ef21-5620-942b-fcc4d745cbda", description: "Mã định danh duy nhất của thiết bị (UUID hoặc MAC)" },
+                  uuid: { type: "string", example: "849cd2a5-ef21-5620-942b-fcc4d745cbda" },
+                  mac_address: { type: "string", example: "98:e7:f4:bf:e0:de" },
+                  hostname: { type: "string", example: "long-pc" },
+                  os: { type: "string", example: "Ubuntu" },
+                  os_version: { type: "string", example: "26.04 LTS" },
+                  platform: { type: "string", example: "linux" },
+                  arch: { type: "string", example: "x64" },
+                  cpu_model: { type: "string", example: "Intel Core™ i5-7500T" },
+                  cpu_cores: { type: "integer", example: 4 },
+                  gpus: { type: "array", items: { type: "string" }, example: ["Kaby Lake-S GT2 [HD Graphics 630]"] },
+                  total_ram_gb: { type: "number", example: 7.1 },
+                  total_disk_gb: { type: "number", example: 238.5 },
+                  ip_address: { type: "string", example: "172.16.29.178" },
+                  ip_addresses: { type: "array", items: { type: "string" }, example: ["172.16.29.178", "100.66.100.63"] },
+                  status: { type: "string", example: "IN_USE" },
+                  registered_at: { type: "string", format: "date-time", example: "2026-08-11T10:48:15.629Z" },
+                  apps: {
+                    type: "array",
+                    description: "Danh sách phần mềm đã cài đặt (chấp nhận mảng object hoặc mảng string)",
+                    items: {
+                      type: "object",
+                      properties: {
+                        name: { type: "string", example: "Google Chrome" },
+                        displayName: { type: "string", example: "Google Chrome" },
+                        version: { type: "string", example: "151.0.7922.108-1" },
+                        publisher: { type: "string", example: "Access the Internet" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: "Đăng ký thành công",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    status: { type: "string", example: "success" },
+                    message: { type: "string", example: "Đăng ký thiết bị thành công" },
+                    device_id: { type: "string", example: "849cd2a5-ef21-5620-942b-fcc4d745cbda" },
+                    api_key: { type: "string", example: "sk_live_756345ba789f194d9e94f96133d30bef8956f9c5c44b452c319001d8b7825d43" }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/devices/unregister": {

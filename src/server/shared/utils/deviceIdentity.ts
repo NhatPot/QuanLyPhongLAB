@@ -36,9 +36,24 @@ export function safeJoinIps(ipArray: any[] | undefined | null, maxLength = 50): 
   return result;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_HEX32_PATTERN = /^[0-9a-f]{32}$/i;
+
+export function isValidUuid(value: string): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  return UUID_PATTERN.test(trimmed) || UUID_HEX32_PATTERN.test(trimmed);
+}
+
+export function normalizeUuid(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 export function normalizeDeviceId(value: string): string {
   const trimmed = value.trim();
-  return isValidMacAddress(trimmed) ? normalizeMacAddress(trimmed) : trimmed;
+  if (isValidMacAddress(trimmed)) return normalizeMacAddress(trimmed);
+  if (isValidUuid(trimmed)) return normalizeUuid(trimmed);
+  return trimmed;
 }
 
 export function generateDeviceApiKey(): string {

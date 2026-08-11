@@ -12,6 +12,7 @@ export interface UpdateDeviceMetricsInput {
   macAddress?: string;
   apiKey?: string;
   timestamp?: string;
+  user_token?: string;
   status?: DeviceMetrics['status'];
   ip_address?: string;
   ipAddress?: string;

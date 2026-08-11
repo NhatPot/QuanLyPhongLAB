@@ -47,7 +47,12 @@ export interface RegisterDeviceInput {
   is_in_use?: boolean;
   current_user?: string;
   user_token?: string;
-  installed_apps?: Array<{ name: string; version?: string; publisher?: string }>;
+  installed_apps?: any;
+  installed_software?: any;
+  installedSoftware?: any;
+  apps?: any;
+  software?: any;
+  applications?: any;
 }
 
 export class RegisterDeviceUseCase {
@@ -59,31 +64,39 @@ export class RegisterDeviceUseCase {
 
   public async execute(input: RegisterDeviceInput): Promise<Result<{ device_id: string; api_key: string }>> {
     try {
-      const rawDeviceId = input.device_id || input.deviceId || input.mac_address || input.macAddress;
-      const rawMac = input.mac_address || input.macAddress || input.device_id || input.deviceId;
+      const rawUuid = input.uuid || input.device_id || input.deviceId || input.mac_address || input.macAddress;
+      const rawMac = input.mac_address || input.macAddress;
       const hostname = (input.hostname || input.name || input.code || 'UNKNOWN-HOST').trim();
 
-      if (!rawDeviceId && !rawMac) {
-        return Result.fail('Vui lòng cung cấp device_id hoặc mac_address để đăng ký thiết bị.');
+      if (!rawUuid && !rawMac) {
+        return Result.fail('Vui lòng cung cấp uuid hoặc device_id để đăng ký thiết bị.');
       }
 
-      const deviceId = normalizeDeviceId(rawDeviceId || rawMac || '');
-      let macAddress: string | undefined;
+      const deviceId = normalizeDeviceId(rawUuid || rawMac || '');
+      let macAddress: string | undefined = deviceId;
       if (rawMac && isValidMacAddress(rawMac)) {
         macAddress = normalizeMacAddress(rawMac);
-      } else if (rawDeviceId && isValidMacAddress(rawDeviceId)) {
-        macAddress = normalizeMacAddress(rawDeviceId);
+      } else if (rawUuid) {
+        macAddress = normalizeDeviceId(rawUuid);
       }
 
       const existingAgent = await this.deviceAgentRepo.findByDeviceId(deviceId);
       let computer: Computer | null = null;
-      if (macAddress) {
+      if (existingAgent) {
+        computer = await this.computerRepo.findById(existingAgent.computerId);
+      }
+      if (!computer && macAddress) {
         computer = await this.computerRepo.findIncludingDeletedByMacAddress(macAddress);
       }
-      if (!computer && existingAgent) {
-        const agentComp = await this.computerRepo.findById(existingAgent.computerId);
-        if (agentComp && (!macAddress || !agentComp.macAddress || agentComp.macAddress === macAddress)) {
-          computer = agentComp;
+      if (!computer && deviceId) {
+        computer = await this.computerRepo.findIncludingDeletedByMacAddress(deviceId);
+      }
+      if (!computer && hostname && hostname !== 'UNKNOWN-HOST') {
+        const candidate = await this.computerRepo.findAnyMatching(hostname);
+        if (candidate) {
+          if (!candidate.macAddress || !macAddress || candidate.macAddress === macAddress || candidate.macAddress === deviceId) {
+            computer = candidate;
+          }
         }
       }
 
@@ -180,8 +193,46 @@ export class RegisterDeviceUseCase {
         ramText = `${formattedRam}GB`;
       }
 
-      // Resolution for Installed Apps
-      const installedSoftware = input.installed_apps?.map((app) => app.name).join(', ');
+      // Resolution for Installed Apps / Software from any variant in payload
+      const rawAppsPayload =
+        input.installed_apps ??
+        input.installed_software ??
+        input.installedSoftware ??
+        input.apps ??
+        input.software ??
+        input.applications;
+
+      let installedSoftware: string | undefined = undefined;
+      const isAppsProvided = rawAppsPayload !== undefined && rawAppsPayload !== null;
+
+      if (isAppsProvided) {
+        if (typeof rawAppsPayload === 'string') {
+          installedSoftware = rawAppsPayload.trim();
+        } else if (Array.isArray(rawAppsPayload)) {
+          installedSoftware = rawAppsPayload
+            .map((app: any) => {
+              if (typeof app === 'string') return app.trim();
+              if (app && typeof app === 'object') {
+                const name = (
+                  app.name ||
+                  app.displayName ||
+                  app.display_name ||
+                  app.appName ||
+                  app.app_name ||
+                  app.title ||
+                  app.software ||
+                  ''
+                ).trim();
+                const version = (app.version || app.ver || '').trim();
+                if (name && version) return `${name} (v${version})`;
+                return name;
+              }
+              return '';
+            })
+            .filter(Boolean)
+            .join(', ');
+        }
+      }
 
       await this.uow.complete(async () => {
         const transaction = this.uow.getTransaction();
@@ -218,7 +269,7 @@ export class RegisterDeviceUseCase {
             storage: storageText || computer.storage,
             gpu: gpuModel || computer.gpu,
             operatingSystem: input.os ? `${input.os} ${input.os_version || ''}`.trim() : computer.operatingSystem,
-            installedSoftware: installedSoftware ?? computer.installedSoftware,
+            installedSoftware: isAppsProvided ? installedSoftware : computer.installedSoftware,
             macAddress: macAddress || computer.macAddress,
             ipAddress: ipAddress || computer.ipAddress,
             status: newStatus,

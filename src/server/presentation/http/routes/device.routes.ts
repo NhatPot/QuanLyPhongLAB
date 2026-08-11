@@ -6,14 +6,14 @@ import { DeviceController } from '../controllers/DeviceController';
 import { authMiddleware, requirePermissions } from '../middlewares/authMiddleware';
 import { validateRequest } from '../middlewares/validateRequestMiddleware';
 
-const macAddressSchema = z.string().trim().refine(isValidMacAddress, 'Địa chỉ MAC không đúng định dạng.');
+const deviceIdSchema = z.string().trim().min(1).max(100);
 const isoDateSchema = z.string().datetime({ offset: true });
 const percentageSchema = z.number().min(0).max(100);
 const nonNegativeNumberSchema = z.number().nonnegative();
 
 export const registerDeviceSchema = z.object({
   body: z.object({
-    device_id: macAddressSchema,
+    device_id: deviceIdSchema,
     hostname: z.string().trim().min(1).max(255),
     os: z.string().trim().max(100).optional(),
     os_version: z.string().trim().max(100).optional(),
@@ -30,7 +30,7 @@ export const registerDeviceSchema = z.object({
     disk_size_gb: z.number().nonnegative().optional(),
     disks: z.array(z.any()).optional(),
     disk_info: z.array(z.any()).optional(),
-    mac_address: macAddressSchema,
+    mac_address: deviceIdSchema.optional(),
     ip_address: z.string().optional(),
     ip_addresses: z.array(z.string()).optional(),
     ipv4_addresses: z.array(z.string()).optional(),
@@ -41,26 +41,30 @@ export const registerDeviceSchema = z.object({
     current_user: z.string().optional(),
     user_token: z.string().optional(),
     registered_at: isoDateSchema.optional(),
-    installed_apps: z.array(z.object({
-      name: z.string().trim().min(1).max(500),
-      version: z.string().trim().max(100).optional(),
-      publisher: z.string().trim().max(255).optional(),
-    })).max(10000).optional(),
+    installed_apps: z.union([z.array(z.any()), z.string()]).optional(),
+    installed_software: z.union([z.array(z.any()), z.string()]).optional(),
+    installedSoftware: z.union([z.array(z.any()), z.string()]).optional(),
+    apps: z.union([z.array(z.any()), z.string()]).optional(),
+    software: z.union([z.array(z.any()), z.string()]).optional(),
+    applications: z.union([z.array(z.any()), z.string()]).optional(),
   }).passthrough().superRefine((body, context) => {
-    if (normalizeMacAddress(body.device_id) !== normalizeMacAddress(body.mac_address)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['mac_address'],
-        message: 'device_id và mac_address phải cùng xác định một thiết bị.',
-      });
+    if (body.device_id && body.mac_address && isValidMacAddress(body.device_id) && isValidMacAddress(body.mac_address)) {
+      if (normalizeMacAddress(body.device_id) !== normalizeMacAddress(body.mac_address)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['mac_address'],
+          message: 'device_id và mac_address phải cùng xác định một thiết bị.',
+        });
+      }
     }
   }),
 });
 
 export const updateMetricsSchema = z.object({
   body: z.object({
-    device_id: macAddressSchema,
+    device_id: deviceIdSchema,
     timestamp: isoDateSchema.optional(),
+    user_token: z.string().optional(),
     ip_address: z.string().optional(),
     ipAddress: z.string().optional(),
     ip_addresses: z.array(z.string()).optional(),
@@ -92,7 +96,7 @@ export const updateMetricsSchema = z.object({
 
 export const hardwareChangeSchema = z.object({
   body: z.object({
-    device_id: macAddressSchema,
+    device_id: deviceIdSchema,
     alert_type: z.literal('HARDWARE_CHANGED'),
     timestamp: isoDateSchema.optional(),
     changes: z.array(z.object({
@@ -107,7 +111,7 @@ export const hardwareChangeSchema = z.object({
 
 export const bindUserSchema = z.object({
   body: z.object({
-    device_id: macAddressSchema,
+    device_id: deviceIdSchema,
     user_id: z.string().optional(),
     userId: z.string().optional(),
     username: z.string().optional(),
@@ -126,7 +130,7 @@ export const bindUserSchema = z.object({
 
 export const unbindUserSchema = z.object({
   body: z.object({
-    device_id: macAddressSchema,
+    device_id: deviceIdSchema,
     user_id: z.string().optional(),
     username: z.string().optional(),
     logout_at: isoDateSchema.optional(),

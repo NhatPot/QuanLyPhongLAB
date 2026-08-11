@@ -55,8 +55,11 @@ export interface DeviceMetrics {
   localTimestamp?: number; // Used for frontend timeout tracking
   isOffline?: boolean;
   offlineSince?: number;
+  user_token?: string;
   status?: {
+    device_status?: string;
     current_user?: string;
+    [key: string]: any;
   };
 }
 

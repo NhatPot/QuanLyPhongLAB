@@ -60,25 +60,59 @@ const formatPercent = (value: number, total: number) =>
 
 const normalize = (value?: string) => (value || '').trim().toLocaleLowerCase('vi');
 
-const parseJwtUser = (token: string, userMap?: Map<string, string>): string => {
-  if (!token) return '';
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    const payload = JSON.parse(jsonPayload);
-    
-    // First, try to map the userId from our loaded userMap
-    if (payload.userId && userMap?.has(payload.userId)) {
-      return userMap.get(payload.userId)!;
-    }
+const parseJwtUser = (userVal?: string, userToken?: string, userMap?: Map<string, string>): string => {
+  const val = (userVal || '').trim();
+  const token = (userToken || '').trim();
 
-    return payload.username || payload.fullName || payload.name || payload.userId || payload.sub || 'Có người dùng';
-  } catch (e) {
-    return 'Có người dùng';
+  // 1. If userVal is a plain username (no dot, e.g. "long")
+  if (val && !val.includes('.')) {
+    if (token && token.includes('.')) {
+      try {
+        const base64Url = token.split('.')[1];
+        if (base64Url) {
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            window.atob(base64).split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+          );
+          const payload = JSON.parse(jsonPayload);
+          if (payload.userId && userMap?.has(payload.userId)) {
+            return userMap.get(payload.userId)!;
+          }
+          if (payload.fullName || payload.username || payload.name) {
+            return payload.fullName || payload.username || payload.name;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return val;
   }
+
+  // 2. If userVal itself is a JWT token (contains dots)
+  const jwtToDecode = val.includes('.') ? val : token;
+  if (jwtToDecode && jwtToDecode.includes('.')) {
+    try {
+      const base64Url = jwtToDecode.split('.')[1];
+      if (base64Url) {
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          window.atob(base64).split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+        );
+        const payload = JSON.parse(jsonPayload);
+
+        if (payload.userId && userMap?.has(payload.userId)) {
+          return userMap.get(payload.userId)!;
+        }
+
+        return payload.fullName || payload.username || payload.name || payload.userId || payload.sub || val || 'Có người dùng';
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return val || 'Có người dùng';
 };
 const maintenanceReminderOf = (computer: ComputerData) => {
   if (computer.status === 'BROKEN') return 'Cần xếp lịch sửa chữa';
@@ -180,17 +214,75 @@ export default function ComputersPage() {
           console.log(`[MQTT] Nhận dữ liệu từ topic: ${topic}`, payload);
           // Topic format: devices/{deviceId}/metrics
           const parts = topic.split('/');
-          const deviceId = parts[1];
-          if (deviceId && payload) {
-            setMetricsData(prev => ({
-              ...prev,
-              [deviceId.toUpperCase()]: {
-                timestamp: payload.timestamp,
-                localTimestamp: Date.now(),
-                isOffline: false,
-                status: payload.status,
+          const topicDeviceId = parts[1];
+          if (payload) {
+            const keysToBind = new Set<string>();
+
+            if (topicDeviceId) {
+              const str = String(topicDeviceId);
+              keysToBind.add(str);
+              keysToBind.add(str.toUpperCase());
+              keysToBind.add(str.toLowerCase());
+              if (str.length === 12 && !str.includes(':')) {
+                const formatted = str.match(/.{1,2}/g)?.join(':');
+                if (formatted) {
+                  keysToBind.add(formatted.toUpperCase());
+                  keysToBind.add(formatted.toLowerCase());
+                }
               }
-            }));
+            }
+
+            const rawDeviceId = payload.device_id || payload.deviceId || payload.uuid || payload.mac_address || payload.macAddress;
+            if (rawDeviceId) {
+              const str = String(rawDeviceId);
+              keysToBind.add(str);
+              keysToBind.add(str.toUpperCase());
+              keysToBind.add(str.toLowerCase());
+              if (str.length === 12 && !str.includes(':')) {
+                const formatted = str.match(/.{1,2}/g)?.join(':');
+                if (formatted) {
+                  keysToBind.add(formatted.toUpperCase());
+                  keysToBind.add(formatted.toLowerCase());
+                }
+              }
+            }
+
+            if (payload.mac_address || payload.macAddress) {
+              const macStr = String(payload.mac_address || payload.macAddress);
+              keysToBind.add(macStr);
+              keysToBind.add(macStr.toUpperCase());
+              keysToBind.add(macStr.toLowerCase());
+              if (macStr.length === 12 && !macStr.includes(':')) {
+                const formatted = macStr.match(/.{1,2}/g)?.join(':');
+                if (formatted) {
+                  keysToBind.add(formatted.toUpperCase());
+                  keysToBind.add(formatted.toLowerCase());
+                }
+              }
+            }
+
+            if (payload.hostname || payload.code) {
+              const hostStr = String(payload.hostname || payload.code);
+              keysToBind.add(hostStr);
+              keysToBind.add(hostStr.toUpperCase());
+              keysToBind.add(hostStr.toLowerCase());
+            }
+
+            const metricsItem = {
+              timestamp: payload.timestamp || new Date().toISOString(),
+              localTimestamp: Date.now(),
+              isOffline: false,
+              user_token: payload.user_token,
+              status: payload.status || payload,
+            };
+
+            setMetricsData(prev => {
+              const next = { ...prev };
+              keysToBind.forEach(k => {
+                if (k) next[k] = metricsItem;
+              });
+              return next;
+            });
           }
         } catch (e) {
           // parse error
@@ -222,10 +314,54 @@ export default function ComputersPage() {
     };
   }, []);
 
-  const { data: activityEvents = [] } = useQuery({
-    queryKey: ['booking-calendar', 'computer-activity', activityRange.start.toISOString()],
-    queryFn: () => bookingApi.calendar(activityRange.start, activityRange.end),
-    retry: false,
+  const getMetricsForComputer = (computer?: ComputerData | null): DeviceMetrics | undefined => {
+    if (!computer || !metricsData) return undefined;
+
+    const candidates: Array<string | undefined> = [
+      computer.macAddress,
+      computer.macAddress?.toUpperCase(),
+      computer.macAddress?.toLowerCase(),
+      computer.code,
+      computer.code?.toUpperCase(),
+      computer.code?.toLowerCase(),
+      computer.id,
+      computer.id?.toUpperCase(),
+      computer.id?.toLowerCase(),
+    ];
+
+    if (computer.macAddress && computer.macAddress.length === 12 && !computer.macAddress.includes(':')) {
+      const formatted = computer.macAddress.match(/.{1,2}/g)?.join(':');
+      if (formatted) {
+        candidates.push(formatted.toUpperCase());
+        candidates.push(formatted.toLowerCase());
+      }
+    }
+
+    for (const key of candidates) {
+      if (key && metricsData[key]) {
+        return metricsData[key];
+      }
+    }
+
+    return undefined;
+  };
+
+  const activityMonths = useMemo(() => {
+    const startMonth = activityRange.start.toISOString().slice(0, 7);
+    const endMonth = activityRange.end.toISOString().slice(0, 7);
+    return Array.from(new Set([startMonth, endMonth]));
+  }, [activityRange.start, activityRange.end]);
+
+  const { data: usageDataList = [] } = useQuery({
+    queryKey: ['booking-usage-statistics-7days', activityMonths.join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        activityMonths.map((m) => bookingApi.usageStatistics(m))
+      );
+      return results;
+    },
+    refetchInterval: 5000,
+    staleTime: 3000,
   });
 
   const { data: usersData } = useQuery({
@@ -248,12 +384,10 @@ export default function ComputersPage() {
     else if (Array.isArray(listData?.data)) source = listData.data;
     
     return source.map(computer => {
-      const macForMetrics = (computer.macAddress?.length === 12 && !computer.macAddress.includes(':'))
-        ? (computer.macAddress.match(/.{1,2}/g)?.join(':').toUpperCase() || '')
-        : (computer.macAddress?.toUpperCase() || '');
+      const metrics = getMetricsForComputer(computer);
       
       // Nếu có tín hiệu MQTT real-time -> Ghi đè trạng thái thành Đang sử dụng (IN_USE)
-      if (metricsData[macForMetrics] && !metricsData[macForMetrics].isOffline) {
+      if (metrics && !metrics.isOffline) {
         return { ...computer, status: 'IN_USE' as ComputerStatus };
       }
       
@@ -405,28 +539,27 @@ export default function ComputersPage() {
     [activityRange.start],
   );
 
-  const activityHours = useMemo(
-    () =>
-      activityDays.map((day) => {
-        const dayStart = new Date(day);
-        dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(dayStart);
-        dayEnd.setDate(dayEnd.getDate() + 1);
+  const activityHours = useMemo(() => {
+    const dailyMap = new Map<string, { usageHours: number; computerHours: number }>();
+    usageDataList.forEach((stat) => {
+      (stat?.daily || []).forEach((item) => {
+        dailyMap.set(item.date, item);
+      });
+    });
 
-        const hours = activityEvents.reduce((sum, event) => {
-          const eventStart = new Date(event.start).getTime();
-          const eventEnd = new Date(event.end).getTime();
-          const overlap = Math.max(
-            0,
-            Math.min(eventEnd, dayEnd.getTime()) - Math.max(eventStart, dayStart.getTime()),
-          );
-          return sum + overlap / 3_600_000;
-        }, 0);
+    return activityDays.map((day) => {
+      const year = day.getFullYear();
+      const month = String(day.getMonth() + 1).padStart(2, '0');
+      const date = String(day.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${date}`;
 
-        return Number(hours.toFixed(1));
-      }),
-    [activityDays, activityEvents],
-  );
+      const item = dailyMap.get(dateKey);
+      if (!item) return 0;
+
+      const hours = item.computerHours > 0 ? item.computerHours : item.usageHours;
+      return Number(hours.toFixed(1));
+    });
+  }, [activityDays, usageDataList]);
 
   const activityOption = useMemo<EChartsOption>(
     () => ({
@@ -771,14 +904,11 @@ export default function ComputersPage() {
               )}
             >
               {visibleComputers.map((computer) => {
-                const macForMetrics = (computer.macAddress?.length === 12 && !computer.macAddress.includes(':'))
-                  ? (computer.macAddress.match(/.{1,2}/g)?.join(':').toUpperCase() || '')
-                  : (computer.macAddress?.toUpperCase() || '');
                 return (
                   <ComputerCard
                     key={computer.id}
                     computer={computer}
-                    metrics={metricsData?.[macForMetrics]}
+                    metrics={getMetricsForComputer(computer)}
                     viewMode={viewMode}
                     userMap={userMap}
                     onClick={() => openComputer(computer)}
@@ -849,11 +979,7 @@ export default function ComputersPage() {
       <ComputerEditorDialog
         open={editorOpen}
         computer={selectedComputer}
-        metrics={selectedComputer ? metricsData[
-          (selectedComputer.macAddress?.length === 12 && !selectedComputer.macAddress.includes(':'))
-            ? (selectedComputer.macAddress.match(/.{1,2}/g)?.join(':').toUpperCase() || '')
-            : (selectedComputer.macAddress?.toUpperCase() || '')
-        ] : undefined}
+        metrics={getMetricsForComputer(selectedComputer)}
         canCreate={canCreate}
         canUpdate={canUpdate}
         canDelete={canDelete}
@@ -966,7 +1092,7 @@ function ComputerCard({
         <div className="min-w-0">
           <p className="truncate text-xs text-slate-500">{specification}</p>
           {metrics?.status?.current_user && (
-            <p className="text-[10px] text-blue-600 font-medium">Người dùng: {parseJwtUser(metrics.status.current_user, userMap)}</p>
+            <p className="text-[10px] text-blue-600 font-medium">Người dùng: {parseJwtUser(metrics.status.current_user, metrics.user_token, userMap)}</p>
           )}
         </div>
         <p className="text-xs text-slate-500">{computer.ipAddress || 'Chưa có IP'}</p>
@@ -996,7 +1122,7 @@ function ComputerCard({
         </p>
         <p className="mt-2 truncate text-[9px] font-medium text-slate-400">{specification}</p>
         {metrics?.status?.current_user && (
-          <p className="mt-0.5 truncate text-[9px] text-blue-600 font-medium">Người dùng: {parseJwtUser(metrics.status.current_user, userMap)}</p>
+          <p className="mt-0.5 truncate text-[9px] text-blue-600 font-medium">Người dùng: {parseJwtUser(metrics.status.current_user, metrics.user_token, userMap)}</p>
         )}
         <p className="mt-0.5 truncate text-[9px] text-slate-400">{computer.ipAddress || computer.position || 'Chưa cập nhật IP'}</p>
         {maintenanceReminder && <p className="mt-1 truncate text-[9px] font-bold text-amber-600">{maintenanceReminder}</p>}

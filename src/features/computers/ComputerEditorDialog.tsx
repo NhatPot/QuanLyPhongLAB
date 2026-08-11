@@ -74,25 +74,59 @@ const parseMultiSpecs = (val?: string): string[] => {
   return [val.trim()];
 };
 
-const parseJwtUser = (token: string, userMap?: Map<string, string>): string => {
-  if (!token) return '';
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    const payload = JSON.parse(jsonPayload);
-    
-    // First, try to map the userId from our loaded userMap
-    if (payload.userId && userMap?.has(payload.userId)) {
-      return userMap.get(payload.userId)!;
-    }
+const parseJwtUser = (userVal?: string, userToken?: string, userMap?: Map<string, string>): string => {
+  const val = (userVal || '').trim();
+  const token = (userToken || '').trim();
 
-    return payload.username || payload.fullName || payload.name || payload.userId || payload.sub || 'Có người dùng';
-  } catch (e) {
-    return 'Có người dùng';
+  // 1. If userVal is a plain username (no dot, e.g. "long")
+  if (val && !val.includes('.')) {
+    if (token && token.includes('.')) {
+      try {
+        const base64Url = token.split('.')[1];
+        if (base64Url) {
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            window.atob(base64).split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+          );
+          const payload = JSON.parse(jsonPayload);
+          if (payload.userId && userMap?.has(payload.userId)) {
+            return userMap.get(payload.userId)!;
+          }
+          if (payload.fullName || payload.username || payload.name) {
+            return payload.fullName || payload.username || payload.name;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return val;
   }
+
+  // 2. If userVal itself is a JWT token (contains dots)
+  const jwtToDecode = val.includes('.') ? val : token;
+  if (jwtToDecode && jwtToDecode.includes('.')) {
+    try {
+      const base64Url = jwtToDecode.split('.')[1];
+      if (base64Url) {
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          window.atob(base64).split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+        );
+        const payload = JSON.parse(jsonPayload);
+
+        if (payload.userId && userMap?.has(payload.userId)) {
+          return userMap.get(payload.userId)!;
+        }
+
+        return payload.fullName || payload.username || payload.name || payload.userId || payload.sub || val || 'Có người dùng';
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return val || 'Có người dùng';
 };
 
 export function ComputerEditorDialog({
@@ -230,7 +264,7 @@ export function ComputerEditorDialog({
     { label: "Card đồ họa (GPU)", value: computer?.gpu, icon: Monitor },
     { label: "Hệ điều hành", value: computer?.operatingSystem, icon: Laptop },
     { label: "Địa chỉ IP", value: computer?.ipAddress, icon: Network },
-    { label: "Địa chỉ MAC", value: computer?.macAddress, icon: Radio },
+    { label: "Mã định danh (UUID / MAC)", value: computer?.macAddress, icon: Radio },
   ];
 
   return (
@@ -367,7 +401,7 @@ export function ComputerEditorDialog({
                           <div>
                             <p className="text-sm font-bold text-slate-900">Đang trực tuyến (Online)</p>
                             {metrics.status?.current_user ? (
-                              <p className="text-[11px] text-blue-600 font-semibold mt-0.5">Người dùng: {parseJwtUser(metrics.status.current_user, userMap)}</p>
+                              <p className="text-[11px] text-blue-600 font-semibold mt-0.5">Người dùng: {parseJwtUser(metrics.status.current_user, metrics.user_token, userMap)}</p>
                             ) : (
                               <p className="text-[11px] text-slate-500 mt-0.5">Không có người dùng đăng nhập</p>
                             )}

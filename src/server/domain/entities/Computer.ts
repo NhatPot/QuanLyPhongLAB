@@ -1,6 +1,6 @@
 import { Entity } from './Entity';
 import { UniqueEntityId } from '../value-objects/UniqueEntityId';
-import { isValidMacAddress, normalizeMacAddress } from '../../shared/utils/deviceIdentity';
+import { isValidMacAddress, normalizeMacAddress, isValidUuid, normalizeDeviceId } from '../../shared/utils/deviceIdentity';
 
 export type ComputerStatus = 'ACTIVE' | 'IN_USE' | 'BROKEN' | 'MAINTENANCE' | 'LOCKED' | 'INACTIVE';
 
@@ -40,11 +40,11 @@ export class Computer extends Entity<ComputerProps> {
       throw new Error('Địa chỉ IP không đúng định dạng.');
     }
     if (props.macAddress && !Computer.isValidMac(props.macAddress)) {
-      throw new Error('Địa chỉ MAC không đúng định dạng.');
+      throw new Error('Mã định danh thiết bị (UUID hoặc MAC) không đúng định dạng.');
     }
     
     if (props.macAddress) {
-      props.macAddress = normalizeMacAddress(props.macAddress);
+      props.macAddress = normalizeDeviceId(props.macAddress);
     }
 
     return new Computer(props, id);
@@ -79,7 +79,7 @@ export class Computer extends Entity<ComputerProps> {
       throw new Error('Địa chỉ IP không đúng định dạng.');
     }
     if (info.macAddress !== undefined && info.macAddress && !Computer.isValidMac(info.macAddress)) {
-      throw new Error('Địa chỉ MAC không đúng định dạng.');
+      throw new Error('Mã định danh thiết bị (UUID hoặc MAC) không đúng định dạng.');
     }
 
     this.props.code = info.code ?? this.props.code;
@@ -92,7 +92,7 @@ export class Computer extends Entity<ComputerProps> {
     this.props.installedSoftware = info.installedSoftware !== undefined ? info.installedSoftware : this.props.installedSoftware;
     this.props.ipAddress = info.ipAddress !== undefined ? info.ipAddress : this.props.ipAddress;
     this.props.macAddress = info.macAddress !== undefined
-      ? (info.macAddress ? normalizeMacAddress(info.macAddress) : undefined)
+      ? (info.macAddress ? normalizeDeviceId(info.macAddress) : undefined)
       : this.props.macAddress;
     this.props.position = info.position !== undefined ? info.position : this.props.position;
     this.props.status = info.status ?? this.props.status;
@@ -130,7 +130,9 @@ export class Computer extends Entity<ComputerProps> {
     return this.props.status === 'ACTIVE';
   }
 
-  private static isValidIp(ipStr: string): boolean {
+  public static isValidIp(ipStr: string): boolean {
+    if (!ipStr || !ipStr.trim()) return true;
+    
     const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     const ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
     
@@ -145,6 +147,6 @@ export class Computer extends Entity<ComputerProps> {
   }
 
   private static isValidMac(mac: string): boolean {
-    return isValidMacAddress(mac);
+    return isValidMacAddress(mac) || isValidUuid(mac);
   }
 }
