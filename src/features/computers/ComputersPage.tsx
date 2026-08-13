@@ -171,6 +171,12 @@ export default function ComputersPage() {
     refetchInterval: 3000,
   });
 
+  const { data: serverMetrics = {} } = useQuery({
+    queryKey: ['device-metrics'],
+    queryFn: computerApi.getDeviceMetrics,
+    refetchInterval: 3000,
+  });
+
   const [metricsData, setMetricsData] = useState<Record<string, DeviceMetrics>>({});
 
   useEffect(() => {
@@ -315,7 +321,7 @@ export default function ComputersPage() {
   }, []);
 
   const getMetricsForComputer = (computer?: ComputerData | null): DeviceMetrics | undefined => {
-    if (!computer || !metricsData) return undefined;
+    if (!computer) return undefined;
 
     const candidates: Array<string | undefined> = [
       computer.macAddress,
@@ -329,17 +335,48 @@ export default function ComputersPage() {
       computer.id?.toLowerCase(),
     ];
 
-    if (computer.macAddress && computer.macAddress.length === 12 && !computer.macAddress.includes(':')) {
-      const formatted = computer.macAddress.match(/.{1,2}/g)?.join(':');
+    if (computer.macAddress) {
+      const stripped = computer.macAddress.replace(/[:-]/g, '');
+      candidates.push(stripped.toUpperCase());
+      candidates.push(stripped.toLowerCase());
+      const formatted = stripped.match(/.{1,2}/g)?.join(':');
       if (formatted) {
         candidates.push(formatted.toUpperCase());
         candidates.push(formatted.toLowerCase());
       }
     }
 
-    for (const key of candidates) {
-      if (key && metricsData[key]) {
-        return metricsData[key];
+    // 1. Kiểm tra live MQTT
+    if (metricsData) {
+      for (const key of candidates) {
+        if (key && metricsData[key] && !metricsData[key].isOffline) {
+          return metricsData[key];
+        }
+      }
+    }
+
+    // 2. Kiểm tra Server REST metrics được poll định kỳ
+    if (serverMetrics) {
+      for (const key of candidates) {
+        if (key && serverMetrics[key]) {
+          const item = serverMetrics[key];
+          const time = new Date(item.timestamp).getTime();
+          const isRecent = !isNaN(time) && Date.now() - time < 5 * 60 * 1000;
+          return {
+            ...item,
+            isOffline: !isRecent,
+            offlineSince: isRecent ? undefined : time,
+          };
+        }
+      }
+    }
+
+    // 3. Fallback MQTT cache
+    if (metricsData) {
+      for (const key of candidates) {
+        if (key && metricsData[key]) {
+          return metricsData[key];
+        }
       }
     }
 

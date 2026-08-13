@@ -19,6 +19,12 @@ export interface UpdateDeviceMetricsInput {
   ip_addresses?: string[];
   ipv4_addresses?: string[];
   hostname?: string;
+  installed_apps?: any;
+  installed_software?: any;
+  installedSoftware?: any;
+  apps?: any;
+  software?: any;
+  applications?: any;
 }
 
 export interface UpdateDeviceMetricsOutput {
@@ -73,9 +79,54 @@ export class UpdateDeviceMetricsUseCase {
         computer = await this.computerRepo.findByCode(deviceId);
       }
 
+      // Resolution for installed apps / software
+      const rawAppsPayload =
+        input.installed_apps ??
+        input.installed_software ??
+        input.installedSoftware ??
+        input.apps ??
+        input.software ??
+        input.applications ??
+        (input.status as any)?.installed_apps ??
+        (input.status as any)?.installedSoftware ??
+        (input.status as any)?.apps;
+
+      let installedSoftware: string | undefined = undefined;
+      const isAppsProvided = rawAppsPayload !== undefined && rawAppsPayload !== null;
+
+      if (isAppsProvided) {
+        if (typeof rawAppsPayload === 'string') {
+          installedSoftware = rawAppsPayload.trim();
+        } else if (Array.isArray(rawAppsPayload)) {
+          installedSoftware = rawAppsPayload
+            .map((app: any) => {
+              if (typeof app === 'string') return app.trim();
+              if (app && typeof app === 'object') {
+                const name = (
+                  app.name ||
+                  app.displayName ||
+                  app.display_name ||
+                  app.appName ||
+                  app.app_name ||
+                  app.title ||
+                  app.software ||
+                  ''
+                ).trim();
+                const version = (app.version || app.ver || '').trim();
+                if (name && version) return `${name} (v${version})`;
+                return name;
+              }
+              return '';
+            })
+            .filter(Boolean)
+            .join(', ');
+        }
+      }
+
       const metrics: DeviceMetrics = {
         timestamp: input.timestamp || receivedAt.toISOString(),
         status: input.status,
+        installed_apps: Array.isArray(rawAppsPayload) ? rawAppsPayload : undefined,
         ipAddress,
       };
 
@@ -112,12 +163,14 @@ export class UpdateDeviceMetricsUseCase {
           const hasStatusChange = targetStatus !== computer.status;
           const hasNoteChange = targetNote !== computer.note;
           const hasIpChange = Boolean(ipAddress && computer.ipAddress !== ipAddress);
+          const hasAppsChange = Boolean(isAppsProvided && installedSoftware && installedSoftware !== computer.installedSoftware);
 
-          if (hasStatusChange || hasNoteChange || hasIpChange) {
+          if (hasStatusChange || hasNoteChange || hasIpChange || hasAppsChange) {
             computer.updateInformation({
               status: targetStatus,
               note: targetNote,
               ipAddress: ipAddress ?? computer.ipAddress,
+              installedSoftware: isAppsProvided ? installedSoftware : computer.installedSoftware,
             });
             await this.computerRepo.save(computer, transaction);
           }

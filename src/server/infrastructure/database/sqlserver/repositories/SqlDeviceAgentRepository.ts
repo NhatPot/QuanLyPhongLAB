@@ -248,11 +248,12 @@ export class SqlDeviceAgentRepository implements IDeviceAgentRepository {
   }
 
   public async getAllMetrics(): Promise<Record<string, DeviceMetrics>> {
-    await this.reconcileInactiveSessions(30);
+    await this.reconcileInactiveSessions(5);
     try {
       const pool = await SqlConnectionFactory.getPool();
       const result = await pool.request().query(`
-        SELECT da.DeviceId, da.LatestMetricsJson
+        SELECT da.DeviceId, da.LatestMetricsJson, da.LastSeenAt, da.CurrentUsername, da.CurrentFullName,
+               c.Id AS ComputerId, c.Code, c.MacAddress, c.Status AS ComputerStatus
         FROM DeviceAgents da
         INNER JOIN Computers c ON c.Id = da.ComputerId
         WHERE c.DeletedAt IS NULL AND da.LatestMetricsJson IS NOT NULL
@@ -261,9 +262,44 @@ export class SqlDeviceAgentRepository implements IDeviceAgentRepository {
       const metrics: Record<string, DeviceMetrics> = {};
       for (const row of result.recordset) {
         try {
-          metrics[String(row.DeviceId)] = JSON.parse(String(row.LatestMetricsJson)) as DeviceMetrics;
+          const parsed = JSON.parse(String(row.LatestMetricsJson)) as DeviceMetrics;
+          const lastSeen = row.LastSeenAt ? new Date(row.LastSeenAt).toISOString() : parsed.timestamp;
+          const enhancedItem: DeviceMetrics = {
+            ...parsed,
+            timestamp: lastSeen || parsed.timestamp || new Date().toISOString(),
+            status: {
+              ...(parsed.status || {}),
+              device_status: row.ComputerStatus,
+              current_user: row.CurrentUsername || parsed.status?.current_user,
+            },
+          };
+
+          const keys = new Set<string>();
+          if (row.DeviceId) {
+            keys.add(String(row.DeviceId));
+            keys.add(String(row.DeviceId).toLowerCase());
+            keys.add(String(row.DeviceId).toUpperCase());
+          }
+          if (row.MacAddress) {
+            keys.add(String(row.MacAddress));
+            keys.add(String(row.MacAddress).toLowerCase());
+            keys.add(String(row.MacAddress).toUpperCase());
+            const unformatted = String(row.MacAddress).replace(/[:-]/g, '');
+            keys.add(unformatted.toLowerCase());
+            keys.add(unformatted.toUpperCase());
+          }
+          if (row.Code) {
+            keys.add(String(row.Code));
+            keys.add(String(row.Code).toLowerCase());
+            keys.add(String(row.Code).toUpperCase());
+          }
+          if (row.ComputerId) keys.add(String(row.ComputerId));
+
+          keys.forEach((k) => {
+            if (k) metrics[k] = enhancedItem;
+          });
         } catch {
-          // Skip a damaged snapshot
+          // Skip damaged snapshot
         }
       }
       return metrics;

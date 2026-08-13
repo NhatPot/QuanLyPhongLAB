@@ -1,6 +1,25 @@
 # 📡 Server API Specification — FIT PC Monitor
 
-Tài liệu mô tả chi tiết tất cả các REST API Endpoints được hỗ trợ bởi hệ thống **FIT PC Monitor Client** kết nối với Server quản lý.
+Tài liệu mô tả chi tiết tất cả các REST API Endpoints được hỗ trợ bởi hệ thống **FIT PC Monitor Client** kết nối với Server quản lý **QuanLyPhongLAB**.
+
+---
+
+## 🔑 Nguyên tắc định danh thiết bị (Device Identification)
+
+Hệ thống sử dụng **Địa chỉ MAC của Card Mạng Vật Lý Chính (Primary Physical MAC Address)** làm **Mã định danh duy nhất (Unique Hardware Identifier)** cho mỗi bộ máy tính.
+
+### 🌟 Ưu điểm đồng bộ Windows ↔ Ubuntu:
+- **Bất biến theo hệ điều hành**: Dù máy tính khởi động vào **Windows** hay **Ubuntu (Dual-Boot)**, hoặc cài lại Win/Linux, địa chỉ MAC vật lý ghi trên chip ROM của bo mạch chủ vẫn **100% giống nhau**.
+- **Không cần quyền Admin/Root**: Cả Windows và Ubuntu (user thường) đều có thể đọc trực tiếp địa chỉ MAC vật lý.
+
+### 📌 Quy tắc lấy Primary MAC chuẩn (Loại bỏ Card mạng ảo):
+1. **Trên Ubuntu (Linux)**: 
+   - Duyệt các interface trong `/sys/class/net/` có thư mục con `device` (biểu thị phần cứng thật).
+   - Ưu tiên card mạng dây (`enp*`, `eth*`), sau đó đến card WiFi (`wlp*`, `wlan*`).
+   - Bỏ qua các interface ảo: `lo`, `docker*`, `veth*`, `br-*`, `virbr*`, `tun*`, `tap*`.
+2. **Trên Windows**: 
+   - Lấy MAC từ Network Adapter vật lý chính.
+   - Bỏ qua các adapter ảo: `Hyper-V`, `vEthernet`, `VirtualBox`, `VMware`, `WSL`, `TAP`, `Bluetooth`, `Loopback`.
 
 ---
 
@@ -14,7 +33,7 @@ Authorization: Bearer <API_KEY>
 X-API-Key: <API_KEY>
 ```
 
-> **Lưu ý:** Khi `API_KEY` chưa được thiết lập (hoặc ở lần đăng ký đầu tiên), các header `Authorization` và `X-API-Key` có thể để trống.
+> **Lưu ý:** Khi `API_KEY` chưa được thiết lập (ở lần đăng ký đầu tiên), các header `Authorization` và `X-API-Key` có thể để trống. Sau khi đăng ký thành công, `api_key` nhận được sẽ dùng cố định vĩnh viễn cho đến khi hủy đăng ký.
 
 ---
 
@@ -23,12 +42,12 @@ X-API-Key: <API_KEY>
 | STT | Phương thức | Endpoint | Mô tả ngắn |
 | :---: | :--- | :--- | :--- |
 | 1 | `GET` | `/api/health` (hoặc `/`) | Health Check — Kiểm tra kết nối máy chủ. |
-| 2 | `POST` | `/api/devices/register` | Đăng ký thiết bị và nhận `device_id`, `api_key`. |
-| 3 | `POST` | `/api/devices/unregister` | Hủy đăng ký thiết bị khỏi máy chủ. |
+| 2 | `POST` | `/api/devices/register` | Đăng ký thiết bị và nhận `device_id` (Primary MAC), `api_key`. |
+| 3 | `POST` | `/api/devices/unregister` | Hủy đăng ký thiết bị khỏi máy chủ và thu hồi `api_key`. |
 | 4 | `POST` | `/api/auth/login` | Xác thực tài khoản người dùng với máy chủ. |
-| 5 | `POST` | `/api/devices/bind-user` | Liên kết thông tin người dùng với thiết bị. |
-| 6 | `POST` | `/api/devices/unbind-user` | Hủy liên kết người dùng khi đăng xuất. |
-| 7 | `POST` | `/api/devices/metrics` | Gửi định kỳ thông số hệ thống (CPU, RAM, Disk, Network) & Apps. |
+| 5 | `POST` | `/api/devices/bind-user` | Liên kết thông tin người dùng với thiết bị (chuyển trạng thái `IN_USE`). |
+| 6 | `POST` | `/api/devices/unbind-user` | Hủy liên kết người dùng khi đăng xuất (chuyển trạng thái `ACTIVE`). |
+| 7 | `POST` | `/api/devices/metrics` | Gửi định kỳ thông số hệ thống (CPU, RAM, Disk, Network, Apps). |
 | 8 | `POST` | `/api/devices/alert-hardware-change` | Cảnh báo khẩn cấp khi linh kiện phần cứng thay đổi lúc khởi động. |
 
 ---
@@ -53,13 +72,14 @@ X-API-Key: <API_KEY>
 
 ### 2. Đăng ký thiết bị — `POST /api/devices/register`
 
-* **Mô tả:** Khởi tạo thông tin phần cứng lần đầu với máy chủ để cấp mã `device_id` và mã khóa bảo mật `api_key`.
+* **Mô tả:** Khởi tạo thông tin phần cứng lần đầu với máy chủ. Nhận dạng máy bằng Primary MAC và cấp `api_key` cố định.
 * **Endpoint:** `POST /api/devices/register`
 
 **Request Body:**
 ```json
 {
   "device_id": "24:4b:fe:03:c4:03",
+  "mac_address": "24:4b:fe:03:c4:03",
   "hostname": "DESKTOP-SMTJA1Q",
   "os": "Microsoft Windows 11 Pro",
   "os_version": "10.0.26200",
@@ -69,37 +89,20 @@ X-API-Key: <API_KEY>
   "cpu_cores": 6,
   "gpu_model": "NVIDIA GeForce RTX 2080 Ti",
   "gpu": "NVIDIA GeForce RTX 2080 Ti",
-  "gpus": [
-    "NVIDIA GeForce RTX 2080 Ti"
-  ],
-  "gpu_list": [
-    { "vendor": "NVIDIA", "model": "NVIDIA GeForce RTX 2080 Ti", "vramMb": 11264 }
-  ],
   "total_ram_gb": 31.9,
   "total_disk_gb": 911.9,
   "disk_size_gb": 911.9,
-  "disks": [
-    { "device": "\\\\.\\PHYSICALDRIVE0", "name": "CT480BX200SSD1", "type": "SSD", "sizeGb": 447.1 }
-  ],
   "disk_info": [
-    { "mount": "C:", "sizeGb": 447.1, "usedGb": 332.2, "usePercent": 74.5 }
+    { "mount": "C:", "sizeGb": 500, "usedGb": 150.2, "usePercent": 30 }
   ],
-  "mac_address": "24:4b:fe:03:c4:03",
   "ip_address": "192.168.1.100",
   "ip_addresses": [
     "192.168.1.100",
-    "10.8.0.2"
-  ],
-  "ipv4_addresses": [
-    "192.168.1.100",
-    "10.8.0.2"
+    "10.8.0.2",
+    "fe80::1234:5678:9abc:def0"
   ],
   "uuid": "b4de5f15-c674-4139-e7fd-244bfe03c403",
-  "status": "IN_USE",
-  "device_status": "IN_USE",
-  "is_in_use": true,
-  "current_user": "user_jwt_token_1770000000000",
-  "user_token": "user_jwt_token_1770000000000",
+  "status": "ACTIVE",
   "registered_at": "2026-08-06T16:25:40.807Z"
 }
 ```
@@ -118,7 +121,7 @@ X-API-Key: <API_KEY>
 
 ### 3. Hủy đăng ký thiết bị — `POST /api/devices/unregister`
 
-* **Mô tả:** Báo cáo máy chủ hủy đăng ký thiết bị hiện tại khỏi hệ thống giám sát.
+* **Mô tả:** Báo cáo máy chủ hủy đăng ký thiết bị hiện tại khỏi hệ thống, thu hồi API Key và tạm ẩn máy tính.
 * **Endpoint:** `POST /api/devices/unregister`
 
 **Request Body:**
@@ -163,7 +166,7 @@ X-API-Key: <API_KEY>
   "user": {
     "user_id": "USR-1234",
     "username": "user@example.com",
-    "full_name": "USER",
+    "full_name": "Nguyễn Văn A",
     "email": "user@example.com",
     "role": "user"
   },
@@ -175,7 +178,7 @@ X-API-Key: <API_KEY>
 
 ### 5. Liên kết người dùng với thiết bị — `POST /api/devices/bind-user`
 
-* **Mô tả:** Đăng ký phiên hoạt động của người dùng cụ thể trên máy tính hiện tại.
+* **Mô tả:** Đăng ký phiên hoạt động của người dùng cụ thể trên máy tính. Trạng thái máy tính lập tức chuyển sang `IN_USE` ("Đang sử dụng").
 * **Endpoint:** `POST /api/devices/bind-user`
 
 **Request Body:**
@@ -184,15 +187,10 @@ X-API-Key: <API_KEY>
   "device_id": "24:4b:fe:03:c4:03",
   "user_id": "USR-1234",
   "username": "user@example.com",
-  "full_name": "USER",
+  "full_name": "Nguyễn Văn A",
   "login_at": "2026-08-06T16:30:00.000Z",
   "hostname": "DESKTOP-SMTJA1Q",
-  "ip_address": "192.168.1.100",
-  "ip_addresses": [
-    "192.168.1.100",
-    "10.8.0.2",
-    "fe80::1234:5678:9abc:def0"
-  ]
+  "ip_address": "192.168.1.100"
 }
 ```
 
@@ -200,7 +198,7 @@ X-API-Key: <API_KEY>
 ```json
 {
   "status": "success",
-  "message": "Đã liên kết tài khoản user@example.com với máy tính 24:4b:fe:03:c4:03",
+  "message": "Đã liên kết tài khoản user@example.com với máy tính 24:4b:fe:03:c4:03. Trạng thái đang sử dụng.",
   "bound_at": "2026-08-06T16:30:00.000Z"
 }
 ```
@@ -209,7 +207,7 @@ X-API-Key: <API_KEY>
 
 ### 6. Hủy liên kết người dùng — `POST /api/devices/unbind-user`
 
-* **Mô tả:** Báo cáo máy chủ kết thúc phiên đăng nhập của người dùng trên thiết bị.
+* **Mô tả:** Báo cáo máy chủ kết thúc phiên đăng nhập của người dùng. Trạng thái máy tính trở về `ACTIVE` ("Sẵn sàng").
 * **Endpoint:** `POST /api/devices/unbind-user`
 
 **Request Body:**
@@ -234,7 +232,7 @@ X-API-Key: <API_KEY>
 
 ### 7. Gửi dữ liệu giám sát định kỳ — `POST /api/devices/metrics`
 
-* **Mô tả:** Gửi định kỳ các thông số tải CPU, RAM, Disk, Traffic mạng và danh sách phần mềm cài đặt.
+* **Mô tả:** Gửi định kỳ các thông số tải CPU, RAM, Disk, Traffic mạng và danh sách phần mềm cài đặt. Nếu quá 5 phút không có metrics, Server sẽ tự động đăng xuất phiên làm việc.
 * **Endpoint:** `POST /api/devices/metrics`
 
 **Request Body:**
@@ -245,8 +243,7 @@ X-API-Key: <API_KEY>
   "status": {
     "device_status": "IN_USE",
     "is_in_use": true,
-    "current_user": "user_jwt_token_1770000000000",
-    "user_token": "user_jwt_token_1770000000000",
+    "current_user": "user@example.com",
     "cpu": {
       "usage": 78.6,
       "cores": [75.2, 80.1, 72.4, 82.0, 79.5, 81.2],
@@ -271,12 +268,7 @@ X-API-Key: <API_KEY>
       "txBytes": 524288,
       "rxSec": 128,
       "txSec": 64,
-      "ip_address": "192.168.1.100",
-      "ip_addresses": [
-        "192.168.1.100",
-        "10.8.0.2",
-        "fe80::1234:5678:9abc:def0"
-      ]
+      "ip_address": "192.168.1.100"
     }
   },
   "installed_apps": [
@@ -299,7 +291,7 @@ X-API-Key: <API_KEY>
 
 ### 8. Báo cáo khẩn cấp thay đổi phần cứng — `POST /api/devices/alert-hardware-change`
 
-* **Mô tả:** Phát hiện linh kiện (RAM, GPU, CPU, MAC, OS, ...) thay đổi so với cấu hình đã lưu và báo cáo khẩn cấp.
+* **Mô tả:** Phát hiện linh kiện (RAM, GPU, CPU, MAC, ...) thay đổi so với cấu hình ban đầu và tự động tạo Incident Report mức HIGH.
 * **Endpoint:** `POST /api/devices/alert-hardware-change`
 
 **Request Body:**

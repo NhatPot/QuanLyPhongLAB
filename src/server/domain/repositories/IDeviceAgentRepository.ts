@@ -1,10 +1,15 @@
 export interface DeviceMetrics {
   timestamp: string;
   status?: {
+    device_status?: string;
+    is_in_use?: boolean;
+    current_user?: string;
+    user_token?: string;
     cpu?: { usage?: number; temperature?: number; cores?: number[] };
     ram?: { used?: number; total?: number; free?: number; usagePercent?: number };
     disk?: { used?: number; total?: number; usagePercent?: number; partitions?: unknown[] };
     network?: Record<string, unknown>;
+    [key: string]: any;
   };
   installed_apps?: Array<{ name: string; version?: string; publisher?: string }>;
   ipAddress?: string;
@@ -52,5 +57,5 @@ export interface IDeviceAgentRepository {
   ): Promise<void>;
   deleteByDeviceId(deviceId: string, transaction?: any): Promise<void>;
   getAllMetrics(): Promise<Record<string, DeviceMetrics>>;
-  reconcileInactiveSessions(cutoffSeconds?: number): Promise<void>;
+  reconcileInactiveSessions(cutoffMinutes?: number): Promise<void>;
 }
