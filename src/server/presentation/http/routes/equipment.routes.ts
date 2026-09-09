@@ -66,6 +66,11 @@ export const reportBrokenSchema = z.object({
 export function createEquipmentRouter(controller: EquipmentController): Router {
   const router = Router();
 
+  router.put('/categories/:id', authMiddleware, (req, res) => {
+    if (req.user?.roles.includes('ADMIN') || req.user?.permissions.includes('EQUIPMENT_CATEGORY_MANAGE')) return controller.updateCategory(req, res);
+    res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Bạn không có quyền sửa danh mục.' } });
+  });
+
   router.post('/categories', authMiddleware, validateRequest(createCategorySchema), (req, res) => {
     if (req.user?.roles.includes('ADMIN') || req.user?.permissions.includes('EQUIPMENT_CATEGORY_CREATE')) {
       return controller.createCategory(req, res);

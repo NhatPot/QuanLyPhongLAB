@@ -1,4 +1,5 @@
 import { apiClient } from './api-client';
+import type { ImportRow, ImportPreview } from '@/lib/equipment-import';
 
 export interface EquipmentCategoryData {
   id: string;
@@ -69,6 +70,10 @@ export interface EquipmentTxData {
 }
 
 export const equipmentApi = {
+  importRows: async (rows: ImportRow[], commit: boolean): Promise<ImportPreview> => {
+    const response = await apiClient.post('/equipments/import', { rows, commit }, { timeout: 120000 });
+    return response.data.data;
+  },
   listCategories: async (): Promise<EquipmentCategoryData[]> => {
     const response = await apiClient.get('/equipments/categories');
     return response.data.data;
@@ -81,6 +86,11 @@ export const equipmentApi = {
 
   deleteCategory: async (id: string): Promise<void> => {
     await apiClient.delete(`/equipments/categories/${id}`);
+  },
+
+  updateCategory: async (id: string, data: Omit<EquipmentCategoryData, 'id'>): Promise<EquipmentCategoryData> => {
+    const response = await apiClient.put(`/equipments/categories/${id}`, data);
+    return response.data.data;
   },
 
   list: async (filter: EquipmentFilter): Promise<EquipmentListResponse> => {

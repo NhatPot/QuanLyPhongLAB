@@ -32,6 +32,7 @@ import { SqlLabProfileRepository } from '../infrastructure/database/sqlserver/re
 import { SqlComputerRepository } from '../infrastructure/database/sqlserver/repositories/SqlComputerRepository';
 import { SqlEquipmentCategoryRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentCategoryRepository';
 import { SqlEquipmentRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentRepository';
+import { UpdateEquipmentCategoryUseCase } from '../application/use-cases/equipment-category/UpdateEquipmentCategoryUseCase';
 import { SqlEquipmentInventoryTransactionRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentInventoryTransactionRepository';
 import { SqlBookingRequestRepository } from '../infrastructure/database/sqlserver/repositories/SqlBookingRequestRepository';
 import { SqlBookingEquipmentItemRepository } from '../infrastructure/database/sqlserver/repositories/SqlBookingEquipmentItemRepository';
@@ -418,7 +419,8 @@ class DependencyContainer {
       this.reportBrokenEquipmentUseCase,
       this.deleteEquipmentUseCase,
       this.equipmentTxRepo,
-      this.deleteEquipmentCategoryUseCase
+      this.deleteEquipmentCategoryUseCase,
+      new UpdateEquipmentCategoryUseCase(this.equipmentCategoryRepo)
     );
 
     this.checkAvailabilityUseCase = new CheckAvailabilityUseCase(

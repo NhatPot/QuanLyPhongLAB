@@ -1,5 +1,37 @@
 [
   {
+    "timestamp": "2026-09-09T18:07:04.071Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T17:50:36.676Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
     "timestamp": "2026-08-13T20:09:10.072Z",
     "method": "GET",
     "endpoint": "/api/devices/metrics",
@@ -28174,38 +28206,6 @@
   },
   {
     "timestamp": "2026-08-13T19:36:33.835Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:30.749Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:27.659Z",
     "method": "GET",
     "endpoint": "/api/devices/metrics",
     "ip": "UNKNOWN",

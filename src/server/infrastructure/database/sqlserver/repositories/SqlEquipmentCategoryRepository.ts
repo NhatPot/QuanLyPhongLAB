@@ -74,6 +74,19 @@ export class SqlEquipmentCategoryRepository implements IEquipmentCategoryReposit
       .query('DELETE FROM EquipmentCategories WHERE Id = @id');
   }
 
+  public async update(category: EquipmentCategory): Promise<boolean> {
+    const pool = await SqlConnectionFactory.getPool();
+    const result = await pool.request()
+      .input('id', mssql.UniqueIdentifier, category.id.toString())
+      .input('code', mssql.NVarChar(50), category.code)
+      .input('name', mssql.NVarChar(255), category.name)
+      .input('description', mssql.NVarChar(500), category.description || null)
+      .query(`UPDATE EquipmentCategories SET Code = @code, Name = @name,
+        Description = @description, UpdatedAt = SYSUTCDATETIME() WHERE Id = @id`);
+    // Do not recreate a category deleted while its edit form was open.
+    return result.rowsAffected[0] === 1;
+  }
+
   private toDomain(raw: any): EquipmentCategory {
     return EquipmentCategory.create({
       code: raw.Code,

@@ -6,10 +6,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { equipmentApi, EquipmentData, EquipmentTxData } from '@/services/equipment-api';
+import { equipmentApi, EquipmentData, EquipmentTxData, EquipmentCategoryData } from '@/services/equipment-api';
 import { useAuth } from '@/features/auth/AuthContext';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Plus, Search, Edit2, History, AlertTriangle, Settings, RefreshCw, X, Save, ArrowUpDown, Trash2 } from 'lucide-react';
+import { EquipmentImportDialog } from './EquipmentImportDialog';
+import { EquipmentDialog } from './EquipmentDialog';
+import { EquipmentDetailDialog } from './EquipmentDetailDialog';
+import { equipmentCategorySchema } from '@/lib/equipment-category';
+import { Plus, Search, Edit2, History, AlertTriangle, Settings, RefreshCw, X, Save, ArrowUpDown, Trash2, Eye } from 'lucide-react';
 
 const equipmentSchema = z.object({
   quantity: z.coerce.number().int().min(1, 'Số lượng phải từ 1.'),
@@ -22,11 +26,7 @@ const equipmentSchema = z.object({
   note: z.string().optional()
 });
 
-const categorySchema = z.object({
-  code: z.string().min(1, 'Mã danh mục không được trống.'),
-  name: z.string().min(1, 'Tên danh mục không được trống.'),
-  description: z.string().optional()
-});
+const categorySchema = equipmentCategorySchema;
 
 type FormFields = z.infer<typeof equipmentSchema>;
 type CategoryFields = z.infer<typeof categorySchema>;
@@ -61,11 +61,14 @@ const EquipmentsPage: React.FC = () => {
   const [keyword, setKeyword] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [importNotice, setImportNotice] = useState('');
   const [pageSize] = useState(10);
 
   const [selectedEq, setSelectedEq] = useState<EquipmentData | null>(null);
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<EquipmentCategoryData | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const [adjustState, setAdjustState] = useState<{ id: string; isOpen: boolean; delta: number; note: string } | null>(null);
   const [brokenState, setBrokenState] = useState<{ id: string; isOpen: boolean; quantity: number; from: 'AVAILABLE' | 'BORROWED'; note: string } | null>(null);
@@ -77,7 +80,9 @@ const EquipmentsPage: React.FC = () => {
   const canUpdate = hasPermission('EQUIPMENT_UPDATE');
   const canAdjust = hasPermission('EQUIPMENT_INVENTORY_ADJUST');
   const canDamageReport = hasPermission('EQUIPMENT_DAMAGE_REPORT');
-  const canCategoryCreate = hasPermission('EQUIPMENT_CATEGORY_CREATE');
+  const canCategoryCreate = hasPermission('EQUIPMENT_CATEGORY_MANAGE');
+  const canCategoryManage = hasPermission('EQUIPMENT_CATEGORY_MANAGE');
+  const canView = hasPermission('EQUIPMENT_VIEW');
   const canDelete = hasPermission('EQUIPMENT_DELETE');
 
   const { data: categories } = useQuery({
@@ -124,10 +129,13 @@ const EquipmentsPage: React.FC = () => {
   });
 
   const categoryMutation = useMutation({
-    mutationFn: equipmentApi.createCategory,
+    mutationFn: (data: CategoryFields) => selectedCategory ? equipmentApi.updateCategory(selectedCategory.id, data) : equipmentApi.createCategory(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['equipment-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['equipments'] });
+      setImportNotice(selectedCategory ? 'Đã cập nhật danh mục thiết bị.' : 'Đã thêm danh mục thiết bị.');
       setIsCatModalOpen(false);
+      setSelectedCategory(null);
       catForm.reset();
     }
   });
@@ -215,10 +223,15 @@ const EquipmentsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader title="Quản lý thiết bị" description="Quản lý danh mục và thông tin thiết bị.">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {activeTab === 'equipments' && canCreate && <EquipmentImportDialog categories={categories} onImported={count => {
+            setImportNotice(`Đã nhập thành công ${count} dòng thiết bị.`);
+            setKeyword(''); setCategoryFilter(''); setPage(1);
+            queryClient.invalidateQueries({ queryKey: ['equipments'] });
+          }} />}
           {activeTab === 'categories' && canCategoryCreate && (
             <button
-              onClick={() => setIsCatModalOpen(true)}
+              onClick={() => { setSelectedCategory(null); categoryMutation.reset(); catForm.reset({ code: '', name: '', description: '' }); setIsCatModalOpen(true); }}
               className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition"
             >
               <Plus className="h-4 w-4" /> Thêm danh mục
@@ -234,6 +247,7 @@ const EquipmentsPage: React.FC = () => {
           )}
         </div>
       </PageHeader>
+      {importNotice && <div role="status" className="flex items-center justify-between gap-3 rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">{importNotice}<button type="button" aria-label="Đóng thông báo nhập thiết bị" onClick={() => setImportNotice('')}><X className="h-4 w-4" /></button></div>}
 
       <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
         <button
@@ -318,6 +332,7 @@ const EquipmentsPage: React.FC = () => {
                     <td className="px-6 py-4 font-bold text-red-500">{eq.brokenQuantity}</td>
                     <td className="px-6 py-4">{eq.location || 'N/A'}</td>
                     <td className="px-6 py-4 text-right space-x-1 whitespace-nowrap">
+                      {canView && <button type="button" onClick={() => setDetailId(eq.id)} className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-200"><Eye className="h-3.5 w-3.5" /> Chi tiết</button>}
                       {canAdjust && (
                         <button
                           onClick={() => setAdjustState({ id: eq.id, isOpen: true, delta: 1, note: '' })}
@@ -408,7 +423,8 @@ const EquipmentsPage: React.FC = () => {
                       Mã: {cat.code}{cat.description ? ` · ${cat.description}` : ''}
                     </p>
                   </div>
-                  {canCategoryCreate && (
+                  {canCategoryManage && <button type="button" onClick={() => { setSelectedCategory(cat); categoryMutation.reset(); catForm.reset({ code: cat.code, name: cat.name, description: cat.description || '' }); setIsCatModalOpen(true); }} className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"><Edit2 className="h-4 w-4" /> Sửa</button>}
+                  {canCategoryManage && (
                     <button
                       className="shrink-0 rounded-lg p-2 text-red-500 hover:bg-red-50 hover:text-red-700 transition"
                       onClick={() => deleteCategoryMutation.mutate(cat.id)}
@@ -534,19 +550,14 @@ const EquipmentsPage: React.FC = () => {
       )}
 
       {isCatModalOpen && (
-        <EquipmentModalLayer>
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-slate-950">Thêm danh mục thiết bị</h3>
-              <button onClick={() => setIsCatModalOpen(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+        <EquipmentDialog open={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} busy={categoryMutation.isPending} title={selectedCategory ? 'Sửa danh mục thiết bị' : 'Thêm danh mục thiết bị'} description={selectedCategory ? 'Đổi mã danh mục không thay đổi mã thiết bị đã có. Mã tự cấp cho thiết bị mới sẽ theo mã danh mục mới.' : 'Nhập mã, tên và mô tả danh mục thiết bị.'}>
             <form onSubmit={catForm.handleSubmit(onSubmitCat)} className="space-y-4">
+              {categoryMutation.isError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{(categoryMutation.error as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'Không thể lưu danh mục. Hãy kiểm tra kết nối và thử lại.'}</p>}
+              <fieldset disabled={categoryMutation.isPending} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Mã danh mục</label>
+                <label htmlFor="category-code" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Mã danh mục</label>
                 <input
+                  id="category-code" maxLength={50}
                   {...catForm.register('code')}
                   type="text"
                   placeholder="Ví dụ: CATEGORY-KEYBOARD"
@@ -556,8 +567,9 @@ const EquipmentsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Tên danh mục</label>
+                <label htmlFor="category-name" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Tên danh mục</label>
                 <input
+                  id="category-name" maxLength={255}
                   {...catForm.register('name')}
                   type="text"
                   placeholder="Ví dụ: Bàn phím máy tính"
@@ -567,14 +579,17 @@ const EquipmentsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Mô tả ngắn</label>
-                <textarea {...catForm.register('description')} rows={2} className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-sm" />
+                <label htmlFor="category-description" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Mô tả ngắn</label>
+                <textarea id="category-description" maxLength={500} {...catForm.register('description')} rows={4} className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-sm" />
+                {catForm.formState.errors.description && <p className="mt-1 text-xs text-red-500">{catForm.formState.errors.description.message}</p>}
               </div>
+              </fieldset>
 
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 mt-6">
                 <button
                   type="button"
                   onClick={() => setIsCatModalOpen(false)}
+                  disabled={categoryMutation.isPending}
                   className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-55"
                 >
                   Hủy
@@ -584,13 +599,14 @@ const EquipmentsPage: React.FC = () => {
                   disabled={categoryMutation.isPending}
                   className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition"
                 >
-                  <Save className="h-4 w-4" /> Thêm mới
+                  <Save className="h-4 w-4" /> {categoryMutation.isPending ? 'Đang lưu…' : selectedCategory ? 'Lưu thay đổi' : 'Thêm mới'}
                 </button>
               </div>
             </form>
-          </div>
-        </EquipmentModalLayer>
+        </EquipmentDialog>
       )}
+
+      <EquipmentDetailDialog id={detailId} categories={categories} onClose={() => setDetailId(null)} />
 
       {adjustState?.isOpen && (
         <EquipmentModalLayer>

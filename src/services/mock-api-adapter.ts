@@ -11,6 +11,8 @@ import type { RoleApiRecord, PermissionApiRecord } from './role-api';
 import type { AuditLogRecord } from './audit-log-api';
 import type { ComputerData, ComputerStatus } from './computer-api';
 import type { EquipmentCategoryData, EquipmentData, EquipmentTxData } from './equipment-api';
+import { planEquipmentImport } from '@/lib/equipment-import';
+import { equipmentCategorySchema } from '@/lib/equipment-category';
 import type { BookingData, BookingPurposeOption, BookingStatus, CalendarEvent, ComputerActivityRecord, CreateBookingPayload } from './booking-api';
 import type { LabProfileData } from './lab-api';
 import type { UserProfile } from './auth-api';
@@ -593,6 +595,31 @@ const mockAdapter: AxiosAdapter = async (config) => {
   if (computerMatch && method === 'PUT') { const item = matchComputer(computerMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy máy tính mock.'); const nextStatus = String(payload.status || item.status) as ComputerStatus; if (item.status !== nextStatus && (item.status === 'MAINTENANCE' || nextStatus === 'MAINTENANCE')) return errorResponse(request, 422, 'Trạng thái bảo trì chỉ được thay đổi từ lịch bảo trì.'); const previousStatus = item.status; const wasBroken = item.status === 'BROKEN'; Object.assign(item, payload, { id: item.id, updatedAt: now() }); if (previousStatus !== item.status) transitionMockComputerActivity(item, item.status, item.updatedAt!, { note: `Chuyển từ ${previousStatus} sang ${item.status}` }); if (!wasBroken && item.status === 'BROKEN') ensureMockComputerProposal(item, 'BROKEN_STATUS'); return response(request, body(item)); }
   if (path === '/computers' && method === 'POST') { const item = { ...(payload as unknown as ComputerData), id: `mock-computer-${Date.now()}`, createdAt: now(), updatedAt: now() }; if (item.status === 'MAINTENANCE') return errorResponse(request, 422, 'Không thể tạo máy trực tiếp ở trạng thái bảo trì.'); computers.unshift(item); transitionMockComputerActivity(item, item.status, item.createdAt!, { note: 'Khởi tạo máy tính' }); if (item.status === 'BROKEN') ensureMockComputerProposal(item, 'BROKEN_STATUS'); return response(request, body(item), 201); }
 
+  if (path === '/equipments/import' && method === 'POST') {
+    const result = planEquipmentImport(Array.isArray(payload.rows) ? payload.rows : [], categories, equipment.map(item => item.code));
+    if (payload.commit === true && !result.errors.length) {
+      const created: EquipmentData[] = result.rows.map((row, index) => ({
+        id: `mock-import-${Date.now()}-${index}`, code: row.code, name: row.name, categoryId: row.categoryId,
+        totalQuantity: row.quantity, availableQuantity: row.quantity, reservedQuantity: 0, borrowedQuantity: 0,
+        brokenQuantity: 0, maintenanceQuantity: 0, lostQuantity: 0, location: row.location, status: row.status,
+        note: row.note, createdAt: now(), updatedAt: now(),
+      }));
+      equipment = [...created, ...equipment];
+      result.imported = created.length;
+      auditLogs = [createMockAudit('EQUIPMENT_IMPORTED', 'Equipment', null, null, { count: created.length }), ...auditLogs];
+    }
+    return response(request, body(result));
+  }
+  const categoryEditMatch = path.match(/^\/equipments\/categories\/([^/]+)$/);
+  if (categoryEditMatch && method === 'PUT') {
+    const category = categories.find(item => item.id === categoryEditMatch[1]);
+    if (!category) return errorResponse(request, 404, 'Danh mục không còn tồn tại. Hãy tải lại danh sách.');
+    const parsed = equipmentCategorySchema.safeParse(payload);
+    if (!parsed.success) return errorResponse(request, 400, parsed.error.issues.map(issue => issue.message).join(' '));
+    if (categories.some(item => item.id !== category.id && item.code.toUpperCase() === parsed.data.code.toUpperCase())) return errorResponse(request, 400, 'Mã danh mục đã tồn tại. Hãy chọn mã khác.');
+    Object.assign(category, parsed.data);
+    return response(request, body(category));
+  }
   if (path === '/equipments/categories' && method === 'GET') return response(request, body(categories));
   if (path === '/equipments/categories' && method === 'POST') { const category = { ...(payload as unknown as EquipmentCategoryData), id: `mock-category-${Date.now()}` }; categories.push(category); return response(request, body(category), 201); }
   if (path === '/equipments' && method === 'GET') { const keyword = stringParam(params, 'keyword')?.toLocaleLowerCase('vi'); const categoryId = stringParam(params, 'categoryId'); const filtered = equipment.filter((item) => (!keyword || `${item.code} ${item.name}`.toLocaleLowerCase('vi').includes(keyword)) && (!categoryId || item.categoryId === categoryId)); return response(request, paginate(filtered, request)); }

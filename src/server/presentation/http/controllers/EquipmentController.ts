@@ -12,6 +12,7 @@ import { DeleteEquipmentCategoryUseCase } from '../../../application/use-cases/e
 import { IEquipmentInventoryTransactionRepository } from '../../../domain/repositories/IEquipmentInventoryTransactionRepository';
 import { ApiResponse } from '../presenters/ApiResponse';
 import { Equipment } from '../../../domain/entities/Equipment';
+import { UpdateEquipmentCategoryUseCase } from '../../../application/use-cases/equipment-category/UpdateEquipmentCategoryUseCase';
 
 export class EquipmentController {
   constructor(
@@ -25,7 +26,8 @@ export class EquipmentController {
     private reportBrokenEquipmentUseCase: ReportBrokenEquipmentUseCase,
     private deleteEquipmentUseCase: DeleteEquipmentUseCase,
     private transactionRepo: IEquipmentInventoryTransactionRepository,
-    private deleteCategoryUseCase: DeleteEquipmentCategoryUseCase
+    private deleteCategoryUseCase: DeleteEquipmentCategoryUseCase,
+    private updateCategoryUseCase: UpdateEquipmentCategoryUseCase
   ) {}
 
   public createCategory = async (req: Request, res: Response): Promise<void> => {
@@ -41,6 +43,16 @@ export class EquipmentController {
       name: cat.name,
       description: cat.description
     }, 'Tạo danh mục thiết bị thành công.'));
+  };
+
+  public updateCategory = async (req: Request, res: Response): Promise<void> => {
+    const result = await this.updateCategoryUseCase.execute(req.params.id as string, req.body);
+    if (!result.isSuccess) {
+      res.status(400).json(ApiResponse.error('BAD_REQUEST', result.getError(), null, req.correlationId));
+      return;
+    }
+    const category = result.getValue();
+    res.status(200).json(ApiResponse.success({ id: category.id.toString(), code: category.code, name: category.name, description: category.description }, 'Đã cập nhật danh mục.'));
   };
 
   public listCategories = async (req: Request, res: Response): Promise<void> => {

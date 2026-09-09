@@ -26605,3 +26605,25 @@ IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
   "meta": null
 }
 
+================================================================================
+[2026-09-09T17:50:36.676Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-09T18:07:04.071Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+

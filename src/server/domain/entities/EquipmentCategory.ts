@@ -30,11 +30,13 @@ export class EquipmentCategory extends Entity<EquipmentCategoryProps> {
   public get createdAt(): Date | undefined { return this.props.createdAt; }
   public get updatedAt(): Date | undefined { return this.props.updatedAt; }
 
-  public update(name: string, description?: string): void {
+  public update(name: string, description?: string, code?: string): void {
+    if (code !== undefined && !code.trim()) throw new Error('Mã danh mục không được để trống.');
     if (!name.trim()) {
       throw new Error('Tên danh mục không được để trống.');
     }
-    this.props.name = name;
+    this.props.code = code?.trim() ?? this.props.code;
+    this.props.name = name.trim();
     this.props.description = description;
     this.props.updatedAt = new Date();
   }
