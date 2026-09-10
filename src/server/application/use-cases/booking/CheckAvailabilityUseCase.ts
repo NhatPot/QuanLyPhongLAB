@@ -4,6 +4,7 @@ import { IComputerRepository } from '../../../domain/repositories/IComputerRepos
 import { IEquipmentRepository } from '../../../domain/repositories/IEquipmentRepository';
 import { BookingType } from '../../../domain/entities/BookingRequest';
 import { lendableQuantity } from '../../../domain/services/lending-availability';
+import { IComputerBookingRepository } from '../../../domain/repositories/IComputerBookingRepository';
 
 export type CheckAvailabilityInput = {
   bookingType: BookingType;
@@ -11,6 +12,7 @@ export type CheckAvailabilityInput = {
   endTime: Date;
   numberOfPeople: number;
   numberOfComputers: number;
+  computerIds?: string[];
   equipments: Array<{
     equipmentId: string;
     quantity: number;
@@ -52,7 +54,8 @@ export class CheckAvailabilityUseCase {
     private labProfileRepo: ILabProfileRepository,
     private computerRepo: IComputerRepository,
     private equipmentRepo: IEquipmentRepository,
-    private availabilityQuery: IAvailabilityQueryService
+    private availabilityQuery: IAvailabilityQueryService,
+    private computerBookings?: IComputerBookingRepository,
   ) {}
 
   public async execute(input: CheckAvailabilityInput): Promise<AvailabilityResult> {
@@ -61,6 +64,7 @@ export class CheckAvailabilityUseCase {
     let isAvailable = true;
     if (!Number.isFinite(input.startTime.getTime()) || !Number.isFinite(input.endTime.getTime())) throw new Error('Thời gian không hợp lệ.');
     if (!Number.isInteger(input.numberOfComputers) || input.numberOfComputers < 0 || !Number.isInteger(input.numberOfPeople) || input.numberOfPeople < 1) throw new Error('Số máy và số người không hợp lệ.');
+    if (input.computerIds && (input.computerIds.length !== input.numberOfComputers || new Set(input.computerIds.map(id => id.toLowerCase())).size !== input.computerIds.length)) throw new Error('Danh sách máy bị trùng hoặc không khớp số lượng.');
     if (input.equipments.length > 100 || new Set(input.equipments.map(item => item.equipmentId)).size !== input.equipments.length || input.equipments.some(item => !Number.isInteger(item.quantity) || item.quantity < 1)) throw new Error('Thiết bị bị lặp hoặc số lượng không hợp lệ (tối đa 100 dòng).');
 
     // 1. Kiểm tra thời gian
@@ -109,6 +113,10 @@ export class CheckAvailabilityUseCase {
         isAvailable = false;
         reasons.push({ code: 'FULL_LAB_CONFLICT', message: 'Đã có người đặt trọn phòng trong thời gian này' });
       }
+      if (input.bookingType === 'FULL_LAB' && overlapping.totalReservedComputers > 0) {
+        isAvailable = false;
+        reasons.push({ code: 'COMPUTER_CONFLICT', message: 'Đã có lịch sử dụng máy trong phòng vào khoảng giờ này.' });
+      }
     }
 
     // 5. Kiểm tra máy tính
@@ -126,6 +134,16 @@ export class CheckAvailabilityUseCase {
         compValid = false;
         isAvailable = false;
         reasons.push({ code: 'INSUFFICIENT_COMPUTERS', message: 'Không đủ máy tính trống trong khoảng thời gian này' });
+      }
+      if (input.computerIds?.length) {
+        if (!this.computerBookings) throw new Error('Chức năng chọn máy chưa được cấu hình.');
+        const computers = await this.computerBookings.listAvailability(input.startTime, input.endTime, input.excludeBookingId);
+        const availableIds = new Set(computers.filter(c => c.available).map(c => c.id.toLowerCase()));
+        if (input.computerIds.some(id => !availableIds.has(id.toLowerCase()))) {
+          compValid = false;
+          isAvailable = false;
+          reasons.push({ code: 'COMPUTER_UNAVAILABLE', message: 'Một máy đã được đặt trong khung giờ này hoặc không sẵn sàng. Vui lòng chọn lại máy.' });
+        }
       }
     }
 

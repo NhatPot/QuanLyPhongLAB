@@ -28,6 +28,7 @@ export class GetBookingCalendarUseCase {
         requester: isPrivileged ? requester : undefined,
         numberOfPeople: isPrivileged ? b.numberOfPeople : undefined,
         numberOfComputers: isPrivileged ? b.numberOfComputers : undefined,
+        computerItems: isPrivileged ? b.computerItems : undefined,
       };
     });
   }

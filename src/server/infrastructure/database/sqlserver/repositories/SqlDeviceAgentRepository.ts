@@ -68,6 +68,7 @@ export class SqlDeviceAgentRepository implements IDeviceAgentRepository {
           INNER JOIN Computers c ON c.Id = cal.ComputerId
           LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
           WHERE c.Status = 'IN_USE'
+            AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = c.Id AND booking.Status = 'CHECKED_IN')
             AND cal.EndedAt IS NULL
             AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= @cutoffSeconds)
             AND c.DeletedAt IS NULL;
@@ -82,6 +83,7 @@ export class SqlDeviceAgentRepository implements IDeviceAgentRepository {
           FROM DeviceAgents da
           INNER JOIN Computers c ON c.Id = da.ComputerId
           WHERE c.Status = 'IN_USE'
+            AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = c.Id AND booking.Status = 'CHECKED_IN')
             AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= @cutoffSeconds)
             AND c.DeletedAt IS NULL;
 
@@ -93,6 +95,7 @@ export class SqlDeviceAgentRepository implements IDeviceAgentRepository {
           FROM Computers c
           LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
           WHERE c.Status = 'IN_USE'
+            AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = c.Id AND booking.Status = 'CHECKED_IN')
             AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= @cutoffSeconds)
             AND c.DeletedAt IS NULL;
         `);

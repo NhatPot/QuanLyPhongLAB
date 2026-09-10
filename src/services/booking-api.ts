@@ -2,7 +2,7 @@ import { apiClient } from './api-client';
 
 export interface LendingCatalogData {
   data: Array<{ id: string; code: string; name: string; categoryId: string; categoryName: string; availableQuantity: number }>;
-  computers: { available: number };
+  computers: { available: number; items: Array<{ id: string; code: string; name: string; position: string | null; status: string; available: boolean }> };
   labAvailable: boolean;
   meta: { page: number; pageSize: number; totalItems: number; totalPages: number };
 }
@@ -46,9 +46,12 @@ export interface BookingData {
   createdAt?: string;
   checkInTime?: string | null;
   checkOutTime?: string | null;
+  initialCondition?: string | null;
+  returnCondition?: string | null;
   actualPeopleCount?: number | null;
   actualComputerCount?: number | null;
   selectedComputerIds?: string[];
+  computerItems?: BookingComputerData[];
   equipmentItems?: Array<{ id: string; equipmentId: string; requestedQuantity: number; reservedQuantity: number; borrowedQuantity: number }>;
 }
 
@@ -63,6 +66,7 @@ export interface CalendarEvent {
   requester?: BookingRequester | null;
   numberOfPeople?: number;
   numberOfComputers?: number;
+  computerItems?: BookingComputerData[];
 }
 
 export interface CreateBookingPayload {
@@ -75,6 +79,7 @@ export interface CreateBookingPayload {
   expectedReturnTime?: string | null;
   numberOfPeople: number;
   numberOfComputers: number;
+  computerIds?: string[];
   equipments: Array<{ equipmentId: string; quantity: number }>;
   note?: string;
 }
@@ -85,6 +90,17 @@ export interface CheckInPayload {
   computerIds?: string[];
   initialCondition?: string;
   note?: string;
+}
+
+export interface BookingComputerData {
+  computerId: string; computerCode: string; computerName: string;
+  requesterId: string; requesterName: string; requesterUsername: string; requesterEmail: string;
+  receivedAt: string | null; returnedAt: string | null;
+}
+export interface ComputerBookingHistoryData extends BookingComputerData {
+  bookingId: string; requestCode: string; status: BookingStatus; startTime: string; endTime: string;
+  purpose: string; initialCondition: string | null; returnCondition: string | null;
+  checkedInByName: string | null; checkedOutByName: string | null;
 }
 
 export interface CheckOutPayload {
@@ -179,6 +195,10 @@ export interface LabUsageStatistics {
 }
 
 export const bookingApi = {
+  computerHistory: async (id: string, page = 1): Promise<{ data: ComputerBookingHistoryData[]; total: number; page: number; pageSize: number }> => {
+    const response = await apiClient.get(`/computers/${id}/bookings`, { params: { page } });
+    return response.data.data;
+  },
   catalog: async (params: { startTime: string; endTime: string; keyword?: string; page?: number }): Promise<LendingCatalogData> => {
     const response = await apiClient.get('/bookings/catalog', { params });
     return response.data.data;

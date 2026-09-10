@@ -21,7 +21,7 @@ export class ApproveBookingUseCase {
   }
 
   private async approveWithLock(bookingId: string, adminId: string) {
-    const booking = await this.bookingRepo.findById(bookingId);
+    const booking = await this.bookingRepo.findById(bookingId, this.uow.getTransaction());
     if (!booking) throw new Error("Không tìm thấy BookingRequest");
 
     if (booking.status !== 'PENDING') {
@@ -38,6 +38,7 @@ export class ApproveBookingUseCase {
       endTime: booking.endTime,
       numberOfPeople: booking.numberOfPeople,
       numberOfComputers: booking.numberOfComputers,
+      computerIds: booking.computerItems?.length ? booking.computerItems.map(item => item.computerId) : undefined,
       equipments: items.map(item => ({ equipmentId: item.equipmentId, quantity: item.requestedQuantity })),
       excludeBookingId: booking.id.toString()
     });

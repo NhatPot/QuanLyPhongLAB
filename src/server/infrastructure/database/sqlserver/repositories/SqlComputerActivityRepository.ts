@@ -33,6 +33,11 @@ const detailSelect = `
 `;
 
 export class SqlComputerActivityRepository implements IComputerActivityRepository {
+  public async closeUsageByBooking(bookingId: string, occurredAt: Date, transaction?: mssql.Transaction): Promise<void> {
+    const request = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
+    await request.input('bookingId', mssql.UniqueIdentifier, bookingId).input('at', mssql.DateTime2, occurredAt)
+      .query("UPDATE ComputerActivityLogs SET EndedAt = @at, UpdatedAt = SYSUTCDATETIME() WHERE BookingRequestId = @bookingId AND ActivityType = 'IN_USE' AND EndedAt IS NULL");
+  }
   public async transition(input: ComputerActivityTransitionInput, transaction?: mssql.Transaction): Promise<void> {
     const request = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
     await request

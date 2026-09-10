@@ -605,7 +605,9 @@ const mockAdapter: AxiosAdapter = async (config) => {
     const page = Math.max(1, Number(stringParam(params, 'page') || 1));
     const active = computers.filter(c => c.status === 'ACTIVE').length;
     const usable = computers.filter(c => ['ACTIVE', 'IN_USE'].includes(c.status)).length;
-    return response(request, body({ data: rows.slice((page - 1) * 50, page * 50), computers: { available: lab.status === 'ACTIVE' && !overlap.some(b => b.bookingType === 'FULL_LAB') ? Math.max(0, Math.min(active, usable - overlap.reduce((sum, b) => sum + b.numberOfComputers, 0))) : 0 }, labAvailable: lab.status === 'ACTIVE', meta: { page, pageSize: 50, totalItems: rows.length, totalPages: Math.ceil(rows.length / 50) } }));
+    const available = lab.status === 'ACTIVE' && !overlap.some(b => b.bookingType === 'FULL_LAB') ? Math.max(0, Math.min(active, usable - overlap.reduce((sum, b) => sum + b.numberOfComputers, 0))) : 0;
+    const items = computers.map(c => ({ id:c.id,code:c.code,name:c.name,position:c.position||null,status:c.status,available:available>0&&c.status==='ACTIVE'&&!overlap.some(b=>b.computerItems?.some(i=>i.computerId===c.id)) }));
+    return response(request, body({ data: rows.slice((page - 1) * 50, page * 50), computers: { available, items }, labAvailable: lab.status === 'ACTIVE', meta: { page, pageSize: 50, totalItems: rows.length, totalPages: Math.ceil(rows.length / 50) } }));
   }
   if (path === '/equipments/import' && method === 'POST') {
     const result = planEquipmentImport(Array.isArray(payload.rows) ? payload.rows : [], categories, equipment.map(item => item.code));
@@ -834,17 +836,27 @@ const mockAdapter: AxiosAdapter = async (config) => {
     return response(request, body(requesters));
   }
   if (path === '/bookings/my-bookings' && method === 'GET') return response(request, bookings.filter((item) => item.requesterId === users[0]?.id || item.requesterId === users[1]?.id).map(withBookingRequester));
+  const computerHistoryPath = path.match(/^\/computers\/([^/]+)\/bookings$/);
+  if (computerHistoryPath && method === 'GET') {
+    const page=Math.max(1,Number(stringParam(params,'page')||1));
+    const rows=bookings.flatMap(b=>(b.computerItems||[]).filter(i=>i.computerId===computerHistoryPath[1]).map(i=>({...i,bookingId:b.id,requestCode:b.requestCode,status:b.status,startTime:b.startTime,endTime:b.endTime,purpose:b.purpose,initialCondition:b.initialCondition||null,returnCondition:b.returnCondition||null,checkedInByName:b.checkInTime?'Nhân viên demo':null,checkedOutByName:b.checkOutTime?'Nhân viên demo':null}))).sort((a,b)=>new Date(b.startTime).getTime()-new Date(a.startTime).getTime());
+    return response(request,body({data:rows.slice((page-1)*20,page*20),total:rows.length,page,pageSize:20}));
+  }
   if (path === '/bookings/admin/pending' && method === 'GET') return response(request, bookings.filter((item) => item.status === 'PENDING').map(withBookingRequester));
   if (path === '/bookings/usage-statistics' && method === 'GET') {
     const month = stringParam(params, 'month') || new Date().toISOString().slice(0, 7);
     try { return response(request, body(mockUsageStatistics(month))); } catch (error: any) { return errorResponse(request, 400, error.message); }
   }
-  if (path === '/bookings/calendar' && method === 'GET') { const start = new Date(String(params.start || 0)); const end = new Date(String(params.end || 8640000000000000)); return response(request, bookings.filter((item) => new Date(item.startTime) < end && new Date(item.endTime) > start).map((item) => ({ id: item.id, title: item.purpose, start: item.startTime, end: item.endTime, type: item.bookingType, status: item.status, requesterId: item.requesterId, requester: bookingRequesterOf(item), numberOfPeople: item.numberOfPeople, numberOfComputers: item.numberOfComputers })) as CalendarEvent[]); }
+  if (path === '/bookings/calendar' && method === 'GET') { const start = new Date(String(params.start || 0)); const end = new Date(String(params.end || 8640000000000000)); return response(request, bookings.filter((item) => new Date(item.startTime) < end && new Date(item.endTime) > start).map((item) => ({ id: item.id, title: item.purpose, start: item.startTime, end: item.endTime, type: item.bookingType, status: item.status, requesterId: item.requesterId, requester: bookingRequesterOf(item), numberOfPeople: item.numberOfPeople, numberOfComputers: item.numberOfComputers, computerItems: item.computerItems })) as CalendarEvent[]); }
   if (path === '/bookings' && method === 'POST') {
     const input = payload as unknown as CreateBookingPayload;
     const requester = matchUser(input.requesterId || users[0]?.id || '');
     if (!requester) return errorResponse(request, 404, 'Không tìm thấy người đăng ký mock.');
     if (requester.status !== 'ACTIVE') return errorResponse(request, 422, 'Chỉ có thể tạo yêu cầu cho tài khoản đang hoạt động.');
+    const computerIds = input.computerIds || [];
+    if (new Set(computerIds).size!==computerIds.length || computerIds.length!==input.numberOfComputers || (input.bookingType==='COMPUTERS_ONLY'&&!computerIds.length) || computerIds.some(id=>!matchComputer(id)||matchComputer(id)?.status!=='ACTIVE')) return errorResponse(request,422,'Cần chọn đúng mã và số máy đang sẵn sàng.');
+    const conflict = bookings.some(b=>['APPROVED','CHECKED_IN'].includes(b.status)&&new Date(b.startTime)<new Date(input.endTime)&&(b.status==='CHECKED_IN'||new Date(b.endTime)>new Date(input.startTime))&&(b.bookingType==='FULL_LAB'||b.computerItems?.some(i=>computerIds.includes(i.computerId))));
+    if (computerIds.length&&conflict) return errorResponse(request,422,'Máy đã có lịch trùng giờ.');
 
     const requestedEquipments = Array.isArray(input.equipments) ? input.equipments : [];
     if (requestedEquipments.some(entry => { const e = equipment.find(item => item.id === entry.equipmentId); return !e?.isLendable || e.status !== 'ACTIVE' || !Number.isInteger(entry.quantity) || entry.quantity < 1 || entry.quantity > e.availableQuantity; })) return errorResponse(request, 422, 'Thiết bị không thể cho mượn hoặc không đủ số lượng.');
@@ -874,6 +886,7 @@ const mockAdapter: AxiosAdapter = async (config) => {
       expectedReturnTime: input.expectedReturnTime,
       numberOfPeople: input.numberOfPeople,
       numberOfComputers: input.numberOfComputers,
+      computerItems: computerIds.map(id=>({computerId:id,computerCode:matchComputer(id)!.code,computerName:matchComputer(id)!.name,requesterId:requester.id,requesterName:requester.fullName,requesterUsername:requester.username,requesterEmail:requester.email,receivedAt:null,returnedAt:null})),
       status: 'PENDING',
       isOverdue: false,
       hasIncident: false,
@@ -890,20 +903,30 @@ const mockAdapter: AxiosAdapter = async (config) => {
   if (bookingAction && method === 'POST') {
     const item = bookings.find((booking) => booking.id === bookingAction[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy lịch mock.');
     const action = bookingAction[2];
+    if (action === 'approve') {
+      if(item.status!=='PENDING') return errorResponse(request,422,'Chỉ duyệt yêu cầu đang chờ.');
+      const ids=item.computerItems?.map(c=>c.computerId)||[];
+      if (ids.some(id=>matchComputer(id)?.status!=='ACTIVE') || bookings.some(b=>b.id!==item.id&&['APPROVED','CHECKED_IN'].includes(b.status)&&new Date(b.startTime)<new Date(item.endTime)&&(b.status==='CHECKED_IN'||new Date(b.endTime)>new Date(item.startTime))&&(b.bookingType==='FULL_LAB'||b.computerItems?.some(i=>ids.includes(i.computerId))))) return errorResponse(request,422,'Máy không còn khả dụng trong khung giờ.');
+    }
     if (action === 'check-in') {
       if (item.status !== 'APPROVED') return errorResponse(request, 422, 'Chỉ lịch đã duyệt mới có thể check-in.');
       const computerIds = Array.isArray(payload.computerIds) ? Array.from(new Set(payload.computerIds.map(String))) : [];
+      if (item.computerItems?.length && (computerIds.length!==item.computerItems.length||computerIds.some(id=>!item.computerItems?.some(c=>c.computerId===id)))) return errorResponse(request,422,'Phải bàn giao đúng máy đã đăng ký.');
+      if (computerIds.length && !String(payload.initialCondition||'').trim()) return errorResponse(request,422,'Cần ghi tình trạng máy khi bàn giao.');
       if (item.numberOfComputers > 0 && computerIds.length === 0) return errorResponse(request, 422, 'Cần chọn cụ thể các máy tính được sử dụng.');
       const selectedComputers = computerIds.map((computerId) => matchComputer(computerId));
       if (selectedComputers.some((computer) => !computer || computer.status !== 'ACTIVE')) return errorResponse(request, 422, 'Một máy được chọn không còn ở trạng thái sẵn sàng.');
       item.status = 'CHECKED_IN'; item.checkInTime = now(); item.actualPeopleCount = Number(payload.actualPeopleCount ?? item.numberOfPeople); item.actualComputerCount = computerIds.length; item.selectedComputerIds = computerIds;
+      item.initialCondition = String(payload.initialCondition || ''); item.computerItems?.forEach(c=>{c.receivedAt=item.checkInTime!;});
       selectedComputers.forEach((computer) => { if (!computer) return; computer.status = 'IN_USE'; computer.updatedAt = item.checkInTime!; transitionMockComputerActivity(computer, 'IN_USE', item.checkInTime!, { booking: item, note: item.purpose }); });
       auditLogs = [createMockAudit('BOOKING_CHECKED_IN', 'BookingRequest', item.id, null, item), ...auditLogs];
       return response(request, { success: true, status: item.status, checkInTime: item.checkInTime, actualPeopleCount: item.actualPeopleCount, actualComputerCount: item.actualComputerCount, computerIds });
     }
     if (action === 'check-out') {
       if (item.status !== 'CHECKED_IN') return errorResponse(request, 422, 'Booking chưa check-in nên không thể check-out.');
+      if (item.numberOfComputers>0&&!String(payload.returnCondition||'').trim()) return errorResponse(request,422,'Cần ghi tình trạng máy khi trả.');
       item.status = 'COMPLETED'; item.checkOutTime = now();
+      item.returnCondition = String(payload.returnCondition || ''); item.computerItems?.forEach(c=>{c.returnedAt=item.checkOutTime!;});
       const activeMachineActivities = computerActivityLogs.filter((activity) => activity.bookingRequestId === item.id && activity.activityType === 'IN_USE' && !activity.endedAt);
       activeMachineActivities.forEach((activity) => { const computer = matchComputer(activity.computerId); if (!computer || computer.status !== 'IN_USE') return; computer.status = 'ACTIVE'; computer.updatedAt = item.checkOutTime!; transitionMockComputerActivity(computer, 'ACTIVE', item.checkOutTime!, { note: `Hoàn tất phiên ${item.requestCode}` }); });
       auditLogs = [createMockAudit('BOOKING_CHECKED_OUT', 'BookingRequest', item.id, null, item), ...auditLogs];

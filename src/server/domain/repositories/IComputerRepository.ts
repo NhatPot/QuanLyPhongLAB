@@ -9,6 +9,7 @@ export interface ComputerFilter {
 }
 
 export interface IComputerRepository {
+  hasActiveBooking(id: string, transaction?: any): Promise<boolean>;
   findById(id: string, transaction?: any): Promise<Computer | null>;
   findByCode(code: string): Promise<Computer | null>;
   findByMacAddress(macAddress: string): Promise<Computer | null>;

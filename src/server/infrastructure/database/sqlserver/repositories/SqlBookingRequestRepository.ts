@@ -2,6 +2,7 @@ import mssql from 'mssql';
 import { IBookingRequestRepository } from '../../../../domain/repositories/IBookingRequestRepository';
 import { BookingRequest, BookingType, BookingStatus } from '../../../../domain/entities/BookingRequest';
 import { SqlConnectionFactory } from '../connection';
+import { SqlComputerBookingRepository } from './SqlComputerBookingRepository';
 
 export class SqlBookingRequestRepository implements IBookingRequestRepository {
   public async lockAvailability(transaction: mssql.Transaction): Promise<void> {
@@ -18,7 +19,9 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
       .query('SELECT * FROM BookingRequests WHERE Id = @id');
 
     if (result.recordset.length === 0) return null;
-    return this.toDomain(result.recordset[0]);
+    const booking = this.toDomain(result.recordset[0]);
+    booking.props.computerItems = await new SqlComputerBookingRepository().findByBooking(id, transaction);
+    return booking;
   }
 
   public async findByRequestCode(code: string): Promise<BookingRequest | null> {
@@ -93,7 +96,7 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
   public async findPending(): Promise<BookingRequest[]> {
     const pool = await SqlConnectionFactory.getPool();
     const result = await pool.request().query("SELECT * FROM BookingRequests WHERE Status = 'PENDING' ORDER BY CreatedAt DESC");
-    return result.recordset.map(row => this.toDomain(row));
+    return this.withComputers(result.recordset);
   }
 
   public async findByRequester(requesterId: string): Promise<BookingRequest[]> {
@@ -101,7 +104,7 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
     const result = await pool.request()
       .input('requesterId', mssql.UniqueIdentifier, requesterId)
       .query('SELECT * FROM BookingRequests WHERE RequesterId = @requesterId ORDER BY StartTime DESC');
-    return result.recordset.map(row => this.toDomain(row));
+    return this.withComputers(result.recordset);
   }
 
   public async findApprovedByDateRange(startDate: Date, endDate: Date): Promise<BookingRequest[]> {
@@ -114,7 +117,7 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
         WHERE Status IN ('APPROVED', 'CHECKED_IN', 'COMPLETED')
         AND StartTime < @end AND EndTime > @start
       `);
-    return result.recordset.map(row => this.toDomain(row));
+    return this.withComputers(result.recordset);
   }
 
   public async list(filter?: any): Promise<BookingRequest[]> {
@@ -150,6 +153,17 @@ export class SqlBookingRequestRepository implements IBookingRequestRepository {
       createdAt: raw.CreatedAt,
       updatedAt: raw.UpdatedAt
     });
+  }
+
+  private async withComputers(rows: any[]): Promise<BookingRequest[]> {
+    const assignments = new SqlComputerBookingRepository();
+    const bookings: BookingRequest[] = [];
+    for (const row of rows) {
+      const booking = this.toDomain(row);
+      booking.props.computerItems = await assignments.findByBooking(booking.id.toString());
+      bookings.push(booking);
+    }
+    return bookings;
   }
 
   private toPersistence(booking: BookingRequest): any {

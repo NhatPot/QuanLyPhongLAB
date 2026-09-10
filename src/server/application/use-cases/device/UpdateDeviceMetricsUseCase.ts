@@ -145,6 +145,7 @@ export class UpdateDeviceMetricsUseCase {
           const boundFullName = existingAgent?.currentFullName;
 
           let targetStatus = (input.status as any)?.device_status || computer.status;
+          if (targetStatus === 'ACTIVE' && await this.computerRepo.hasActiveBooking(computer.id.toString(), transaction)) targetStatus = 'IN_USE';
           let targetNote = computer.note;
 
           if (targetStatus === 'IN_USE' && boundUsername) {

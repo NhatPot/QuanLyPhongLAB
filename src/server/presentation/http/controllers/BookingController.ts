@@ -1,4 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
+import { z } from 'zod';
+import { ValidationError } from '../../../shared/errors/AppError';
+
+function parseComputerIds(value: unknown) {
+  const parsed = z.array(z.string().uuid()).max(200).optional().safeParse(value);
+  if (!parsed.success) throw new ValidationError('Danh sách mã máy không hợp lệ.');
+  return parsed.data;
+}
 import { CreateBookingUseCase } from '../../../application/use-cases/booking/CreateBookingUseCase';
 import { GetBookingUseCase } from '../../../application/use-cases/booking/GetBookingUseCase';
 import { GetMyBookingsUseCase } from '../../../application/use-cases/booking/GetMyBookingsUseCase';
@@ -57,6 +65,7 @@ export class BookingController {
         expectedReturnTime: req.body.expectedReturnTime ? new Date(req.body.expectedReturnTime) : null,
         numberOfPeople: req.body.numberOfPeople || 1,
         numberOfComputers: req.body.numberOfComputers || 0,
+        computerIds: parseComputerIds(req.body.computerIds) || [],
         equipments: req.body.equipments || [],
         note: req.body.note,
         ipAddress: req.ip,
@@ -213,7 +222,7 @@ export class BookingController {
         userId: user.userId,
         actualPeopleCount: req.body.actualPeopleCount === undefined ? undefined : Number(req.body.actualPeopleCount),
         actualComputerCount: req.body.actualComputerCount === undefined ? undefined : Number(req.body.actualComputerCount),
-        computerIds: Array.isArray(req.body.computerIds) ? req.body.computerIds : undefined,
+        computerIds: parseComputerIds(req.body.computerIds),
         initialCondition: req.body.initialCondition,
         note: req.body.note,
       });
@@ -271,6 +280,8 @@ export class BookingController {
       expectedReturnTime: booking.expectedReturnTime,
       numberOfPeople: booking.numberOfPeople,
       numberOfComputers: booking.numberOfComputers,
+      computerItems: booking.computerItems || [],
+      selectedComputerIds: (booking.computerItems || []).map((item: any) => item.computerId),
       status: booking.status,
       isOverdue: booking.isOverdue,
       hasIncident: booking.hasIncident,

@@ -30,6 +30,7 @@ export interface ComputerActivityTransitionInput {
 }
 
 export interface IComputerActivityRepository {
+  closeUsageByBooking(bookingId: string, occurredAt: Date, transaction?: any): Promise<void>;
   transition(input: ComputerActivityTransitionInput, transaction?: any): Promise<void>;
   closeCurrent(computerId: string, occurredAt: Date, transaction?: any): Promise<void>;
   findActiveUsageByBooking(bookingRequestId: string): Promise<ComputerActivityRecord[]>;

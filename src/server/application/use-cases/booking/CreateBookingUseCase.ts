@@ -10,6 +10,7 @@ import { BookingPurposeGroup } from '../../../domain/entities/BookingPurposeGrou
 import { IBookingPurposeGroupRepository } from '../../../domain/repositories/IBookingPurposeGroupRepository';
 import { findMatchingPurposeGroup, normalizePurposeKey, purposeGroupCode } from './purpose-normalization';
 import { BusinessRuleError, ForbiddenError, NotFoundError, ValidationError } from '../../../shared/errors/AppError';
+import { IComputerBookingRepository } from '../../../domain/repositories/IComputerBookingRepository';
 
 export type CreateBookingInput = {
   actorUserId: string;
@@ -24,6 +25,7 @@ export type CreateBookingInput = {
   expectedReturnTime?: Date | null;
   numberOfPeople: number;
   numberOfComputers: number;
+  computerIds?: string[];
   equipments: Array<{
     equipmentId: string;
     quantity: number;
@@ -43,9 +45,14 @@ export class CreateBookingUseCase {
     private auditLogRepo: IAuditLogRepository,
     private userRepo: IUserRepository,
     private purposeGroupRepo?: IBookingPurposeGroupRepository,
+    private computerBookings?: IComputerBookingRepository,
   ) {}
 
   public async execute(input: CreateBookingInput): Promise<BookingRequest> {
+    const computerIds = input.computerIds ?? [];
+    if (!Array.isArray(computerIds) || computerIds.length > 200 || computerIds.some(id => typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) || new Set(computerIds.map(id => id.toLowerCase())).size !== computerIds.length) throw new ValidationError('Danh sách mã máy không hợp lệ hoặc bị trùng.');
+    if (computerIds.length !== input.numberOfComputers || (input.bookingType === 'COMPUTERS_ONLY' && !computerIds.length) || (input.bookingType === 'EQUIPMENT_ONLY' && computerIds.length)) throw new ValidationError('Hãy chọn đúng từng máy cần đăng ký. Số máy phải khớp danh sách đã chọn.');
+    if (computerIds.length && !this.computerBookings) throw new BusinessRuleError('Chức năng chọn máy chưa được cấu hình.', 'COMPUTER_BOOKING_UNAVAILABLE');
     const requesterId = input.requesterId || input.actorUserId;
     const isCreatingForAnotherUser = requesterId !== input.actorUserId;
     const canCreateForUser = input.actorRoles.includes('ADMIN')
@@ -77,6 +84,7 @@ export class CreateBookingUseCase {
       endTime: input.endTime,
       numberOfPeople: input.numberOfPeople,
       numberOfComputers: input.numberOfComputers,
+      computerIds,
       equipments: input.equipments
     });
 
@@ -124,6 +132,10 @@ export class CreateBookingUseCase {
       const transaction = this.uow.getTransaction();
       await this.bookingRepo.save(booking, transaction);
       await this.bookingEqItemRepo.saveMany(equipmentItems, transaction);
+      if (computerIds.length) {
+        await this.computerBookings!.saveSelection(booking.id.toString(), computerIds, requesterId, input.actorUserId, transaction);
+        booking.props.computerItems = await this.computerBookings!.findByBooking(booking.id.toString(), transaction);
+      }
       
       await this.auditLogRepo.save({
         action: 'BOOKING_CREATED',
@@ -133,6 +145,9 @@ export class CreateBookingUseCase {
         newValueJson: JSON.stringify({
           requesterId,
           requesterName: requester.fullName,
+          computerIds,
+          startTime: input.startTime,
+          endTime: input.endTime,
           createdForAnotherUser: isCreatingForAnotherUser,
         }),
         ipAddress: input.ipAddress,

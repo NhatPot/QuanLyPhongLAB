@@ -154,9 +154,13 @@ describe("Equipment lending policy", () => {
       id: { toString: () => "booking" },
       numberOfPeople: 1,
       numberOfComputers: 0,
+      computerItems: [],
+      status: 'APPROVED',
+      startTime: new Date(Date.now() + 60000),
+      endTime: new Date(Date.now() + 3600000),
       checkIn: vi.fn(),
     };
-    const repo = { findById: vi.fn(async () => booking), save: vi.fn() };
+    const repo = { findById: vi.fn(async () => booking), save: vi.fn(), lockAvailability: vi.fn() };
     const logs = { checkIn: vi.fn() };
     const uow = {
       complete: async (fn: () => Promise<unknown>) => fn(),

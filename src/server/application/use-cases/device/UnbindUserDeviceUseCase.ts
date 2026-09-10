@@ -65,8 +65,9 @@ export class UnbindUserDeviceUseCase {
         }
 
         if (computer) {
+          const booked = await this.computerRepo.hasActiveBooking(computer.id.toString(), transaction);
           computer.updateInformation({
-            status: 'ACTIVE',
+            status: booked ? 'IN_USE' : 'ACTIVE',
             note: `Đã đăng xuất phiên dùng lúc ${new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(unboundAt))}.`.trim(),
           });
           await this.computerRepo.save(computer, transaction);

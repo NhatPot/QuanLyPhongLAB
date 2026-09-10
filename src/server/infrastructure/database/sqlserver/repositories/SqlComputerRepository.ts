@@ -6,6 +6,11 @@ import { normalizeMacAddress, isValidMacAddress } from '../../../../shared/utils
 import { SqlConnectionFactory } from '../connection';
 
 export class SqlComputerRepository implements IComputerRepository {
+  public async hasActiveBooking(id: string, transaction?: mssql.Transaction): Promise<boolean> {
+    const request = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
+    const r = await request.input('computerId', mssql.UniqueIdentifier, id).query(`SELECT TOP 1 1 AS Found FROM ComputerActivityLogs activity JOIN BookingRequests b ON b.Id = activity.BookingRequestId WHERE activity.ComputerId = @computerId AND b.Status = 'CHECKED_IN'`);
+    return r.recordset.length > 0;
+  }
   public async findById(id: string, transaction?: mssql.Transaction): Promise<Computer | null> {
     const request = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
     const result = await request
@@ -150,6 +155,7 @@ export class SqlComputerRepository implements IComputerRepository {
         INNER JOIN Computers c ON c.Id = cal.ComputerId
         LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
         WHERE c.Status = 'IN_USE'
+          AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = c.Id AND booking.Status = 'CHECKED_IN')
           AND cal.EndedAt IS NULL
           AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
           AND c.DeletedAt IS NULL;
@@ -159,6 +165,7 @@ export class SqlComputerRepository implements IComputerRepository {
         FROM DeviceAgents da
         INNER JOIN Computers c ON c.Id = da.ComputerId
         WHERE c.Status = 'IN_USE'
+          AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = c.Id AND booking.Status = 'CHECKED_IN')
           AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
           AND c.DeletedAt IS NULL;
 
@@ -167,6 +174,7 @@ export class SqlComputerRepository implements IComputerRepository {
         FROM Computers c
         LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
         WHERE c.Status = 'IN_USE'
+          AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = c.Id AND booking.Status = 'CHECKED_IN')
           AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
           AND c.DeletedAt IS NULL;
       `);
@@ -177,6 +185,7 @@ export class SqlComputerRepository implements IComputerRepository {
           UPDATE Computers
           SET Status = 'ACTIVE', Note = N'Sẵn sàng sử dụng.', UpdatedAt = SYSUTCDATETIME()
           WHERE Status = 'IN_USE' AND DeletedAt IS NULL
+            AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = Computers.Id AND booking.Status = 'CHECKED_IN')
         `);
       } catch { /* ignore */ }
     }

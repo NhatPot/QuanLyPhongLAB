@@ -1,6 +1,7 @@
 import { Entity } from './Entity';
 import { BookingEquipmentItem } from './BookingEquipmentItem';
 import { UniqueEntityId } from '../value-objects/UniqueEntityId';
+import { BookingComputerItem } from '../repositories/IComputerBookingRepository';
 
 export type BookingType = 'FULL_LAB' | 'COMPUTERS_ONLY' | 'EQUIPMENT_ONLY';
 export type BookingStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'CHECKED_IN' | 'COMPLETED';
@@ -33,6 +34,7 @@ export interface BookingRequestProps {
   
   // Quan hệ 1-N (có thể load lên khi cần)
   equipmentItems?: BookingEquipmentItem[];
+  computerItems?: BookingComputerItem[];
 }
 
 export class BookingRequest extends Entity<BookingRequestProps> {
@@ -88,6 +90,7 @@ export class BookingRequest extends Entity<BookingRequestProps> {
   get createdAt(): Date { return this.props.createdAt!; }
   get updatedAt(): Date { return this.props.updatedAt!; }
   get equipmentItems(): BookingEquipmentItem[] { return this.props.equipmentItems!; }
+  get computerItems(): BookingComputerItem[] { return this.props.computerItems || []; }
 
   // State transitions
   public submit(): void {

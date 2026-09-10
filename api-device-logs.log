@@ -26781,3 +26781,399 @@ IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
   "meta": null
 }
 
+================================================================================
+[2026-09-10T13:00:09.394Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:00:12.505Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:00:15.595Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:01:15.871Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:22:24.346Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:22:28.989Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:25.726Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:28.892Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:31.996Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:35.092Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:38.195Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:41.316Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:44.427Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:47.518Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:50.612Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:53.723Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:56.827Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:31:59.922Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:03.253Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:06.349Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:09.438Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:12.532Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:15.644Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:18.749Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:22.080Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:25.870Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:28.974Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:32.087Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:35.238Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:38.350Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:32:41.454Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:35:31.356Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T13:58:13.059Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T14:16:07.074Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T14:16:44.604Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+
+================================================================================
+[2026-09-10T14:51:14.830Z] GET /api/devices/metrics (Status: 200)
+IP: UNKNOWN | User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36
+--- RESPONSE ---
+{
+  "success": true,
+  "message": "Lấy dữ liệu metrics thiết bị thành công.",
+  "data": {},
+  "meta": null
+}
+

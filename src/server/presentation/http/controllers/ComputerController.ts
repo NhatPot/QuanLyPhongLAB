@@ -151,6 +151,7 @@ export class ComputerController {
           INNER JOIN Computers c ON c.Id = cal.ComputerId
           LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
           WHERE c.Status = 'IN_USE'
+            AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = c.Id AND booking.Status = 'CHECKED_IN')
             AND cal.EndedAt IS NULL
             AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
             AND c.DeletedAt IS NULL;
@@ -160,6 +161,7 @@ export class ComputerController {
           FROM DeviceAgents da
           INNER JOIN Computers c ON c.Id = da.ComputerId
           WHERE c.Status = 'IN_USE'
+            AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = c.Id AND booking.Status = 'CHECKED_IN')
             AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
             AND c.DeletedAt IS NULL;
 
@@ -168,6 +170,7 @@ export class ComputerController {
           FROM Computers c
           LEFT JOIN DeviceAgents da ON da.ComputerId = c.Id
           WHERE c.Status = 'IN_USE'
+            AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = c.Id AND booking.Status = 'CHECKED_IN')
             AND (da.LastSeenAt IS NULL OR DATEDIFF(SECOND, da.LastSeenAt, SYSUTCDATETIME()) >= 30)
             AND c.DeletedAt IS NULL;
         `);
@@ -179,6 +182,7 @@ export class ComputerController {
             UPDATE Computers
             SET Status = 'ACTIVE', Note = N'Sẵn sàng sử dụng.', UpdatedAt = SYSUTCDATETIME()
             WHERE Status = 'IN_USE' AND DeletedAt IS NULL
+              AND NOT EXISTS (SELECT 1 FROM ComputerActivityLogs usage JOIN BookingRequests booking ON booking.Id = usage.BookingRequestId WHERE usage.ComputerId = Computers.Id AND booking.Status = 'CHECKED_IN')
           `);
         } catch { /* ignore */ }
       }

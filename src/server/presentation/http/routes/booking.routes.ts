@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { SqlComputerBookingRepository } from '../../../infrastructure/database/sqlserver/repositories/SqlComputerBookingRepository';
 import { z } from 'zod';
 import { BookingController } from '../controllers/BookingController';
 import { CreateBookingUseCase } from '../../../application/use-cases/booking/CreateBookingUseCase';
@@ -59,6 +60,7 @@ export const createBookingSchema = z.object({
     expectedReturnTime: z.string().datetime().nullable().optional(),
     numberOfPeople: z.number().int().min(1).max(1000),
     numberOfComputers: z.number().int().min(0).max(1000),
+    computerIds: z.array(z.string().uuid()).max(200).default([]),
     equipments: z.array(z.object({
       equipmentId: z.string().uuid('ID thiết bị không hợp lệ.'),
       quantity: z.number().int().min(1).max(1000),
@@ -114,13 +116,15 @@ export function createBookingRouter(): Router {
   const computerActivityRepo = new SqlComputerActivityRepository();
   const userRepo = new SqlUserRepository();
   const purposeGroupRepo = new SqlBookingPurposeGroupRepository();
+  const computerBookings = new SqlComputerBookingRepository();
 
   // Shared Use Cases
   const checkAvailabilityUseCase = new CheckAvailabilityUseCase(
     labProfileRepo,
     computerRepo,
     equipmentRepo,
-    availabilityQueryService
+    availabilityQueryService,
+    computerBookings,
   );
 
   // Use Cases
@@ -132,6 +136,7 @@ export function createBookingRouter(): Router {
     auditLogRepo,
     userRepo,
     purposeGroupRepo,
+    computerBookings,
   );
   
   const getBookingUseCase = new GetBookingUseCase(bookingRepo, equipmentItemRepo);
@@ -141,8 +146,8 @@ export function createBookingRouter(): Router {
   const listPendingBookingsUseCase = new ListPendingBookingsUseCase(bookingRepo, equipmentItemRepo, userRepo);
   const approveBookingUseCase = new ApproveBookingUseCase(bookingRepo, equipmentItemRepo, checkAvailabilityUseCase, uow, auditLogRepo);
   const rejectBookingUseCase = new RejectBookingUseCase(bookingRepo, uow, auditLogRepo);
-  const checkInBookingUseCase = new CheckInBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo, equipmentRepo, equipmentItemRepo);
-  const checkOutBookingUseCase = new CheckOutBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo);
+  const checkInBookingUseCase = new CheckInBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo, equipmentRepo, equipmentItemRepo, computerBookings);
+  const checkOutBookingUseCase = new CheckOutBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo, computerBookings);
   const getLabUsageStatisticsUseCase = new GetLabUsageStatisticsUseCase(checkInOutLogRepo, computerActivityRepo);
   const listBookingRequesterOptionsUseCase = new ListBookingRequesterOptionsUseCase(userRepo);
   const listBookingPurposeOptionsUseCase = new ListBookingPurposeOptionsUseCase(purposeGroupRepo);

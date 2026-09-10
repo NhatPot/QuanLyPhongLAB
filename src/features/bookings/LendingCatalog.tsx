@@ -20,6 +20,7 @@ export type CatalogSelection = {
   startTime: string;
   endTime: string;
   equipmentId?: string;
+  computerIds?: string[];
   quantity: number;
 };
 
@@ -35,6 +36,7 @@ export function LendingCatalog({
   const [page, setPage] = useState(1);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [error, setError] = useState("");
+  const [selectedComputers, setSelectedComputers] = useState<string[]>([]);
   const { data, isFetching, isError, refetch } = useQuery({
     queryKey: ["lending-catalog", period, search, page],
     queryFn: () =>
@@ -101,6 +103,7 @@ export function LendingCatalog({
           setSearch(keyword);
           setPage(1);
           setQuantities({});
+          setSelectedComputers([]);
         }}
       >
         <label className="space-y-1 text-sm font-medium text-slate-700">
@@ -145,6 +148,8 @@ export function LendingCatalog({
             setPeriod(next);
             setPage(1);
             setQuantities({});
+            setSelectedComputers([]);
+            setError("");
           }}
         >
           Từ 5 phút nữa
@@ -196,19 +201,24 @@ export function LendingCatalog({
                   Máy tính tại phòng Lab · còn {data.computers.available} máy
                 </h3>
                 <p className="mt-1 text-sm text-slate-600">
-                  Đăng ký theo số lượng. Nhân viên Lab phân máy cụ thể khi nhận
-                  phòng; không mang máy ra ngoài.
+                  Chọn mã máy bên dưới. Máy được giữ theo giờ sau khi duyệt; người đăng ký và thời gian nhận/trả được lưu trong lịch sử.
                 </p>
               </div>
-              {picker("computers", data.computers.available)}
               <Button
-                disabled={!canSelect("computers", data.computers.available)}
+                disabled={isFetching || !selectedComputers.length || selectedComputers.length > data.computers.available || selectedComputers.some(id => !data.computers.items?.some(c => c.id === id && c.available))}
                 onClick={() =>
-                  onSelect({ ...period, quantity: quantity("computers") })
+                  onSelect({ ...period, quantity: selectedComputers.length, computerIds: selectedComputers })
                 }
               >
-                Đăng ký máy
+                Đăng ký {selectedComputers.length || ''} máy đã chọn
               </Button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label="Chọn máy theo mã">
+              {(data.computers.items || []).map(computer => <label key={computer.id} className={`flex min-w-0 items-start gap-3 rounded-lg border p-3 text-sm ${selectedComputers.includes(computer.id) ? 'border-blue-600 bg-blue-50 text-blue-950' : 'border-slate-200 bg-white text-slate-800'}`}>
+                <input type="checkbox" className="mt-1 h-4 w-4 accent-blue-600" checked={selectedComputers.includes(computer.id)} disabled={isFetching || (!selectedComputers.includes(computer.id) && (!computer.available || selectedComputers.length >= data.computers.available))} onChange={e => setSelectedComputers(ids => e.target.checked ? [...ids, computer.id] : ids.filter(id => id !== computer.id))} />
+                <span className="min-w-0 break-words"><strong className="block">{computer.code}</strong><span className="block">{computer.name}</span><span className="mt-1 block">{computer.position || 'Chưa có vị trí'} · {computer.available ? 'Trống trong khung giờ' : computer.status === 'ACTIVE' ? 'Đã có lịch / hết khả dụng' : computer.status === 'MAINTENANCE' ? 'Đang bảo trì' : computer.status === 'BROKEN' ? 'Đang hỏng' : computer.status === 'IN_USE' ? 'Đang sử dụng' : 'Tạm ngừng sử dụng'}</span></span>
+              </label>)}
+              {!data.computers.items?.length && <p className="text-sm text-slate-600">Chưa có máy tính trong danh sách.</p>}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px] text-left text-sm">

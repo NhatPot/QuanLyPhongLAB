@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { CheckAvailabilityUseCase } from '../../../application/use-cases/booking/CheckAvailabilityUseCase';
 import { BookingType } from '../../../domain/entities/BookingRequest';
+import { z } from 'zod';
 
 export class AvailabilityController {
   constructor(private checkAvailabilityUseCase: CheckAvailabilityUseCase) {}
@@ -13,6 +14,7 @@ export class AvailabilityController {
         endTime,
         numberOfPeople,
         numberOfComputers,
+        computerIds,
         equipments,
         excludeBookingId
       } = req.body;
@@ -28,6 +30,7 @@ export class AvailabilityController {
         endTime: new Date(endTime),
         numberOfPeople: numberOfPeople || 1,
         numberOfComputers: numberOfComputers || 0,
+        computerIds: z.array(z.string().uuid()).max(200).optional().parse(computerIds),
         equipments: equipments || [],
         excludeBookingId
       };

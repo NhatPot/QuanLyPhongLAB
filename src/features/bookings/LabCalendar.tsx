@@ -67,6 +67,7 @@ export default function LabCalendar() {
   const [actualPeopleCount, setActualPeopleCount] = useState(0);
   const [selectedComputerIds, setSelectedComputerIds] = useState<string[]>([]);
   const [computerKeyword, setComputerKeyword] = useState("");
+  const [initialCondition, setInitialCondition] = useState('');
   const [checkOutEvent, setCheckOutEvent] = useState<CalendarEvent | null>(
     null,
   );
@@ -114,6 +115,9 @@ export default function LabCalendar() {
       queryClient.invalidateQueries({ queryKey: ["booking-usage-statistics"] }),
       queryClient.invalidateQueries({ queryKey: ["computers"] }),
       queryClient.invalidateQueries({ queryKey: ["computer-summary"] }),
+      queryClient.invalidateQueries({ queryKey: ['lending-catalog'] }),
+      queryClient.invalidateQueries({ queryKey: ['computer-booking-history'] }),
+      queryClient.invalidateQueries({ queryKey: ['my-bookings'] }),
     ]);
   };
   const checkInMutation = useMutation({
@@ -156,11 +160,13 @@ export default function LabCalendar() {
   const openCheckIn = (event: CalendarEvent) => {
     setCheckInEvent(event);
     setActualPeopleCount(event.numberOfPeople ?? 0);
-    setSelectedComputerIds([]);
+    setSelectedComputerIds(event.computerItems?.map(c => c.computerId) || []);
+    setInitialCondition('');
     setComputerKeyword("");
   };
   const submitCheckIn = () => {
     if (!checkInEvent) return;
+    if ((checkInEvent.numberOfComputers || 0) > 0 && !initialCondition.trim()) { toast.error('Ghi tình trạng máy và phụ kiện khi bàn giao.'); return; }
     if (!Number.isInteger(actualPeopleCount) || actualPeopleCount < 0) {
       toast.error("Số người thực tế phải là số nguyên không âm.");
       return;
@@ -178,6 +184,7 @@ export default function LabCalendar() {
         actualPeopleCount,
         actualComputerCount: selectedComputerIds.length,
         computerIds: selectedComputerIds,
+        initialCondition,
       },
     });
   };
@@ -236,6 +243,8 @@ export default function LabCalendar() {
         peopleCount={actualPeopleCount}
         selectedIds={selectedComputerIds}
         keyword={computerKeyword}
+        initialCondition={initialCondition}
+        onInitialConditionChange={setInitialCondition}
         pending={checkInMutation.isPending}
         onOpenChange={(open) => {
           if (!open) setCheckInEvent(null);
@@ -251,13 +260,13 @@ export default function LabCalendar() {
           if (!open) setCheckOutEvent(null);
         }}
         title="Xác nhận check-out"
-        description="Ghi nhận tình trạng phòng sau khi bàn giao. Bạn có thể để trống nếu không có ghi chú."
+        description="Kiểm tra máy và phụ kiện, ghi rõ tình trạng khi nhận lại để lưu lịch sử bàn giao."
         reference={checkOutEvent ? `${checkOutEvent.title}${checkOutEvent.requester?.fullName ? ` · ${checkOutEvent.requester.fullName}` : ""}` : undefined}
         label="Tình trạng sau bàn giao"
         placeholder="Ví dụ: Phòng đã được kiểm tra, không có bất thường..."
         confirmLabel="Xác nhận check-out"
         destructive={false}
-        required={false}
+        required={Boolean(checkOutEvent?.numberOfComputers)}
         pending={checkOutMutation.isPending}
         error={checkOutError}
         onConfirm={(returnCondition) => {
@@ -279,6 +288,8 @@ function CheckInComputerDialog({
   peopleCount,
   selectedIds,
   keyword,
+  initialCondition,
+  onInitialConditionChange,
   pending,
   onOpenChange,
   onPeopleCountChange,
@@ -292,6 +303,8 @@ function CheckInComputerDialog({
   peopleCount: number;
   selectedIds: string[];
   keyword: string;
+  initialCondition: string;
+  onInitialConditionChange: (value: string) => void;
   pending: boolean;
   onOpenChange: (open: boolean) => void;
   onPeopleCountChange: (value: number) => void;
@@ -300,7 +313,8 @@ function CheckInComputerDialog({
   onSubmit: () => void;
 }) {
   const requested = event?.numberOfComputers ?? 0;
-  const filtered = computers.filter((computer) =>
+  const assigned = Boolean(event?.computerItems?.length);
+  const filtered = computers.filter((computer) => (!assigned || event?.computerItems?.some(c => c.computerId === computer.id)) &&
     `${computer.code} ${computer.name} ${computer.position || ""}`
       .toLowerCase()
       .includes(keyword.toLowerCase()),
@@ -322,10 +336,10 @@ function CheckInComputerDialog({
     <Dialog open={Boolean(event)} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Check-in và chọn máy sử dụng</DialogTitle>
+          <DialogTitle>Xác nhận bàn giao máy</DialogTitle>
           <DialogDescription>
             {event?.title}{event?.requester?.fullName ? ` · Người đăng ký: ${event.requester.fullName}` : ""} · yêu cầu {requested} máy. Mỗi máy được chọn sẽ có
-            giờ vào và giờ rời riêng.
+            lịch sử người đứng tên và giờ nhận/trả. Với đăng ký nhiều máy, người đứng tên đại diện nhận các máy trong phiếu.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
@@ -346,7 +360,7 @@ function CheckInComputerDialog({
                 Dự kiến theo lịch: {requested} máy
               </p>
             </div>
-            {requested > 0 && (
+            {requested > 0 && !assigned && (
               <Button
                 className="mt-3 w-full"
                 type="button"
@@ -360,6 +374,7 @@ function CheckInComputerDialog({
             )}
           </div>
           <div>
+            {assigned && <p className="mb-3 text-sm font-semibold text-blue-800">Máy đã đăng ký: {event?.computerItems?.map(c => c.computerCode).join(', ')}. Cần bàn giao đúng danh sách này.</p>}
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
@@ -390,6 +405,7 @@ function CheckInComputerDialog({
                       key={computer.id}
                       type="button"
                       onClick={() => toggle(computer.id)}
+                      disabled={assigned}
                       className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${selected ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100" : "border-slate-200 hover:border-blue-300"}`}
                     >
                       <span
@@ -419,6 +435,7 @@ function CheckInComputerDialog({
             </div>
           </div>
         </div>
+        {requested > 0 && <label className="mt-4 block text-sm font-medium">Tình trạng máy và phụ kiện khi bàn giao<textarea required className="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm" rows={3} maxLength={4000} value={initialCondition} onChange={e=>onInitialConditionChange(e.target.value)} placeholder="Ví dụ: DEMO-PC-01 hoạt động tốt, đủ chuột, bàn phím, màn hình; không có hư hỏng bên ngoài." /></label>}
         <DialogFooter>
           <Button
             variant="outline"

@@ -15,7 +15,8 @@ import {
   type BookingRequester,
   type CreateBookingPayload,
 } from "@/services/booking-api";
-import { LendingCatalog, nearbyPeriod } from './LendingCatalog';
+import { nearbyPeriod } from './LendingCatalog';
+import { BorrowingCatalog } from './BorrowingCatalog';
 import { useAuth } from "@/features/auth/AuthContext";
 import { DataTable, SortHeader } from "@/components/data-table/data-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -44,13 +45,15 @@ const schema = z
     endTime: z.string().min(1, "Chọn giờ kết thúc."),
     numberOfPeople: z.coerce.number().min(1),
     numberOfComputers: z.coerce.number().min(0),
+    computerIds: z.array(z.string()).default([]),
     equipments: z.array(z.object({
-      equipmentId: z.string(),
+      equipmentId: z.string().min(1, "Chọn thiết bị cho mượn."),
       quantity: z.coerce.number().int().min(1, "Số lượng phải từ 1."),
     })),
     note: z.string().optional(),
   })
   .superRefine((value, context) => {
+    if (value.bookingType === 'COMPUTERS_ONLY' && !value.computerIds.length) context.addIssue({ code: z.ZodIssueCode.custom, path: ['computerIds'], message: 'Chọn ít nhất một máy tính.' });
     if (value.bookingType === "EQUIPMENT_ONLY") {
       if (value.equipments.length === 0) {
         context.addIssue({
@@ -219,7 +222,8 @@ export default function BookingsPage() {
       purposeGroupId: "",
       numberOfPeople: 1,
       numberOfComputers: 0,
-      equipments: [{ equipmentId: "", quantity: 1 }],
+      computerIds: [],
+      equipments: [],
       note: "",
     },
   });
@@ -242,6 +246,7 @@ export default function BookingsPage() {
   const availableEquipments = equipmentList?.data.filter(item => item.availableQuantity > 0) || [];
   const equipmentCategoryName = new Map(equipmentList?.data.map(item => [item.categoryId, item.categoryName]) || []);
   const equipmentValues = watch("equipments");
+  const selectedComputerIds = watch('computerIds') || [];
   const requestedEquipmentCount = equipmentValues.reduce(
     (total, item) => total + (Number(item.quantity) || 0),
     0,
@@ -251,6 +256,8 @@ export default function BookingsPage() {
     void queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
     void queryClient.invalidateQueries({ queryKey: ["pending-bookings"] });
     void queryClient.invalidateQueries({ queryKey: ["booking-calendar"] });
+    void queryClient.invalidateQueries({ queryKey: ["lending-catalog"] });
+    void queryClient.invalidateQueries({ queryKey: ["computer-booking-history"] });
   };
 
   const createMutation = useMutation({
@@ -301,8 +308,9 @@ export default function BookingsPage() {
       startTime: new Date(value.startTime).toISOString(),
       endTime: new Date(value.endTime).toISOString(),
       numberOfComputers:
-        value.bookingType === "EQUIPMENT_ONLY" ? 0 : value.numberOfComputers,
-      equipments: value.bookingType === "EQUIPMENT_ONLY" ? value.equipments : [],
+        value.bookingType === "EQUIPMENT_ONLY" ? 0 : value.computerIds.length,
+      computerIds: value.bookingType === 'EQUIPMENT_ONLY' ? [] : value.computerIds,
+      equipments: value.equipments,
     });
 
   const columns = useMemo<ColumnDef<BookingData>[]>(
@@ -371,7 +379,7 @@ export default function BookingsPage() {
             {row.original.bookingType === "EQUIPMENT_ONLY" ? (
               <>{requestedEquipmentQuantity(row.original)} thiết bị</>
             ) : (
-              <>{row.original.numberOfPeople} người · {row.original.numberOfComputers} máy</>
+              <>{row.original.numberOfPeople} người · {row.original.numberOfComputers} máy<span className="mt-1 block text-blue-700">{row.original.computerItems?.map(c => c.computerCode).join(', ') || 'Phân máy khi nhận phòng (lịch cũ)'}</span></>
             )}
           </span>
         ),
@@ -443,13 +451,12 @@ export default function BookingsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Booking"
         title="Yêu cầu đăng ký"
-        description="Tạo, theo dõi và phê duyệt yêu cầu sử dụng phòng Lab."
+        description="Chọn máy, mượn thiết bị và theo dõi yêu cầu sử dụng phòng Lab."
       >
         {canCreate && (
           <Button onClick={() => {
-            reset({ bookingType: 'FULL_LAB', ...nearbyPeriod(), purpose: '', numberOfPeople: 1, numberOfComputers: 0, equipments: [], note: '' });
+            reset({ bookingType: 'FULL_LAB', ...nearbyPeriod(), purpose: '', numberOfPeople: 1, numberOfComputers: 0, computerIds: [], equipments: [], note: '' });
             setSelectedRequester(currentRequester);
             setRequesterKeyword("");
             setCreateOpen(true);
@@ -481,8 +488,8 @@ export default function BookingsPage() {
       </div>
       <Card>
         <CardContent className="p-5">
-          <div className="mb-5 flex gap-1 rounded-xl bg-slate-100 p-1 sm:w-fit">
-            {canCreate && <button type="button" onClick={() => setTab('catalog')} className={`rounded-lg px-4 py-2 text-xs font-bold transition ${tab === 'catalog' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}>Máy & thiết bị có thể mượn</button>}
+          <div className="mb-5 flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 sm:w-fit">
+            {canCreate && <button type="button" aria-pressed={tab === 'catalog'} onClick={() => setTab('catalog')} className={`rounded-lg px-4 py-2 text-sm font-bold transition ${tab === 'catalog' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600'}`}>Chọn máy & thiết bị</button>}
             <button
               type="button"
               onClick={() => setTab("mine")}
@@ -568,8 +575,8 @@ export default function BookingsPage() {
               )}
             </div>
           )}
-          {tab === 'catalog' && canCreate && <LendingCatalog onSelect={selection => {
-            reset({ bookingType: selection.equipmentId ? 'EQUIPMENT_ONLY' : 'COMPUTERS_ONLY', startTime: selection.startTime, endTime: selection.endTime, purpose: '', numberOfPeople: selection.equipmentId ? 1 : selection.quantity, numberOfComputers: selection.equipmentId ? 0 : selection.quantity, equipments: selection.equipmentId ? [{ equipmentId: selection.equipmentId, quantity: selection.quantity }] : [], note: '' });
+          {tab === 'catalog' && canCreate && <BorrowingCatalog onSelect={selection => {
+            reset({ bookingType: selection.computerIds.length ? 'COMPUTERS_ONLY' : 'EQUIPMENT_ONLY', startTime: selection.startTime, endTime: selection.endTime, purpose: '', numberOfPeople: Math.max(1, selection.computerIds.length), numberOfComputers: selection.computerIds.length, computerIds: selection.computerIds, equipments: selection.equipments, note: '' });
             setSelectedRequester(currentRequester); setRequesterKeyword(''); setCreateOpen(true);
           }} />}
           {tab !== "categories" && (tab !== 'catalog' || !canCreate) && (
@@ -668,7 +675,7 @@ export default function BookingsPage() {
                 className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
               >
                 <option value="FULL_LAB">Sử dụng toàn bộ phòng</option>
-                <option value="COMPUTERS_ONLY">Chỉ sử dụng máy tính</option>
+                <option value="COMPUTERS_ONLY">Sử dụng máy tính (có thể mượn kèm thiết bị)</option>
                 <option value="EQUIPMENT_ONLY">Chỉ mượn thiết bị</option>
               </select>
             </Field>
@@ -721,23 +728,24 @@ export default function BookingsPage() {
             )}
             {bookingType !== "EQUIPMENT_ONLY" && (
               <Field
-                label="Số máy tính"
-                error={errors.numberOfComputers?.message}
+                label={`Chọn máy tính (${selectedComputerIds.length} máy)`}
+                error={errors.computerIds?.message}
               >
-                <Input
-                  type="number"
-                  min={0}
-                  {...register("numberOfComputers")}
-                />
+                <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">
+                  {!validPeriod ? <p className="text-sm text-slate-600">Chọn giờ bắt đầu và kết thúc trước.</p> : loadingEquipments ? <p role="status">Đang kiểm tra máy trống…</p> : equipmentError ? <p role="alert">Không tải được danh sách máy. Vui lòng thử lại.</p> : <>
+                    {(equipmentList?.computers.items || []).map(c => <label key={c.id} className="flex items-start gap-2 text-sm"><input type="checkbox" value={c.id} {...register('computerIds')} disabled={!c.available && !selectedComputerIds.includes(c.id)} className="mt-1 h-4 w-4 accent-blue-600" /><span>{c.code} · {c.position || c.name}<span className="block text-xs text-slate-600">{c.available ? 'Trống theo giờ đã chọn' : 'Không còn khả dụng – cần bỏ chọn'}</span></span></label>)}
+                    {!equipmentList?.computers.items?.length && <p className="text-sm text-slate-600">Chưa có máy tính.</p>}
+                  </>}
+                </div>
               </Field>
             )}
-            {bookingType === "EQUIPMENT_ONLY" && (
-              <div className="sm:col-span-2 rounded-2xl border border-blue-100 bg-blue-50/50 p-3">
+            {(
+              <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold text-slate-700">Danh mục thiết bị cho mượn</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      Chọn thiết bị (ví dụ ESP/IoT) và số lượng cần mượn.
+                    <p className="text-sm font-bold text-slate-900">{bookingType === "EQUIPMENT_ONLY" ? "Thiết bị đăng ký mượn" : "Thiết bị mượn kèm (tùy chọn)"}</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Kiểm tra tên và số lượng thiết bị trước khi gửi yêu cầu.
                     </p>
                   </div>
                   <Badge variant="outline" className="shrink-0 bg-white text-blue-700">

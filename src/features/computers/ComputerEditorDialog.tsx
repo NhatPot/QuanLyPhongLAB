@@ -27,6 +27,7 @@ import { computerApi, type ComputerData } from "@/services/computer-api";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { MiniMetricsChart } from "./MiniMetricsChart";
+import { ComputerBookingHistory } from './ComputerBookingHistory';
 
 const computerSchema = z.object({
   code: z.string().min(1, "Mã máy không được để trống."),
@@ -584,6 +585,8 @@ export function ComputerEditorDialog({
                     })()}
                   </div>
                 </fieldset>
+
+                {computer && <ComputerBookingHistory key={computer.id} computerId={computer.id} />}
 
                 <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>

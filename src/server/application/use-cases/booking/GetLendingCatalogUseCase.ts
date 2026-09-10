@@ -5,6 +5,7 @@ import { ILabProfileRepository } from "../../../domain/repositories/ILabProfileR
 import { IAvailabilityQueryService } from "../../../domain/services/IAvailabilityQueryService";
 import { lendableQuantity } from "../../../domain/services/lending-availability";
 import { ValidationError } from "../../../shared/errors/AppError";
+import { IComputerBookingRepository } from '../../../domain/repositories/IComputerBookingRepository';
 
 export class GetLendingCatalogUseCase {
   constructor(
@@ -13,6 +14,7 @@ export class GetLendingCatalogUseCase {
     private computers: IComputerRepository,
     private lab: ILabProfileRepository,
     private availability: IAvailabilityQueryService,
+    private computerBookings?: IComputerBookingRepository,
   ) {}
   async execute(input: {
     startTime: Date;
@@ -52,6 +54,8 @@ export class GetLendingCatalogUseCase {
       ]);
     const open =
       profile?.status === "ACTIVE" && profile.canAcceptRegularBooking();
+    const computerItems = this.computerBookings ? await this.computerBookings.listAvailability(input.startTime, input.endTime) : [];
+    const count = open && !overlap.hasFullLabBooking ? Math.max(0, Math.min(active, active + inUse.total - overlap.totalReservedComputers, this.computerBookings ? computerItems.filter(c => c.available).length : active)) : 0;
     return {
       data: list.data
         .filter((eq) => eq.isLendable && eq.status === "ACTIVE")
@@ -71,16 +75,8 @@ export class GetLendingCatalogUseCase {
             : 0,
         })),
       computers: {
-        available:
-          open && !overlap.hasFullLabBooking
-            ? Math.max(
-                0,
-                Math.min(
-                  active,
-                  active + inUse.total - overlap.totalReservedComputers,
-                ),
-              )
-            : 0,
+        available: count,
+        items: computerItems.map(c => ({ ...c, available: Boolean(open && count > 0 && c.available) })),
       },
       labAvailable: Boolean(open),
       meta: {
