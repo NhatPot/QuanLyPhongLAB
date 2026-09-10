@@ -115,11 +115,11 @@ export class SqlIncidentReportRepository implements IIncidentReportRepository {
     };
   }
 
-  public async getOptions(): Promise<IncidentOptions> {
+  public async getOptions(lendableOnly = false): Promise<IncidentOptions> {
     const pool = await SqlConnectionFactory.getPool();
     const result = await pool.request().query(`
       SELECT Id, Code, Name, Status FROM Computers WHERE DeletedAt IS NULL ORDER BY Code;
-      SELECT Id, Code, Name, BrokenQuantity, LostQuantity FROM Equipments WHERE DeletedAt IS NULL ORDER BY Code;
+      SELECT Id, Code, Name, BrokenQuantity, LostQuantity FROM Equipments WHERE DeletedAt IS NULL ${lendableOnly ? 'AND IsLendable = 1' : ''} ORDER BY Code;
       SELECT TOP 100 Id, RequestCode AS Code, Purpose, Status FROM BookingRequests ORDER BY CreatedAt DESC;
       SELECT DISTINCT u.Id, u.FullName, u.Username
       FROM Users u

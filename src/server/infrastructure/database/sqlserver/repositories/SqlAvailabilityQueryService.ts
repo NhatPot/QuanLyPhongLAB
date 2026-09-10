@@ -27,14 +27,14 @@ export class SqlAvailabilityQueryService implements IAvailabilityQueryService {
         b.BookingType,
         b.NumberOfComputers,
         b.StartTime,
-        b.EndTime,
+        CASE WHEN b.Status IN ('CHECKED_IN', 'OVERDUE') AND b.EndTime < @endTime THEN @endTime ELSE b.EndTime END AS EndTime,
         i.EquipmentId,
         i.RequestedQuantity
       FROM BookingRequests b
       LEFT JOIN BookingEquipmentItems i ON b.Id = i.BookingRequestId
-      WHERE b.Status IN ('APPROVED', 'CHECKED_IN')
+      WHERE b.Status IN ('APPROVED', 'CHECKED_IN', 'OVERDUE')
       AND b.StartTime < @endTime 
-      AND b.EndTime > @startTime
+      AND (b.EndTime > @startTime OR b.Status IN ('CHECKED_IN', 'OVERDUE'))
       ${excludeCondition}
     `;
 

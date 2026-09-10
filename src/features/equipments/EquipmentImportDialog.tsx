@@ -232,7 +232,8 @@ export function EquipmentImportDialog({
             <p className="text-sm text-slate-600">
               Chỉ thêm thiết bị mới, không ghi đè mã đã có. Số lượng trống = 1;
               mã trống được cấp theo danh mục. Muốn tăng tồn kho thiết bị cũ,
-              dùng thao tác Kho.
+                dùng thao tác Kho.
+                Thiết bị nhập từ file mặc định là nội bộ Lab. Sau khi kiểm tra, vào Sửa để bật Cho phép mượn cho từng thiết bị phù hợp.
             </p>
             {busy && (
               <p

@@ -14,6 +14,13 @@ export class ApproveBookingUseCase {
   ) {}
 
   public async execute(bookingId: string, adminId: string) {
+    return this.uow.complete(async () => {
+      await this.bookingRepo.lockAvailability(this.uow.getTransaction());
+      return this.approveWithLock(bookingId, adminId);
+    });
+  }
+
+  private async approveWithLock(bookingId: string, adminId: string) {
     const booking = await this.bookingRepo.findById(bookingId);
     if (!booking) throw new Error("Không tìm thấy BookingRequest");
 

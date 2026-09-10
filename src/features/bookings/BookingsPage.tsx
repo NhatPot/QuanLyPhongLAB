@@ -15,7 +15,7 @@ import {
   type BookingRequester,
   type CreateBookingPayload,
 } from "@/services/booking-api";
-import { equipmentApi } from "@/services/equipment-api";
+import { LendingCatalog, nearbyPeriod } from './LendingCatalog';
 import { useAuth } from "@/features/auth/AuthContext";
 import { DataTable, SortHeader } from "@/components/data-table/data-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -120,7 +120,7 @@ export default function BookingsPage() {
   const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
-  const [tab, setTab] = useState<"mine" | "pending" | "categories">("mine");
+  const [tab, setTab] = useState<"catalog" | "mine" | "pending" | "categories">("catalog");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [rejectTarget, setRejectTarget] = useState<BookingData | null>(null);
   const [cancelTarget, setCancelTarget] = useState<BookingData | null>(null);
@@ -179,26 +179,6 @@ export default function BookingsPage() {
     enabled: createOpen && canCreateForUser,
     staleTime: 30_000,
   });
-  const { data: equipmentList, isLoading: loadingEquipments, error: equipmentError } = useQuery({
-    queryKey: ["booking-equipment-options"],
-    queryFn: () => equipmentApi.list({ status: "ACTIVE", page: 1, pageSize: 500 }),
-    enabled: createOpen && canCreate,
-    staleTime: 30_000,
-  });
-  const { data: equipmentCategories = [] } = useQuery({
-    queryKey: ["booking-equipment-categories"],
-    queryFn: equipmentApi.listCategories,
-    enabled: createOpen && canCreate,
-    staleTime: 60_000,
-  });
-  const availableEquipments = useMemo(
-    () => (equipmentList?.data || []).filter((item) => item.status === "ACTIVE" && item.availableQuantity > 0),
-    [equipmentList],
-  );
-  const equipmentCategoryName = useMemo(
-    () => new Map(equipmentCategories.map((category) => [category.id, category.name])),
-    [equipmentCategories],
-  );
   const visibleRequesterOptions = useMemo(() => {
     const options = selectedRequester ? [selectedRequester, ...requesterOptions] : requesterOptions;
     return options.filter((option, index) => options.findIndex((candidate) => candidate.id === option.id) === index);
@@ -245,6 +225,22 @@ export default function BookingsPage() {
   });
   const equipmentFields = useFieldArray({ control, name: "equipments" });
   const bookingType = watch("bookingType");
+  const startTime = watch('startTime');
+  const endTime = watch('endTime');
+  const validPeriod = Boolean(startTime && endTime && new Date(startTime) > new Date() && new Date(endTime) > new Date(startTime));
+  const { data: equipmentList, isLoading: loadingEquipments, error: equipmentError } = useQuery({
+    queryKey: ['booking-equipment-options', startTime, endTime],
+    queryFn: async () => {
+      const params = { startTime: new Date(startTime).toISOString(), endTime: new Date(endTime).toISOString() };
+      const first = await bookingApi.catalog(params);
+      // The dropdown must not silently omit devices after the first catalog page.
+      const rest = await Promise.all(Array.from({ length: first.meta.totalPages - 1 > 0 ? first.meta.totalPages - 1 : 0 }, (_, i) => bookingApi.catalog({ ...params, page: i + 2 })));
+      return { ...first, data: [...first.data, ...rest.flatMap(result => result.data)] };
+    },
+    enabled: createOpen && canCreate && validPeriod,
+  });
+  const availableEquipments = equipmentList?.data.filter(item => item.availableQuantity > 0) || [];
+  const equipmentCategoryName = new Map(equipmentList?.data.map(item => [item.categoryId, item.categoryName]) || []);
   const equipmentValues = watch("equipments");
   const requestedEquipmentCount = equipmentValues.reduce(
     (total, item) => total + (Number(item.quantity) || 0),
@@ -453,6 +449,7 @@ export default function BookingsPage() {
       >
         {canCreate && (
           <Button onClick={() => {
+            reset({ bookingType: 'FULL_LAB', ...nearbyPeriod(), purpose: '', numberOfPeople: 1, numberOfComputers: 0, equipments: [], note: '' });
             setSelectedRequester(currentRequester);
             setRequesterKeyword("");
             setCreateOpen(true);
@@ -485,6 +482,7 @@ export default function BookingsPage() {
       <Card>
         <CardContent className="p-5">
           <div className="mb-5 flex gap-1 rounded-xl bg-slate-100 p-1 sm:w-fit">
+            {canCreate && <button type="button" onClick={() => setTab('catalog')} className={`rounded-lg px-4 py-2 text-xs font-bold transition ${tab === 'catalog' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}>Máy & thiết bị có thể mượn</button>}
             <button
               type="button"
               onClick={() => setTab("mine")}
@@ -570,7 +568,11 @@ export default function BookingsPage() {
               )}
             </div>
           )}
-          {tab !== "categories" && (
+          {tab === 'catalog' && canCreate && <LendingCatalog onSelect={selection => {
+            reset({ bookingType: selection.equipmentId ? 'EQUIPMENT_ONLY' : 'COMPUTERS_ONLY', startTime: selection.startTime, endTime: selection.endTime, purpose: '', numberOfPeople: selection.equipmentId ? 1 : selection.quantity, numberOfComputers: selection.equipmentId ? 0 : selection.quantity, equipments: selection.equipmentId ? [{ equipmentId: selection.equipmentId, quantity: selection.quantity }] : [], note: '' });
+            setSelectedRequester(currentRequester); setRequesterKeyword(''); setCreateOpen(true);
+          }} />}
+          {tab !== "categories" && (tab !== 'catalog' || !canCreate) && (
             <>
               {tab === "pending" && pendingError && (
                 <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">

@@ -2,6 +2,7 @@ import { Entity } from './Entity';
 import { UniqueEntityId } from '../value-objects/UniqueEntityId';
 
 export interface EquipmentProps {
+  isLendable?: boolean;
   code: string;
   name: string;
   categoryId: string;
@@ -53,6 +54,7 @@ export class Equipment extends Entity<EquipmentProps> {
   }
 
   public get code(): string { return this.props.code; }
+  public get isLendable(): boolean { return this.props.isLendable === true; }
   public get name(): string { return this.props.name; }
   public get categoryId(): string { return this.props.categoryId; }
   public get totalQuantity(): number { return this.props.totalQuantity; }
@@ -115,6 +117,10 @@ export class Equipment extends Entity<EquipmentProps> {
     this.props.location = info.location !== undefined ? info.location : this.props.location;
     this.props.managerId = info.managerId !== undefined ? info.managerId : this.props.managerId;
     this.props.status = info.status ?? this.props.status;
+    if (info.isLendable !== undefined) {
+      if (typeof info.isLendable !== 'boolean') throw new Error('Chế độ cho mượn không hợp lệ.');
+      this.props.isLendable = info.isLendable;
+    }
     this.props.imageUrl = info.imageUrl !== undefined ? info.imageUrl : this.props.imageUrl;
     this.props.note = info.note !== undefined ? info.note : this.props.note;
     this.props.updatedAt = new Date();

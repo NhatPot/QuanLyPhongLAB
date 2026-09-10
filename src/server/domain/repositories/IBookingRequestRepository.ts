@@ -1,6 +1,7 @@
 import { BookingRequest } from '../entities/BookingRequest';
 
 export interface IBookingRequestRepository {
+  lockAvailability(transaction: any): Promise<void>;
   findById(id: string, transaction?: any): Promise<BookingRequest | null>;
   findByRequestCode(code: string): Promise<BookingRequest | null>;
   

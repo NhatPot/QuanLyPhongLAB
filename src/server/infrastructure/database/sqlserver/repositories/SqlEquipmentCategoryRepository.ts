@@ -29,9 +29,9 @@ export class SqlEquipmentCategoryRepository implements IEquipmentCategoryReposit
     return this.toDomain(result.recordset[0]);
   }
 
-  public async list(): Promise<EquipmentCategory[]> {
+  public async list(lendableOnly = false): Promise<EquipmentCategory[]> {
     const pool = await SqlConnectionFactory.getPool();
-    const result = await pool.request().query('SELECT * FROM EquipmentCategories ORDER BY Code ASC');
+    const result = await pool.request().input('lendableOnly', mssql.Bit, lendableOnly).query('SELECT c.* FROM EquipmentCategories c WHERE @lendableOnly = 0 OR EXISTS (SELECT 1 FROM Equipments e WHERE e.CategoryId = c.Id AND e.DeletedAt IS NULL AND e.IsLendable = 1) ORDER BY c.Code ASC');
     return result.recordset.map(row => this.toDomain(row));
   }
 

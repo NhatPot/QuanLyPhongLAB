@@ -14,6 +14,7 @@ export const createCategorySchema = z.object({
 
 export const createEquipmentSchema = z.object({
   body: z.object({
+    isLendable: z.boolean().default(false),
     quantity: z.coerce.number().int().min(1, 'Số lượng thiết bị tối thiểu là 1.').default(1),
     code: z.string().trim().max(50, 'Mã thiết bị tối đa 50 ký tự.').optional().default(''),
     name: z.string().min(1, 'Tên thiết bị không được trống.'),
@@ -31,6 +32,7 @@ export const updateEquipmentSchema = z.object({
     id: z.string().min(1, 'ID thiết bị không được trống.')
   }),
   body: z.object({
+    isLendable: z.boolean().optional(),
     code: z.string().min(1, 'Mã thiết bị không được trống.'),
     name: z.string().min(1, 'Tên thiết bị không được trống.'),
     categoryId: z.string().min(1, 'Mã danh mục không được trống.'),

@@ -1,4 +1,5 @@
 import { IIdGenerator } from '../../ports/IIdGenerator';
+import { canManageLabAssets } from '../../../../lib/lending-policy';
 import { IRolePermissionQuery } from '../../ports/IRolePermissionQuery';
 import { IncidentReport, IncidentSeverity } from '../../../domain/entities/IncidentReport';
 import { IAuditLogRepository } from '../../../domain/repositories/IAuditLogRepository';
@@ -60,7 +61,7 @@ export class GetIncidentSummaryUseCase {
 
 export class GetIncidentOptionsUseCase {
   constructor(private readonly incidentRepo: IIncidentReportRepository) {}
-  public execute() { return this.incidentRepo.getOptions(); }
+  public execute(context: IncidentOperationContext) { return this.incidentRepo.getOptions(!canManageLabAssets(context.roles)); }
 }
 
 export class GetIncidentUseCase {
@@ -76,7 +77,7 @@ export class CreateIncidentUseCase {
   constructor(private readonly deps: IncidentDependencies, private readonly idGenerator: IIdGenerator) {}
 
   public async execute(input: IncidentContentInput, context: IncidentOperationContext): Promise<IncidentDetail> {
-    await validateContentTargets(this.deps, input);
+    await validateContentTargets(this.deps, input, context);
     const id = this.idGenerator.generate();
     const incident = IncidentReport.create({
       code: incidentCode(id), reporterId: context.actorUserId,
@@ -104,7 +105,7 @@ export class UpdateIncidentUseCase {
   public async execute(id: string, input: IncidentContentInput, context: IncidentOperationContext): Promise<IncidentDetail> {
     const detail = await findIncident(this.deps.incidentRepo, id);
     assertMutableBy(detail, context);
-    await validateContentTargets(this.deps, input);
+    await validateContentTargets(this.deps, input, context);
     const oldValue = snapshot(detail.incident);
     transition(() => detail.incident.updateDetails({
       ...input,
@@ -168,10 +169,13 @@ export class CloseIncidentUseCase {
   }
 }
 
-async function validateContentTargets(deps: IncidentDependencies, input: IncidentContentInput): Promise<void> {
+async function validateContentTargets(deps: IncidentDependencies, input: IncidentContentInput, context: IncidentOperationContext): Promise<void> {
   if (input.computerId && input.equipmentId) throw new ValidationError('Một sự cố chỉ được liên kết với một loại tài sản.');
   if (input.computerId && !(await deps.computerRepo.findById(input.computerId))) throw new NotFoundError('Không tìm thấy máy tính liên quan.');
-  if (input.equipmentId && !(await deps.equipmentRepo.findById(input.equipmentId))) throw new NotFoundError('Không tìm thấy thiết bị liên quan.');
+  if (input.equipmentId) {
+    const equipment = await deps.equipmentRepo.findById(input.equipmentId);
+    if (!equipment || (!canManageLabAssets(context.roles) && !equipment.isLendable)) throw new NotFoundError('Không tìm thấy thiết bị liên quan.');
+  }
   if (input.bookingRequestId && !(await deps.bookingRepo.findById(input.bookingRequestId))) throw new NotFoundError('Không tìm thấy yêu cầu sử dụng liên quan.');
 }
 

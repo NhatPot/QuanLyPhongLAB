@@ -6,6 +6,7 @@ import { IEquipmentCategoryRepository } from '../../../domain/repositories/IEqui
 import { Equipment } from '../../../domain/entities/Equipment';
 
 export interface CreateEquipmentInput {
+  isLendable?: boolean;
   code?: string;
   name: string;
   categoryId: string;
@@ -31,6 +32,7 @@ export class CreateEquipmentUseCase {
 
   public async execute(input: CreateEquipmentInput): Promise<Result<Equipment>> {
     try {
+      if (input.isLendable !== undefined && typeof input.isLendable !== 'boolean') return Result.fail('Chế độ cho mượn không hợp lệ.');
       const requestedCode = input.code?.trim() || '';
       const code = requestedCode || await this.generateCodeFromCategory(input.categoryId);
       if (!code) {
@@ -48,6 +50,7 @@ export class CreateEquipmentUseCase {
       }
 
       const equipment = Equipment.create({
+        isLendable: input.isLendable === true,
         code,
         name: input.name,
         categoryId: input.categoryId,

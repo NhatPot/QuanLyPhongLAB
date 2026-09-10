@@ -4,6 +4,13 @@ import { BookingRequest, BookingType, BookingStatus } from '../../../../domain/e
 import { SqlConnectionFactory } from '../connection';
 
 export class SqlBookingRequestRepository implements IBookingRequestRepository {
+  public async lockAvailability(transaction: mssql.Transaction): Promise<void> {
+    await new mssql.Request(transaction).query(`
+      DECLARE @lockResult INT;
+      EXEC @lockResult = sys.sp_getapplock @Resource = N'LabBookingApproval', @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 10000;
+      IF @lockResult < 0 THROW 50001, N'Đang có lượt duyệt khác. Vui lòng thử lại.', 1;
+    `);
+  }
   public async findById(id: string, transaction?: mssql.Transaction): Promise<BookingRequest | null> {
     const request = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
     const result = await request

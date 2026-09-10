@@ -141,7 +141,7 @@ export function createBookingRouter(): Router {
   const listPendingBookingsUseCase = new ListPendingBookingsUseCase(bookingRepo, equipmentItemRepo, userRepo);
   const approveBookingUseCase = new ApproveBookingUseCase(bookingRepo, equipmentItemRepo, checkAvailabilityUseCase, uow, auditLogRepo);
   const rejectBookingUseCase = new RejectBookingUseCase(bookingRepo, uow, auditLogRepo);
-  const checkInBookingUseCase = new CheckInBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo);
+  const checkInBookingUseCase = new CheckInBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo, equipmentRepo, equipmentItemRepo);
   const checkOutBookingUseCase = new CheckOutBookingUseCase(bookingRepo, checkInOutLogRepo, computerRepo, computerActivityRepo, uow, auditLogRepo);
   const getLabUsageStatisticsUseCase = new GetLabUsageStatisticsUseCase(checkInOutLogRepo, computerActivityRepo);
   const listBookingRequesterOptionsUseCase = new ListBookingRequesterOptionsUseCase(userRepo);

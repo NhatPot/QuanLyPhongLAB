@@ -1,5 +1,12 @@
 import { apiClient } from './api-client';
 
+export interface LendingCatalogData {
+  data: Array<{ id: string; code: string; name: string; categoryId: string; categoryName: string; availableQuantity: number }>;
+  computers: { available: number };
+  labAvailable: boolean;
+  meta: { page: number; pageSize: number; totalItems: number; totalPages: number };
+}
+
 export type BookingStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'CHECKED_IN' | 'COMPLETED';
 export type BookingType = 'FULL_LAB' | 'COMPUTERS_ONLY' | 'EQUIPMENT_ONLY';
 
@@ -172,6 +179,10 @@ export interface LabUsageStatistics {
 }
 
 export const bookingApi = {
+  catalog: async (params: { startTime: string; endTime: string; keyword?: string; page?: number }): Promise<LendingCatalogData> => {
+    const response = await apiClient.get('/bookings/catalog', { params });
+    return response.data.data;
+  },
   purposeOptions: async (): Promise<BookingPurposeOption[]> => {
     const response = await apiClient.get('/bookings/purpose-options');
     return response.data.data;

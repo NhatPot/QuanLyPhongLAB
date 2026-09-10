@@ -310,6 +310,10 @@ export const ROLE_PERMISSION_PRESETS: Record<RoleCode, string[]> = {
   ],
 };
 
+for (const role of Object.keys(ROLE_PERMISSION_PRESETS) as RoleCode[]) {
+  ROLE_PERMISSION_PRESETS[role] = [...new Set([...ROLE_PERMISSION_PRESETS[role], 'BOOKING_CREATE', 'BOOKING_VIEW_OWN', 'BOOKING_CANCEL_OWN'])];
+}
+
 export const INITIAL_USERS: UserRecord[] = [
   {
     id: 'usr-001',

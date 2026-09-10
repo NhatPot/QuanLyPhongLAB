@@ -38,6 +38,7 @@ export function EquipmentDetailDialog({
           category ? `${category.name} (${category.code})` : data.categoryId,
         ],
         ["Vị trí cất giữ", data.location || "Chưa cập nhật"],
+        ['Chế độ sử dụng', data.isLendable ? 'Cho phép mượn' : 'Nội bộ Lab — không cho mượn'],
         [
           "Trạng thái hoạt động",
           {

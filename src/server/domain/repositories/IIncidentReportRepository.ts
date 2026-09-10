@@ -55,6 +55,6 @@ export interface IIncidentReportRepository {
   findById(id: string, transaction?: any): Promise<IncidentDetail | null>;
   list(filters: IncidentListFilters): Promise<{ data: IncidentDetail[]; total: number }>;
   getSummary(visibility: IncidentVisibility): Promise<IncidentSummary>;
-  getOptions(): Promise<IncidentOptions>;
+  getOptions(lendableOnly?: boolean): Promise<IncidentOptions>;
   save(incident: IncidentReport, transaction?: any): Promise<void>;
 }

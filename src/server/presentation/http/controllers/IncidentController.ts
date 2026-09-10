@@ -54,7 +54,7 @@ export class IncidentController {
   };
 
   public options = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try { res.status(200).json(ApiResponse.success(await this.optionsUseCase.execute())); }
+    try { res.status(200).json(ApiResponse.success(await this.optionsUseCase.execute(this.context(_req)))); }
     catch (error) { next(error); }
   };
 

@@ -12,6 +12,7 @@ import { DeleteEquipmentCategoryUseCase } from '../../../application/use-cases/e
 import { IEquipmentInventoryTransactionRepository } from '../../../domain/repositories/IEquipmentInventoryTransactionRepository';
 import { ApiResponse } from '../presenters/ApiResponse';
 import { Equipment } from '../../../domain/entities/Equipment';
+import { canManageLabAssets } from '../../../../lib/lending-policy';
 import { UpdateEquipmentCategoryUseCase } from '../../../application/use-cases/equipment-category/UpdateEquipmentCategoryUseCase';
 
 export class EquipmentController {
@@ -56,7 +57,7 @@ export class EquipmentController {
   };
 
   public listCategories = async (req: Request, res: Response): Promise<void> => {
-    const result = await this.listCategoriesUseCase.execute();
+    const result = await this.listCategoriesUseCase.execute(!canManageLabAssets(req.user?.roles));
     if (!result.isSuccess) {
       res.status(400).json(ApiResponse.error('BAD_REQUEST', result.getError(), null, req.correlationId));
       return;
@@ -65,7 +66,7 @@ export class EquipmentController {
       id: cat.id.toString(),
       code: cat.code,
       name: cat.name,
-      description: cat.description
+      description: canManageLabAssets(req.user?.roles) ? cat.description : undefined
     }));
     res.status(200).json(ApiResponse.success(list));
   };
@@ -98,7 +99,7 @@ export class EquipmentController {
   };
 
   public get = async (req: Request, res: Response): Promise<void> => {
-    const result = await this.getEquipmentUseCase.execute(req.params.id as string);
+    const result = await this.getEquipmentUseCase.execute(req.params.id as string, !canManageLabAssets(req.user?.roles));
     if (!result.isSuccess) {
       res.status(404).json(ApiResponse.error('NOT_FOUND', result.getError(), null, req.correlationId));
       return;
@@ -113,7 +114,7 @@ export class EquipmentController {
     const categoryId = req.query.categoryId as string;
     const status = req.query.status as string;
 
-    const result = await this.listEquipmentUseCase.execute({ page, pageSize, keyword, categoryId, status });
+    const result = await this.listEquipmentUseCase.execute({ page, pageSize, keyword, categoryId, status, lendableOnly: !canManageLabAssets(req.user?.roles) || req.query.lendableOnly === 'true' });
     if (!result.isSuccess) {
       res.status(400).json(ApiResponse.error('BAD_REQUEST', result.getError(), null, req.correlationId));
       return;
@@ -217,6 +218,10 @@ export class EquipmentController {
   };
 
   public listTransactions = async (req: Request, res: Response): Promise<void> => {
+    if (!canManageLabAssets(req.user?.roles)) {
+      res.status(403).json(ApiResponse.error('FORBIDDEN', 'Chỉ nhân sự quản lý Lab được xem lịch sử kho.', null, req.correlationId));
+      return;
+    }
     const equipmentId = req.params.id as string;
     try {
       const txs = await this.transactionRepo.listByEquipmentId(equipmentId);
@@ -245,6 +250,7 @@ export class EquipmentController {
 
   private toResponseDto(e: Equipment): any {
     return {
+      isLendable: e.isLendable,
       id: e.id.toString(),
       code: e.code,
       name: e.name,

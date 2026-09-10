@@ -1,6 +1,7 @@
 import { Equipment } from '../entities/Equipment';
 
 export interface EquipmentFilter {
+  lendableOnly?: boolean;
   keyword?: string;
   categoryId?: string;
   status?: string;

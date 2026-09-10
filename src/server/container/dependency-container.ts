@@ -33,6 +33,7 @@ import { SqlComputerRepository } from '../infrastructure/database/sqlserver/repo
 import { SqlEquipmentCategoryRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentCategoryRepository';
 import { SqlEquipmentRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentRepository';
 import { UpdateEquipmentCategoryUseCase } from '../application/use-cases/equipment-category/UpdateEquipmentCategoryUseCase';
+import { GetLendingCatalogUseCase } from '../application/use-cases/booking/GetLendingCatalogUseCase';
 import { SqlEquipmentInventoryTransactionRepository } from '../infrastructure/database/sqlserver/repositories/SqlEquipmentInventoryTransactionRepository';
 import { SqlBookingRequestRepository } from '../infrastructure/database/sqlserver/repositories/SqlBookingRequestRepository';
 import { SqlBookingEquipmentItemRepository } from '../infrastructure/database/sqlserver/repositories/SqlBookingEquipmentItemRepository';
@@ -209,6 +210,7 @@ class DependencyContainer {
   public readonly bookingEqItemRepo: IBookingEquipmentItemRepository;
   public readonly checkInOutLogRepo: ICheckInOutLogRepository;
   public readonly availabilityQueryService: IAvailabilityQueryService;
+  public readonly getLendingCatalogUseCase: GetLendingCatalogUseCase;
   public readonly maintenanceRepo: IMaintenanceScheduleRepository;
   public readonly computerActivityRepo: IComputerActivityRepository;
   public readonly incidentRepo: IIncidentReportRepository;
@@ -362,6 +364,7 @@ class DependencyContainer {
     this.bookingEqItemRepo = new SqlBookingEquipmentItemRepository();
     this.checkInOutLogRepo = new SqlCheckInOutLogRepository();
     this.availabilityQueryService = new SqlAvailabilityQueryService();
+    this.getLendingCatalogUseCase = new GetLendingCatalogUseCase(this.equipmentRepo, this.equipmentCategoryRepo, this.computerRepo, this.labProfileRepo, this.availabilityQueryService);
     this.maintenanceRepo = new SqlMaintenanceScheduleRepository();
     this.computerActivityRepo = new SqlComputerActivityRepository();
     this.incidentRepo = new SqlIncidentReportRepository();
@@ -453,7 +456,7 @@ class DependencyContainer {
     this.listPendingBookingsUseCase = new ListPendingBookingsUseCase(this.bookingRepo, this.bookingEqItemRepo, this.userRepo);
     this.approveBookingUseCase = new ApproveBookingUseCase(this.bookingRepo, this.bookingEqItemRepo, this.checkAvailabilityUseCase, this.uow, this.auditLogRepo);
     this.rejectBookingUseCase = new RejectBookingUseCase(this.bookingRepo, this.uow, this.auditLogRepo);
-    this.checkInBookingUseCase = new CheckInBookingUseCase(this.bookingRepo, this.checkInOutLogRepo, this.computerRepo, this.computerActivityRepo, this.uow, this.auditLogRepo);
+    this.checkInBookingUseCase = new CheckInBookingUseCase(this.bookingRepo, this.checkInOutLogRepo, this.computerRepo, this.computerActivityRepo, this.uow, this.auditLogRepo, this.equipmentRepo, this.bookingEqItemRepo);
     this.checkOutBookingUseCase = new CheckOutBookingUseCase(this.bookingRepo, this.checkInOutLogRepo, this.computerRepo, this.computerActivityRepo, this.uow, this.auditLogRepo);
     this.getLabUsageStatisticsUseCase = new GetLabUsageStatisticsUseCase(this.checkInOutLogRepo, this.computerActivityRepo);
 

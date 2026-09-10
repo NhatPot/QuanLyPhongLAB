@@ -3,6 +3,7 @@ import { ILabProfileRepository } from '../../../domain/repositories/ILabProfileR
 import { IComputerRepository } from '../../../domain/repositories/IComputerRepository';
 import { IEquipmentRepository } from '../../../domain/repositories/IEquipmentRepository';
 import { BookingType } from '../../../domain/entities/BookingRequest';
+import { lendableQuantity } from '../../../domain/services/lending-availability';
 
 export type CheckAvailabilityInput = {
   bookingType: BookingType;
@@ -58,6 +59,9 @@ export class CheckAvailabilityUseCase {
     const reasons: Array<{ code: string; message: string }> = [];
     const equipmentsResult: AvailabilityResult['equipments'] = [];
     let isAvailable = true;
+    if (!Number.isFinite(input.startTime.getTime()) || !Number.isFinite(input.endTime.getTime())) throw new Error('Thời gian không hợp lệ.');
+    if (!Number.isInteger(input.numberOfComputers) || input.numberOfComputers < 0 || !Number.isInteger(input.numberOfPeople) || input.numberOfPeople < 1) throw new Error('Số máy và số người không hợp lệ.');
+    if (input.equipments.length > 100 || new Set(input.equipments.map(item => item.equipmentId)).size !== input.equipments.length || input.equipments.some(item => !Number.isInteger(item.quantity) || item.quantity < 1)) throw new Error('Thiết bị bị lặp hoặc số lượng không hợp lệ (tối đa 100 dòng).');
 
     // 1. Kiểm tra thời gian
     if (input.startTime >= input.endTime) {
@@ -113,7 +117,8 @@ export class CheckAvailabilityUseCase {
     
     if (input.numberOfComputers > 0) {
       const totalActiveComputers = await this.computerRepo.countActive();
-      availableComputersCount = totalActiveComputers - overlapping.totalReservedComputers;
+      const inUse = await this.computerRepo.list({ status: 'IN_USE', page: 1, pageSize: 1 });
+      availableComputersCount = Math.min(totalActiveComputers, totalActiveComputers + inUse.total - overlapping.totalReservedComputers);
       
       if (availableComputersCount < 0) availableComputersCount = 0;
 
@@ -127,7 +132,7 @@ export class CheckAvailabilityUseCase {
     // 6. Kiểm tra thiết bị
     for (const eqReq of input.equipments) {
       const eq = await this.equipmentRepo.findById(eqReq.equipmentId);
-      if (!eq) {
+      if (!eq || !eq.isLendable || eq.status !== 'ACTIVE') {
         equipmentsResult.push({
           equipmentId: eqReq.equipmentId,
           requested: eqReq.quantity,
@@ -139,13 +144,8 @@ export class CheckAvailabilityUseCase {
         continue;
       }
 
-      const totalActive = eq.totalQuantity - eq.brokenQuantity - eq.maintenanceQuantity - eq.lostQuantity;
       const overlappingReserved = overlapping.reservedEquipments[eq.id.toString()] || 0;
-      // Số lượng thực sự còn lại = Tổng hoạt động - max(số đang dùng ở các booking trùng lịch)
-      // Chú ý: overlappingReserved ở đây là tổng mượn của các booking khác trong cùng thời điểm.
-      let availableEq = totalActive - overlappingReserved;
-      if (availableEq < 0) availableEq = 0;
-
+      const availableEq = lendableQuantity(eq, overlappingReserved);
       const valid = eqReq.quantity <= availableEq;
       if (!valid) {
         isAvailable = false;

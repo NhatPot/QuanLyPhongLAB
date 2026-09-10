@@ -121,6 +121,9 @@ const rolePermissionsMap: Record<string, string[]> = {
 };
 
 async function seed() {
+  for (const code of ['STUDENT', 'TEACHER', 'COLLABORATOR', 'LAB_STAFF', 'MANAGER', 'ADMIN']) {
+    rolePermissionsMap[code] = [...new Set([...rolePermissionsMap[code], 'BOOKING_CREATE', 'BOOKING_VIEW_OWN', 'BOOKING_CANCEL_OWN'])];
+  }
   console.log('[Seed] Starting database seeding...');
 
   const adminEmail = process.env.SEED_ADMIN_EMAIL;

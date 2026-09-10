@@ -36,6 +36,7 @@ export class SqlEquipmentRepository implements IEquipmentRepository {
     const offset = (page - 1) * pageSize;
 
     let queryWhere = 'DeletedAt IS NULL';
+    if (filter.lendableOnly) queryWhere += ' AND IsLendable = 1';
     const request = pool.request();
 
     if (filter.status) {
@@ -73,6 +74,7 @@ export class SqlEquipmentRepository implements IEquipmentRepository {
   public async save(equipment: Equipment, transaction?: mssql.Transaction): Promise<void> {
     const connection = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
     const raw = this.toPersistence(equipment);
+    connection.input('isLendable', mssql.Bit, equipment.isLendable);
 
     if (equipment.rowVersion) {
       const result = await connection
@@ -97,6 +99,7 @@ export class SqlEquipmentRepository implements IEquipmentRepository {
         .input('deletedAt', mssql.DateTime2, raw.DeletedAt)
         .query(`
           UPDATE Equipments SET 
+            IsLendable = @isLendable,
             Code = @code,
             Name = @name,
             CategoryId = @categoryId,
@@ -146,6 +149,7 @@ export class SqlEquipmentRepository implements IEquipmentRepository {
           ON target.Id = source.Id
           WHEN MATCHED THEN
             UPDATE SET 
+              IsLendable = @isLendable,
               Code = @code,
               Name = @name,
               CategoryId = @categoryId,
@@ -164,14 +168,15 @@ export class SqlEquipmentRepository implements IEquipmentRepository {
               UpdatedAt = @updatedAt,
               DeletedAt = @deletedAt
           WHEN NOT MATCHED THEN
-            INSERT (Id, Code, Name, CategoryId, TotalQuantity, AvailableQuantity, ReservedQuantity, BorrowedQuantity, BrokenQuantity, MaintenanceQuantity, LostQuantity, Location, ManagerId, Status, ImageUrl, Note, DeletedAt)
-            VALUES (@id, @code, @name, @categoryId, @totalQuantity, @availableQuantity, @reservedQuantity, @borrowedQuantity, @brokenQuantity, @maintenanceQuantity, @lostQuantity, @location, @managerId, @status, @imageUrl, @note, @deletedAt);
+            INSERT (Id, Code, Name, CategoryId, TotalQuantity, AvailableQuantity, ReservedQuantity, BorrowedQuantity, BrokenQuantity, MaintenanceQuantity, LostQuantity, Location, ManagerId, Status, ImageUrl, Note, DeletedAt, IsLendable)
+            VALUES (@id, @code, @name, @categoryId, @totalQuantity, @availableQuantity, @reservedQuantity, @borrowedQuantity, @brokenQuantity, @maintenanceQuantity, @lostQuantity, @location, @managerId, @status, @imageUrl, @note, @deletedAt, @isLendable);
         `);
     }
   }
 
   private toDomain(raw: any): Equipment {
     return Equipment.create({
+      isLendable: raw.IsLendable === true || raw.IsLendable === 1,
       code: raw.Code,
       name: raw.Name,
       categoryId: raw.CategoryId,

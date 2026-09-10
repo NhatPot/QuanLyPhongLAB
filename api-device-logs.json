@@ -1,5 +1,229 @@
 [
   {
+    "timestamp": "2026-09-10T01:37:10.752Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-10T01:37:02.922Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-10T01:36:59.852Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-10T01:36:56.726Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T18:30:04.223Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T18:29:53.796Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T18:29:50.688Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T18:09:21.526Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T18:09:18.431Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T18:08:51.260Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T18:08:48.163Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T18:08:05.883Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T18:07:59.501Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
+    "timestamp": "2026-09-09T18:07:50.569Z",
+    "method": "GET",
+    "endpoint": "/api/devices/metrics",
+    "ip": "UNKNOWN",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+    "statusCode": 200,
+    "requestBody": null,
+    "queryParams": null,
+    "response": {
+      "success": true,
+      "message": "Lấy dữ liệu metrics thiết bị thành công.",
+      "data": {},
+      "meta": null
+    }
+  },
+  {
     "timestamp": "2026-09-09T18:07:04.071Z",
     "method": "GET",
     "endpoint": "/api/devices/metrics",
@@ -27982,230 +28206,6 @@
   },
   {
     "timestamp": "2026-08-13T19:37:16.320Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:37:13.239Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:37:10.155Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:37:07.073Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:37:03.989Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:37:01.620Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:58.526Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:55.434Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:52.348Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:49.263Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:46.170Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:43.085Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:40.007Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:36.915Z",
-    "method": "GET",
-    "endpoint": "/api/devices/metrics",
-    "ip": "UNKNOWN",
-    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
-    "statusCode": 200,
-    "requestBody": null,
-    "queryParams": null,
-    "response": {
-      "success": true,
-      "message": "Lấy dữ liệu metrics thiết bị thành công.",
-      "data": {},
-      "meta": null
-    }
-  },
-  {
-    "timestamp": "2026-08-13T19:36:33.835Z",
     "method": "GET",
     "endpoint": "/api/devices/metrics",
     "ip": "UNKNOWN",

@@ -5,9 +5,10 @@ import { Equipment } from '../../../domain/entities/Equipment';
 export class GetEquipmentUseCase {
   constructor(private equipmentRepo: IEquipmentRepository) {}
 
-  public async execute(id: string): Promise<Result<Equipment>> {
+  public async execute(id: string, lendableOnly = false): Promise<Result<Equipment>> {
     try {
       const equipment = await this.equipmentRepo.findById(id);
+      if (lendableOnly && !equipment?.isLendable) return Result.fail('Không tìm thấy thiết bị.');
       if (!equipment) {
         return Result.fail<Equipment>("Không tìm thấy thiết bị.");
       }

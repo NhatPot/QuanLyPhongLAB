@@ -16,6 +16,7 @@ import { equipmentCategorySchema } from '@/lib/equipment-category';
 import { Plus, Search, Edit2, History, AlertTriangle, Settings, RefreshCw, X, Save, ArrowUpDown, Trash2, Eye } from 'lucide-react';
 
 const equipmentSchema = z.object({
+  isLendable: z.boolean().default(false),
   quantity: z.coerce.number().int().min(1, 'Số lượng phải từ 1.'),
   code: z.string().trim().max(50, 'Mã thiết bị tối đa 50 ký tự.').optional(),
   name: z.string().min(1, 'Tên thiết bị không được trống.'),
@@ -185,6 +186,7 @@ const EquipmentsPage: React.FC = () => {
   const openAddEqModal = () => {
     setSelectedEq(null);
     eqForm.reset({
+      isLendable: false,
       quantity: 1,
       code: '',
       name: '',
@@ -201,6 +203,7 @@ const EquipmentsPage: React.FC = () => {
     setSelectedEq(e);
     eqForm.reset({
       quantity: e.totalQuantity,
+      isLendable: e.isLendable === true,
       code: e.code,
       name: e.name,
       categoryId: e.categoryId,
@@ -325,7 +328,7 @@ const EquipmentsPage: React.FC = () => {
                 {listData.data.map((eq) => (
                   <tr key={eq.id} className="hover:bg-slate-50/50 transition">
                     <td className="px-6 py-4 font-mono font-bold text-slate-900">{eq.code}</td>
-                    <td className="px-6 py-4 font-semibold text-slate-800">{eq.name}</td>
+                    <td className="px-6 py-4 font-semibold text-slate-800">{eq.name}<span className={`mt-1 block text-xs font-normal ${eq.isLendable ? 'text-emerald-700' : 'text-slate-600'}`}>{eq.isLendable ? 'Cho phép mượn' : 'Nội bộ Lab · không cho mượn'}</span></td>
                     <td className="px-6 py-4 font-bold text-slate-700">{eq.totalQuantity}</td>
                     <td className="px-6 py-4 font-bold text-emerald-600">{eq.availableQuantity}</td>
                     <td className="px-6 py-4 font-bold text-blue-600">{eq.borrowedQuantity}</td>
@@ -524,6 +527,7 @@ const EquipmentsPage: React.FC = () => {
               </div>
 
               <div>
+                <label className="mb-4 flex items-start gap-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-950"><input type="checkbox" {...eqForm.register('isLendable')} className="mt-1 h-4 w-4 accent-blue-600" /><span><strong>Cho phép mượn thiết bị</strong><span className="mt-1 block text-blue-800">Bật: hiển thị cho người đăng ký mượn. Tắt: chỉ dùng nội bộ Lab, ẩn với sinh viên và giảng viên; không được đặt mượn.</span></span></label>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Ghi chú thêm</label>
                 <textarea {...eqForm.register('note')} rows={3} className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-sm" />
               </div>

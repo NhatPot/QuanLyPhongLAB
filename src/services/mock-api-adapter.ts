@@ -595,6 +595,18 @@ const mockAdapter: AxiosAdapter = async (config) => {
   if (computerMatch && method === 'PUT') { const item = matchComputer(computerMatch[1]); if (!item) return errorResponse(request, 404, 'Không tìm thấy máy tính mock.'); const nextStatus = String(payload.status || item.status) as ComputerStatus; if (item.status !== nextStatus && (item.status === 'MAINTENANCE' || nextStatus === 'MAINTENANCE')) return errorResponse(request, 422, 'Trạng thái bảo trì chỉ được thay đổi từ lịch bảo trì.'); const previousStatus = item.status; const wasBroken = item.status === 'BROKEN'; Object.assign(item, payload, { id: item.id, updatedAt: now() }); if (previousStatus !== item.status) transitionMockComputerActivity(item, item.status, item.updatedAt!, { note: `Chuyển từ ${previousStatus} sang ${item.status}` }); if (!wasBroken && item.status === 'BROKEN') ensureMockComputerProposal(item, 'BROKEN_STATUS'); return response(request, body(item)); }
   if (path === '/computers' && method === 'POST') { const item = { ...(payload as unknown as ComputerData), id: `mock-computer-${Date.now()}`, createdAt: now(), updatedAt: now() }; if (item.status === 'MAINTENANCE') return errorResponse(request, 422, 'Không thể tạo máy trực tiếp ở trạng thái bảo trì.'); computers.unshift(item); transitionMockComputerActivity(item, item.status, item.createdAt!, { note: 'Khởi tạo máy tính' }); if (item.status === 'BROKEN') ensureMockComputerProposal(item, 'BROKEN_STATUS'); return response(request, body(item), 201); }
 
+  if (path === '/bookings/catalog' && method === 'GET') {
+    const start = new Date(stringParam(params, 'startTime') || '');
+    const end = new Date(stringParam(params, 'endTime') || '');
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start <= new Date() || end <= start) return errorResponse(request, 400, 'Khoảng giờ không hợp lệ.');
+    const overlap = bookings.filter(b => ['APPROVED', 'CHECKED_IN'].includes(b.status) && new Date(b.startTime) < end && (b.status === 'CHECKED_IN' || new Date(b.endTime) > start));
+    const keyword = stringParam(params, 'keyword')?.toLocaleLowerCase('vi') || '';
+    const rows = equipment.filter(e => e.isLendable === true && e.status === 'ACTIVE' && `${e.code} ${e.name}`.toLocaleLowerCase('vi').includes(keyword)).map(e => ({ id: e.id, code: e.code, name: e.name, categoryId: e.categoryId, categoryName: categories.find(c => c.id === e.categoryId)?.name || 'Thiết bị', availableQuantity: lab.status === 'ACTIVE' ? Math.max(0, Math.min(e.availableQuantity, e.totalQuantity - e.brokenQuantity - e.maintenanceQuantity - e.lostQuantity - overlap.reduce((total, b) => total + (b.equipmentItems?.filter(item => item.equipmentId === e.id).reduce((sum, item) => sum + item.requestedQuantity, 0) || 0), 0))) : 0 }));
+    const page = Math.max(1, Number(stringParam(params, 'page') || 1));
+    const active = computers.filter(c => c.status === 'ACTIVE').length;
+    const usable = computers.filter(c => ['ACTIVE', 'IN_USE'].includes(c.status)).length;
+    return response(request, body({ data: rows.slice((page - 1) * 50, page * 50), computers: { available: lab.status === 'ACTIVE' && !overlap.some(b => b.bookingType === 'FULL_LAB') ? Math.max(0, Math.min(active, usable - overlap.reduce((sum, b) => sum + b.numberOfComputers, 0))) : 0 }, labAvailable: lab.status === 'ACTIVE', meta: { page, pageSize: 50, totalItems: rows.length, totalPages: Math.ceil(rows.length / 50) } }));
+  }
   if (path === '/equipments/import' && method === 'POST') {
     const result = planEquipmentImport(Array.isArray(payload.rows) ? payload.rows : [], categories, equipment.map(item => item.code));
     if (payload.commit === true && !result.errors.length) {
@@ -835,6 +847,7 @@ const mockAdapter: AxiosAdapter = async (config) => {
     if (requester.status !== 'ACTIVE') return errorResponse(request, 422, 'Chỉ có thể tạo yêu cầu cho tài khoản đang hoạt động.');
 
     const requestedEquipments = Array.isArray(input.equipments) ? input.equipments : [];
+    if (requestedEquipments.some(entry => { const e = equipment.find(item => item.id === entry.equipmentId); return !e?.isLendable || e.status !== 'ACTIVE' || !Number.isInteger(entry.quantity) || entry.quantity < 1 || entry.quantity > e.availableQuantity; })) return errorResponse(request, 422, 'Thiết bị không thể cho mượn hoặc không đủ số lượng.');
     if (input.bookingType === 'EQUIPMENT_ONLY' && requestedEquipments.length === 0) {
       return errorResponse(request, 422, 'Yêu cầu mượn thiết bị phải có ít nhất một thiết bị.');
     }

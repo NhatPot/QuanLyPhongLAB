@@ -5,6 +5,7 @@ import { IAuditLogRepository } from '../../../domain/repositories/IAuditLogRepos
 import { Equipment } from '../../../domain/entities/Equipment';
 
 export interface UpdateEquipmentInput {
+  isLendable?: boolean;
   id: string;
   code: string;
   name: string;
@@ -42,6 +43,7 @@ export class UpdateEquipmentUseCase {
       }
 
       const oldState = {
+        isLendable: equipment.isLendable,
         code: equipment.code,
         name: equipment.name,
         categoryId: equipment.categoryId,
@@ -49,6 +51,7 @@ export class UpdateEquipmentUseCase {
       };
 
       equipment.updateInformation({
+        isLendable: input.isLendable,
         code: input.code,
         name: input.name,
         categoryId: input.categoryId,
@@ -60,7 +63,8 @@ export class UpdateEquipmentUseCase {
       });
 
       await this.uow.complete(async () => {
-        await this.equipmentRepo.save(equipment);
+        const transaction = this.uow.getTransaction();
+        await this.equipmentRepo.save(equipment, transaction);
 
         await this.auditLogRepo.save({
           userId: input.userId,
@@ -70,16 +74,18 @@ export class UpdateEquipmentUseCase {
           ipAddress: input.ipAddress,
           userAgent: input.userAgent,
           correlationId: input.correlationId,
-          note: JSON.stringify({
+          oldValueJson: JSON.stringify(oldState),
+          newValueJson: JSON.stringify({
             old: oldState,
             new: {
+              isLendable: equipment.isLendable,
               code: equipment.code,
               name: equipment.name,
               categoryId: equipment.categoryId,
               status: equipment.status
             }
           })
-        } as any);
+        }, transaction);
       });
 
       return Result.ok<Equipment>(equipment);

@@ -9,6 +9,7 @@ export interface EquipmentCategoryData {
 }
 
 export interface EquipmentData {
+  isLendable?: boolean;
   id: string;
   code: string;
   name: string;
@@ -34,6 +35,7 @@ type EquipmentWriteData = Omit<EquipmentData, 'id' | 'totalQuantity' | 'availabl
 type EquipmentCreateData = Omit<EquipmentWriteData, 'code'> & { code?: string; quantity: number };
 
 export interface EquipmentFilter {
+  lendableOnly?: boolean;
   keyword?: string;
   categoryId?: string;
   status?: string;

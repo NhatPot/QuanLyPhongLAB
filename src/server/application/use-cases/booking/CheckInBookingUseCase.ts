@@ -4,6 +4,8 @@ import { ICheckInOutLogRepository } from '../../../domain/repositories/ICheckInO
 import { IComputerRepository } from '../../../domain/repositories/IComputerRepository';
 import { IComputerActivityRepository } from '../../../domain/repositories/IComputerActivityRepository';
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
+import { IEquipmentRepository } from '../../../domain/repositories/IEquipmentRepository';
+import { IBookingEquipmentItemRepository } from '../../../domain/repositories/IBookingEquipmentItemRepository';
 
 export type CheckInBookingInput = {
   bookingId: string;
@@ -23,6 +25,8 @@ export class CheckInBookingUseCase {
     private computerActivityRepo: IComputerActivityRepository,
     private uow: IUnitOfWork,
     private auditLogRepo: IAuditLogRepository,
+    private equipmentRepo: IEquipmentRepository,
+    private equipmentItems: IBookingEquipmentItemRepository,
   ) {}
 
   public async execute(input: CheckInBookingInput) {
@@ -47,6 +51,11 @@ export class CheckInBookingUseCase {
     booking.checkIn();
     return this.uow.complete(async () => {
       const transaction = this.uow.getTransaction();
+      const items = await this.equipmentItems.findByBookingId(booking.id.toString());
+      for (const item of items) {
+        const equipment = await this.equipmentRepo.findById(item.equipmentId, transaction);
+        if (!equipment?.isLendable || equipment.status !== 'ACTIVE') throw new Error('Một thiết bị không còn được phép cho mượn. Không thể bàn giao.');
+      }
       const log = await this.checkInOutLogRepo.checkIn({
         bookingRequestId: booking.id.toString(),
         checkedInBy: input.userId,
