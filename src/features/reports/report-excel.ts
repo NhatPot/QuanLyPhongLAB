@@ -64,7 +64,7 @@ function styleTitle(sheet: Worksheet, row: number, title: string, endColumn: num
   cell.value = title;
   cell.font = { name: 'Aptos Display', size: 16, bold: true, color: { argb: COLORS.white } };
   cell.fill = solidFill(COLORS.navy);
-  cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   sheet.getRow(row).height = 30;
 }
 
@@ -74,13 +74,15 @@ function styleSection(sheet: Worksheet, row: number, startColumn: number, endCol
   cell.value = title;
   cell.font = { name: 'Aptos', size: 11, bold: true, color: { argb: COLORS.white } };
   cell.fill = solidFill(COLORS.blue);
-  cell.alignment = { vertical: 'middle' };
+  cell.alignment = { vertical: 'middle', wrapText: true };
   for (let column = startColumn; column <= endColumn; column += 1) sheet.getCell(row, column).border = border();
   sheet.getRow(row).height = 22;
 }
 
 function styleHeader(row: Row) {
   row.height = 24;
+  // Repeat the first table heading when a detail sheet spans printed pages.
+  row.worksheet.pageSetup.printTitlesRow ||= `${row.number}:${row.number}`;
   row.eachCell({ includeEmpty: true }, (cell) => {
     cell.font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
     cell.fill = solidFill(COLORS.navy);
@@ -104,10 +106,52 @@ function styleDataRange(sheet: Worksheet, startRow: number, endRow: number, colu
   }
 }
 
+function showEmptyMessage(sheet: Worksheet, row: number, columnCount: number, message: string) {
+  sheet.mergeCells(row, 1, row, columnCount);
+  sheet.getCell(row, 1).value = message;
+}
+
+function fitWrappedRows(sheet: Worksheet) {
+  // XLSX readers do not reliably auto-fit rows with an explicit height or merged cells.
+  sheet.eachRow((row) => {
+    let height = row.height ?? sheet.properties.defaultRowHeight;
+    row.eachCell((cell) => {
+      if (cell.isMerged && cell.master.address !== cell.address) return;
+      if (!cell.alignment?.wrapText || typeof cell.value !== 'string') return;
+      let width = sheet.getColumn(cell.col).width ?? 9;
+      if (cell.isMerged) {
+        for (let column = Number(cell.col) + 1; column <= sheet.columnCount; column += 1) {
+          if (row.getCell(column).master.address !== cell.address) break;
+          width += sheet.getColumn(column).width ?? 9;
+        }
+      }
+      const fontSize = cell.font?.size ?? 10;
+      const capacity = Math.max(1, Math.floor((width - 2) * (11 / fontSize) * 0.85));
+      const lines = cell.value.split(/\r\n|\r|\n/).reduce((total, paragraph) => {
+        let lineCount = 1;
+        let used = 0;
+        for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+          if (used && used + 1 + word.length > capacity) {
+            lineCount += 1;
+            used = 0;
+          }
+          const length = used + (used ? 1 : 0) + word.length;
+          lineCount += Math.floor((length - 1) / capacity);
+          used = ((length - 1) % capacity) + 1;
+        }
+        return total + lineCount;
+      }, 0);
+      height = Math.max(height, lines * fontSize * 1.4 + 8);
+    });
+    row.height = Math.min(409, height);
+  });
+}
+
 function applySheetDefaults(sheet: Worksheet, orientation: 'landscape' | 'portrait' = 'landscape') {
   sheet.properties.defaultRowHeight = 19;
   sheet.pageSetup = {
     orientation,
+    paperSize: 9, // A4
     fitToPage: true,
     fitToWidth: 1,
     fitToHeight: 0,
@@ -135,7 +179,8 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
 
   const overview = workbook.addWorksheet('Tổng quan', { properties: { tabColor: { argb: COLORS.blue } } });
   applySheetDefaults(overview);
-  overview.columns = [{ width: 26 }, { width: 15 }, { width: 4 }, { width: 26 }, { width: 15 }, { width: 4 }, { width: 22 }, { width: 18 }];
+  // C and F also hold table values below the summary; they cannot be spacer columns.
+  overview.columns = [{ width: 26 }, { width: 15 }, { width: 12 }, { width: 26 }, { width: 22 }, { width: 12 }, { width: 14 }, { width: 4 }];
   styleTitle(overview, 1, 'BÁO CÁO THỐNG KÊ PHÒNG IT-LAB', 8);
   overview.mergeCells('A2:H2');
   overview.getCell('A2').value = `Xuất lúc ${new Date().toLocaleString('vi-VN')} · Dữ liệu sử dụng thực tế tháng ${usage.month}`;
@@ -171,7 +216,7 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
     overview.getCell(row, 2).numFmt = index === computerMetrics.length - 1 ? '0.0%' : '#,##0';
     overview.getCell(row, 4).value = equipmentMetrics[index][0];
     overview.getCell(row, 5).value = equipmentMetrics[index][1];
-    overview.getCell(row, 5).numFmt = '#,##0';
+    overview.getCell(row, 5).numFmt = index === 5 ? '0.00 "giờ"' : index === 6 ? '0.00 "giờ-máy"' : '#,##0';
   });
   styleDataRange(overview, 5, 12, 5);
   for (let row = 5; row <= 12; row += 1) {
@@ -188,7 +233,7 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
     const cell = overview.getCell(16, column);
     cell.font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
     cell.fill = solidFill(COLORS.navy);
-    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = border();
   }
   const inventoryMetrics: Array<[string, number, string]> = [
@@ -232,7 +277,7 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
   if (expenseSummary) {
     const expenseSheet = workbook.addWorksheet('Chi phí', { properties: { tabColor: { argb: COLORS.amber } } });
     applySheetDefaults(expenseSheet, 'portrait');
-    expenseSheet.columns = [{ width: 34 }, { width: 18 }, { width: 18 }];
+    expenseSheet.columns = [{ width: 34 }, { width: 22 }, { width: 32 }];
     styleTitle(expenseSheet, 1, `TỔNG HỢP CHI PHÍ THÁNG ${usage.month}`, 3);
     expenseSheet.getRow(3).values = ['Chỉ tiêu', 'Giá trị', 'Ghi chú'];
     styleHeader(expenseSheet.getRow(3));
@@ -256,7 +301,7 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
       row.getCell(3).numFmt = '#,##0 [$₫-vi-VN]';
     });
     const expenseLastRow = Math.max(12, expenseSheet.rowCount);
-    if (!expenseSummary.byCategory.length) expenseSheet.getCell('A12').value = 'Chưa có chi phí đã duyệt trong kỳ.';
+    if (!expenseSummary.byCategory.length) showEmptyMessage(expenseSheet, 12, 3, 'Chưa có chi phí đã duyệt trong kỳ.');
     styleDataRange(expenseSheet, 12, expenseLastRow, 3);
     expenseSheet.views = [{ state: 'frozen', ySplit: 3 }];
   }
@@ -274,7 +319,7 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
     row.getCell(12).font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
   });
   const equipmentLastRow = Math.max(2, equipmentSheet.rowCount);
-  if (!equipment.length) equipmentSheet.getCell('A2').value = 'Chưa có dữ liệu thiết bị.';
+  if (!equipment.length) showEmptyMessage(equipmentSheet, 2, equipmentHeaders.length, 'Chưa có dữ liệu thiết bị.');
   styleDataRange(equipmentSheet, 2, equipmentLastRow, equipmentHeaders.length);
   equipmentSheet.autoFilter = { from: 'A1', to: `M${equipmentLastRow}` };
   equipmentSheet.views = [{ state: 'frozen', ySplit: 1 }];
@@ -322,7 +367,7 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
     row.getCell(5).font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
   });
   const computersLastRow = Math.max(5, computersSheet.rowCount);
-  if (!computers.length) computersSheet.getCell('A5').value = 'Chưa có dữ liệu máy tính.';
+  if (!computers.length) showEmptyMessage(computersSheet, 5, computerHeaders.length, 'Chưa có dữ liệu máy tính.');
   styleDataRange(computersSheet, 5, computersLastRow, computerHeaders.length);
   computersSheet.autoFilter = { from: 'A4', to: `U${computersLastRow}` };
   computersSheet.views = [{ state: 'frozen', xSplit: 2, ySplit: 4 }];
@@ -373,7 +418,7 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
     row.getCell(4).numFmt = '0.00 "giờ"';
   });
   const purposeLastRow = Math.max(5, purposeSheet.rowCount);
-  if (!usage.purposeGroups.length) purposeSheet.getCell('A5').value = 'Tháng này chưa có phiên sử dụng để thống kê mục đích.';
+  if (!usage.purposeGroups.length) showEmptyMessage(purposeSheet, 5, 4, 'Tháng này chưa có phiên sử dụng để thống kê mục đích.');
   styleDataRange(purposeSheet, 5, purposeLastRow, 4);
   purposeSheet.autoFilter = { from: 'A4', to: `D${purposeLastRow}` };
   purposeSheet.views = [{ state: 'frozen', ySplit: 4 }];
@@ -407,7 +452,7 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
     row.getCell(12).font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
   });
   const usageLogLastRow = Math.max(2, usageLogSheet.rowCount);
-  if (!usage.sessions.length) usageLogSheet.getCell('A2').value = 'Tháng này chưa có phiên sử dụng đã check-in.';
+  if (!usage.sessions.length) showEmptyMessage(usageLogSheet, 2, usageLogHeaders.length, 'Tháng này chưa có phiên sử dụng đã check-in.');
   styleDataRange(usageLogSheet, 2, usageLogLastRow, usageLogHeaders.length);
   usageLogSheet.autoFilter = { from: 'A1', to: `L${usageLogLastRow}` };
   usageLogSheet.views = [{ state: 'frozen', ySplit: 1 }];
@@ -458,12 +503,15 @@ export async function buildReportWorkbook({ summary, computers, equipment, usage
     row.getCell(13).font = { name: 'Aptos', size: 10, bold: true, color: { argb: COLORS.white } };
   });
   const computerActivityLastRow = Math.max(5, computerActivitySheet.rowCount);
-  if (!usage.computerActivities.length) computerActivitySheet.getCell('A5').value = 'Tháng này chưa có nhật ký hoạt động máy tính.';
+  if (!usage.computerActivities.length) showEmptyMessage(computerActivitySheet, 5, computerActivityHeaders.length, 'Tháng này chưa có nhật ký hoạt động máy tính.');
   styleDataRange(computerActivitySheet, 5, computerActivityLastRow, computerActivityHeaders.length);
   computerActivitySheet.autoFilter = { from: 'A4', to: `N${computerActivityLastRow}` };
   computerActivitySheet.views = [{ state: 'frozen', xSplit: 2, ySplit: 4 }];
   for (let row = 5; row <= computerActivityLastRow; row += 1) [1, 2, 4, 5, 6, 7, 8, 9, 13].forEach((column) => { computerActivitySheet.getCell(row, column).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; });
 
+  workbook.eachSheet((sheet) => {
+    fitWrappedRows(sheet);
+  });
   return workbook;
 }
 
