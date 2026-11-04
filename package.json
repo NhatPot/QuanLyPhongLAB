@@ -74,5 +74,9 @@
     "tsx": "^4.10.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
+  },
+  "allowScripts": {
+    "bcrypt@5.1.1": true,
+    "esbuild@0.28.1": true
   }
 }
