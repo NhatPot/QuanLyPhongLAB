@@ -37,4 +37,5 @@ export interface IUserRepository {
   replaceRoles(userId: string, roleCodes: string[], transaction?: any): Promise<void>;
   countActiveUsersByRole(roleCode: string, transaction?: any): Promise<number>;
   save(user: User, transaction?: any): Promise<void>;
+  touchLastLogin?(userId: string, at: Date, expectedPasswordHash: string | null, transaction?: any): Promise<boolean>;
 }

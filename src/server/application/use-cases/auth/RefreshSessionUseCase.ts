@@ -15,6 +15,7 @@ export interface RefreshInput {
 export interface RefreshOutput {
   accessToken: string;
   refreshToken: string;
+  refreshExpiresAt: Date;
 }
 
 export class RefreshSessionUseCase {
@@ -39,10 +40,10 @@ export class RefreshSessionUseCase {
         return Result.fail<RefreshOutput>("Phiên làm việc đã bị hủy.");
       }
 
-      if (session.expiresAt.getTime() < Date.now()) {
+      if (session.expiresAt.getTime() <= Date.now()) {
         await this.uow.complete(async () => {
           session.revokedAt = new Date();
-          await this.sessionRepo.save(session);
+          await this.sessionRepo.save(session, this.uow.getTransaction());
         });
         return Result.fail<RefreshOutput>("Phiên làm việc đã hết hạn.");
       }
@@ -59,24 +60,25 @@ export class RefreshSessionUseCase {
       session.ipAddress = input.ipAddress;
       session.userAgent = input.userAgent;
 
-      await this.uow.complete(async () => {
-        await this.sessionRepo.save(session);
-      });
+      const rotated = await this.uow.complete(() => this.sessionRepo.rotateRefreshToken(session, hash, this.uow.getTransaction()));
+      if (!rotated) return Result.fail<RefreshOutput>('Phiên đã thay đổi hoặc bị thu hồi. Vui lòng đăng nhập lại.');
 
       const { roles, permissions } = await this.rolePermQuery.getRolePermissionsByUserId(user.id.toString());
       const accessToken = this.tokenService.generateAccessToken({
         userId: user.id.toString(),
+        sessionId: session.id!,
         roles,
         permissions
       });
 
       return Result.ok<RefreshOutput>({
         accessToken,
-        refreshToken: newRefreshToken
+        refreshToken: newRefreshToken,
+        refreshExpiresAt: session.expiresAt,
       });
 
     } catch (error) {
-      return Result.fail<RefreshOutput>((error as any).message || "Đã xảy ra lỗi khi tạo lại phiên mới.");
+      return Result.fail<RefreshOutput>('Không thể làm mới phiên lúc này. Vui lòng thử lại sau.');
     }
 
   }

@@ -23,7 +23,7 @@ const fail = (message: string, status = 400) =>
 export async function POST(req: NextRequest) {
   let user;
   try {
-    user = getAuthUser(req);
+    user = await getAuthUser(req);
     checkPermissions(user, "EQUIPMENT_CREATE");
   } catch (error) {
     return handleApiError(error);

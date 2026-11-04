@@ -9,13 +9,21 @@ import {
 import { User } from '../../../../domain/entities/User';
 import { UniqueEntityId } from '../../../../domain/value-objects/UniqueEntityId';
 import { SqlConnectionFactory } from '../connection';
+const ssoColumn=()=>process.env.FIT_SSO_ENABLED==='true'?", CAST(CASE WHEN EXISTS (SELECT 1 FROM UserExternalIdentities ei WHERE ei.UserId=Users.Id AND ei.Provider='FIT_LHU_SSO') THEN 1 ELSE 0 END AS BIT) AS SsoLinked":"";
 
 export class SqlUserRepository implements IUserRepository {
+  public async touchLastLogin(userId: string, at: Date, expectedPasswordHash: string | null, transaction?: mssql.Transaction): Promise<boolean> {
+    const request = transaction ? new mssql.Request(transaction) : (await SqlConnectionFactory.getPool()).request();
+    const result = await request.input('userId', mssql.UniqueIdentifier, userId).input('at', mssql.DateTime2, at).input('hash', mssql.NVarChar(mssql.MAX), expectedPasswordHash)
+      .query(`UPDATE Users SET LastLoginAt=@at WHERE Id=@userId AND Status='ACTIVE' AND DeletedAt IS NULL
+        AND ((@hash IS NULL AND PasswordHash IS NULL) OR PasswordHash=@hash)`);
+    return result.rowsAffected[0] === 1;
+  }
   public async findById(id: string): Promise<User | null> {
     const pool = await SqlConnectionFactory.getPool();
     const result = await pool.request()
       .input('id', mssql.UniqueIdentifier, id)
-      .query('SELECT * FROM Users WHERE Id = @id AND DeletedAt IS NULL');
+      .query(`SELECT * ${ssoColumn()} FROM Users WHERE Id = @id AND DeletedAt IS NULL`);
 
     if (result.recordset.length === 0) {
       return null;
@@ -30,7 +38,7 @@ export class SqlUserRepository implements IUserRepository {
     const result = await pool.request()
       .input('normalized', mssql.NVarChar, normalized)
       .query(`
-        SELECT * FROM Users 
+        SELECT * ${ssoColumn()} FROM Users
         WHERE (EmailNormalized = @normalized OR UsernameNormalized = @normalized)
         AND DeletedAt IS NULL
       `);
@@ -270,6 +278,8 @@ export class SqlUserRepository implements IUserRepository {
       email: raw.Email,
       username: raw.Username,
       passwordHash: raw.PasswordHash,
+      emailVerifiedAt: raw.EmailVerifiedAt || undefined,
+      ssoLinked: !!raw.SsoLinked,
       phone: raw.Phone || undefined,
       department: raw.Department || undefined,
       avatarUrl: raw.AvatarUrl || undefined,

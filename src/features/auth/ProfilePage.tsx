@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { AuthMethodsPanel } from './AuthMethodsPanel';
 
 const MAX_SOURCE_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_AVATAR_DATA_URL_LENGTH = 700_000;
@@ -31,7 +33,17 @@ const profileSchema = z.object({
 type ProfileFields = z.infer<typeof profileSchema>;
 
 export default function ProfilePage() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, logoutAll } = useAuth();
+  const [confirmLogoutAll, setConfirmLogoutAll] = useState(false);
+  const [loggingOutAll, setLoggingOutAll] = useState(false);
+  const [logoutAllError, setLogoutAllError] = useState('');
+  const handleLogoutAll = async () => {
+    setLoggingOutAll(true);
+    setLogoutAllError('');
+    try { await logoutAll(); }
+    catch { setLogoutAllError('Chưa đăng xuất được các thiết bị. Vui lòng thử lại.'); }
+    finally { setLoggingOutAll(false); }
+  };
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl || null);
@@ -145,7 +157,7 @@ export default function ProfilePage() {
               </button>
             </div>
             <p className="mt-4 font-bold text-slate-900">{user?.fullName}</p>
-            <p className="mt-1 text-xs text-slate-500">@{user?.username}</p>
+            <p className="mt-1 break-all text-xs text-slate-500">{user?.username?.includes('@') ? user.username : `@${user?.username || ''}`}</p>
             <div className="mt-3 flex flex-wrap justify-center gap-1.5">
               {user?.roles.map((role) => (
                 <span key={role} className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-700">{role}</span>
@@ -187,11 +199,12 @@ export default function ProfilePage() {
               <Field label="Họ và tên" error={errors.fullName?.message} icon={<AtSign />}>
                 <Input {...register('fullName')} className="h-11 pl-10" placeholder="Nhập họ và tên" />
               </Field>
-              <Field label="Tên đăng nhập" hint="Không thể tự thay đổi" icon={<AtSign />}>
+              <Field label="Tài khoản đăng nhập" hint="Không thể tự thay đổi" icon={<AtSign />}>
                 <Input value={user?.username || ''} readOnly className="h-11 bg-slate-50 pl-10 text-slate-500" />
               </Field>
               <Field label="Email" error={errors.email?.message} icon={<Mail />}>
-                <Input {...register('email')} type="email" className="h-11 pl-10" placeholder="name@lhu.edu.vn" />
+                <Input {...register('email')} type="email" className="h-11 pl-10" placeholder="name@lhu.edu.vn" readOnly={user?.emailVerified} />
+                {user?.emailVerified && <span className="mt-1 block text-xs text-slate-500">Đổi email qua bước xác minh trong phần Phương thức đăng nhập.</span>}
               </Field>
               <Field label="Số điện thoại" error={errors.phone?.message} icon={<Phone />}>
                 <Input {...register('phone')} className="h-11 pl-10" placeholder="Nhập số điện thoại" />
@@ -212,6 +225,22 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
       </form>
+      <AuthMethodsPanel />
+      <Card>
+        <CardContent className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">Phiên đăng nhập</h3>
+            <p className="mt-1 text-xs text-slate-500">Đăng xuất tất cả thiết bị, bao gồm trình duyệt hiện tại.</p>
+          </div>
+          <Button type="button" variant="outline" onClick={() => { setLogoutAllError(''); setConfirmLogoutAll(true); }}>
+            Đăng xuất tất cả thiết bị
+          </Button>
+        </CardContent>
+      </Card>
+      <ConfirmDialog open={confirmLogoutAll} onOpenChange={setConfirmLogoutAll}
+        title="Đăng xuất tất cả thiết bị?"
+        description="Bạn và các thiết bị đang đăng nhập tài khoản này sẽ phải đăng nhập lại."
+        confirmLabel="Đăng xuất tất cả" pending={loggingOutAll} error={logoutAllError} onConfirm={handleLogoutAll} />
     </div>
   );
 }

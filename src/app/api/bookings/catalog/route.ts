@@ -10,7 +10,7 @@ import { AppError } from "@/server/shared/errors/AppError";
 
 export async function GET(req: NextRequest) {
   try {
-    checkPermissions(getAuthUser(req), "BOOKING_CREATE");
+    checkPermissions(await getAuthUser(req), "BOOKING_CREATE");
     const query = req.nextUrl.searchParams;
     return successResponse(
       await container.getLendingCatalogUseCase.execute({

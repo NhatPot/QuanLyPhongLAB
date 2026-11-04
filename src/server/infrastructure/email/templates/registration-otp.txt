@@ -1,0 +1,20 @@
+LHU IT LAB — Quản lý phòng Lab CNTT
+
+Xác minh email đăng ký
+
+Xin chào bạn,
+
+Bạn vừa yêu cầu đăng ký tài khoản trên hệ thống LHU IT LAB. Nhập mã dưới đây tại trang đăng ký để xác minh email và tiếp tục.
+
+Mã xác minh: {{otp}}
+Mã có hiệu lực trong {{expiresInMinutes}} phút và chỉ dùng một lần.
+
+Bảo mật tài khoản
+Không chia sẻ mã này với bất kỳ ai, kể cả người tự nhận là nhân viên hỗ trợ. Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.
+
+Trân trọng,
+Hệ thống LHU IT LAB
+
+© {{year}} LHU IT LAB · Đại học Lạc Hồng
+Email được gửi tự động. Vui lòng không trả lời email này.
+

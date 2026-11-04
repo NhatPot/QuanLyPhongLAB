@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>Xác minh email đăng ký | LHU IT LAB</title>
+  <style>
+    @media screen and (max-width: 620px) {
+      .email-gutter { padding: 16px 12px !important; }
+      .email-content { padding: 28px 22px !important; }
+      .email-header { padding: 30px 22px !important; }
+      .otp-code { font-size: 34px !important; letter-spacing: 7px !important; padding-left: 7px !important; }
+    }
+    @media (prefers-color-scheme: dark) {
+      .email-page { background-color: #101e31 !important; }
+      .email-card, .email-content { background-color: #172940 !important; }
+      .email-heading, .email-text { color: #e4edf9 !important; }
+      .email-muted { color: #b6c7dd !important; }
+      .otp-panel { background-color: #12335b !important; border-color: #80b5ff !important; }
+      .otp-code { color: #a6cdff !important; }
+      .email-note, .email-footer { background-color: #13243a !important; border-color: #36506f !important; }
+    }
+  </style>
+</head>
+<body class="email-page" style="margin: 0; padding: 0; width: 100%; background-color: #f4f8fd; font-family: Arial, Helvetica, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+  <span style="display: none; visibility: hidden; opacity: 0; color: transparent; height: 0; width: 0; max-height: 0; max-width: 0; overflow: hidden; mso-hide: all;">Xác minh email để hoàn tất đăng ký tài khoản LHU IT LAB.</span>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-page" style="width: 100%; background-color: #f4f8fd; border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+    <tr>
+      <td align="center" class="email-gutter" style="padding: 36px 20px;">
+        <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td width="600"><![endif]-->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-card" style="width: 100%; max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt;">
+          <tr>
+            <td align="center" bgcolor="#073761" class="email-header" style="padding: 36px 32px 32px; background-color: #073761; background-image: linear-gradient(125deg, #06294c 0%, #073761 55%, #0a4a7d 100%); border-radius: 15px 15px 0 0; border-bottom: 4px solid #297ef5;">
+              <p style="margin: 0; color: #ffffff; font-family: Arial, Helvetica, sans-serif; font-size: 26px; font-weight: 700; line-height: 34px; mso-line-height-rule: exactly; letter-spacing: 1px;">LHU IT LAB</p>
+              <p style="margin: 6px 0 0; color: #bfdbfe; font-family: Arial, Helvetica, sans-serif; font-size: 13px; line-height: 20px; mso-line-height-rule: exactly;">Quản lý phòng Lab CNTT</p>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-content" style="padding: 34px 36px 30px; background-color: #ffffff;">
+              <h1 class="email-heading" style="margin: 0 0 18px; color: #0f172a; font-family: Arial, Helvetica, sans-serif; font-size: 23px; font-weight: 700; line-height: 32px; mso-line-height-rule: exactly;">Xác minh email đăng ký</h1>
+              <p class="email-text" style="margin: 0 0 10px; color: #334155; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 23px; mso-line-height-rule: exactly;">Xin chào bạn,</p>
+              <p class="email-text" style="margin: 0 0 26px; color: #475569; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 23px; mso-line-height-rule: exactly;">Bạn vừa yêu cầu đăng ký tài khoản trên hệ thống <strong>LHU IT LAB</strong>. Nhập mã dưới đây tại trang đăng ký để xác minh email và tiếp tục.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-spacing: 0;">
+                <tr>
+                  <td align="center" bgcolor="#eff6ff" class="otp-panel" style="padding: 24px 12px; background-color: #eff6ff; border: 1px dashed #93c5fd; border-radius: 12px;">
+                    <p class="email-muted" style="margin: 0 0 10px; color: #526987; font-family: Arial, Helvetica, sans-serif; font-size: 10px; font-weight: 700; line-height: 17px; mso-line-height-rule: exactly; letter-spacing: 1px;">MÃ XÁC MINH ĐĂNG KÝ</p>
+                    <p class="otp-code" dir="ltr" style="margin: 0 0 12px; padding-left: 10px; color: #1d4ed8; font-family: 'Courier New', Courier, monospace; font-size: 40px; font-weight: 700; line-height: 48px; mso-line-height-rule: exactly; letter-spacing: 10px; white-space: nowrap;">{{otp}}</p>
+                    <p class="email-muted" style="margin: 0; color: #526987; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 20px; mso-line-height-rule: exactly;">Mã có hiệu lực trong <strong>{{expiresInMinutes}} phút</strong> và chỉ dùng một lần.</p>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin-top: 22px; border-spacing: 0;">
+                <tr>
+                  <td bgcolor="#f8fafc" class="email-note" style="padding: 16px 18px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+                    <p class="email-text" style="margin: 0 0 5px; color: #334155; font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 700; line-height: 19px; mso-line-height-rule: exactly;">Bảo mật tài khoản</p>
+                    <p class="email-muted" style="margin: 0; color: #64748b; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 20px; mso-line-height-rule: exactly;">Không chia sẻ mã này với bất kỳ ai, kể cả người tự nhận là nhân viên hỗ trợ. Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.</p>
+                  </td>
+                </tr>
+              </table>
+              <p class="email-muted" style="margin: 26px 0 0; color: #64748b; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 20px; mso-line-height-rule: exactly;">Trân trọng,<br><strong class="email-text" style="color: #334155;">Hệ thống LHU IT LAB</strong></p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" bgcolor="#f8fafc" class="email-footer" style="padding: 19px 22px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; border-radius: 0 0 15px 15px;">
+              <p class="email-muted" style="margin: 0; color: #64748b; font-family: Arial, Helvetica, sans-serif; font-size: 11px; line-height: 18px; mso-line-height-rule: exactly;">© {{year}} LHU IT LAB · Đại học Lạc Hồng</p>
+              <p class="email-muted" style="margin: 4px 0 0; color: #64748b; font-family: Arial, Helvetica, sans-serif; font-size: 11px; line-height: 18px; mso-line-height-rule: exactly;">Email được gửi tự động. Vui lòng không trả lời email này.</p>
+            </td>
+          </tr>
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+

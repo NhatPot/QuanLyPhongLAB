@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ECharts gives tooltip names and values different inline font styles by default. */
+.lab-chart-tooltip,
+.lab-chart-tooltip div,
+.lab-chart-tooltip span,
+.lab-chart-tooltip b,
+.lab-chart-tooltip strong {
+  font-family: Inter, "Segoe UI", system-ui, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+
 @layer base {
   :root {
     --background: 210 40% 98%;

@@ -347,7 +347,7 @@ const mockAdapter: AxiosAdapter = async (config) => {
   if (path === '/auth/login' && method === 'POST') {
     const identifier = String(payload.identifier || '').toLowerCase(); const password = String(payload.password || '');
     if (!['admin', 'administrator', 'admin@example.edu.vn'].includes(identifier) || !['admin123', 'Admin@123456'].includes(password)) return errorResponse(request, 401, 'Tài khoản mock: admin / admin123');
-    return response(request, body({ accessToken: 'mock-access-token', mustChangePassword: false }));
+    return response(request, body({ csrfToken: 'mock-csrf-token', mustChangePassword: false }));
   }
   if (path === '/auth/me' && method === 'GET') return response(request, body(currentProfile()));
   if (path === '/auth/me' && method === 'PUT') {
@@ -368,7 +368,8 @@ const mockAdapter: AxiosAdapter = async (config) => {
     auditLogs = [createMockAudit('USER_PROFILE_UPDATED', 'Users', item.id, null, { hasAvatar: Boolean(item.avatarUrl) }), ...auditLogs];
     return response(request, body(currentProfile()));
   }
-  if (path === '/auth/refresh' && method === 'POST') return response(request, body({ accessToken: 'mock-access-token' }));
+  if (path === '/auth/refresh' && method === 'POST') return response(request, body({ csrfToken: 'mock-csrf-token' }));
+  if (path === '/auth/logout-all' && method === 'POST') return response(request, body(null));
   if (path === '/auth/logout' && method === 'POST') return response(request, body(null));
   if (path === '/auth/change-password' && method === 'POST') return response(request, body(null));
 

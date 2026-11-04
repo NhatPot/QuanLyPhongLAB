@@ -32,6 +32,7 @@ export class ChangePasswordUseCase {
         return Result.fail<void>("Người dùng không tồn tại.");
       }
 
+      if (!user.passwordHash) return Result.fail<void>('Tài khoản đang dùng Google. Hãy xác minh email để thiết lập mật khẩu.');
       const isPasswordValid = await this.hasher.compare(input.currentPasswordHashOrText, user.passwordHash);
       if (!isPasswordValid) {
         return Result.fail<void>("Mật khẩu hiện tại không chính xác.");
@@ -46,14 +47,18 @@ export class ChangePasswordUseCase {
 
       const activeTokenHash = cryptoNode.createHash('sha256').update(input.activeRefreshToken).digest('hex');
       const activeSession = await this.sessionRepo.findByHash(activeTokenHash);
+      if (!activeSession || activeSession.userId !== input.userId || activeSession.revokedAt || activeSession.expiresAt.getTime() <= Date.now()) {
+        return Result.fail<void>('Phiên đăng nhập không còn hợp lệ.');
+      }
 
       await this.uow.complete(async () => {
-        await this.userRepo.save(user);
+        const transaction = this.uow.getTransaction();
+        await this.userRepo.save(user, transaction);
 
         if (activeSession && activeSession.id) {
-          await this.sessionRepo.revokeAllExcept(user.id.toString(), activeSession.id);
+          await this.sessionRepo.revokeAllExcept(user.id.toString(), activeSession.id, transaction);
         } else {
-          await this.sessionRepo.revokeByUserId(user.id.toString());
+          await this.sessionRepo.revokeByUserId(user.id.toString(), transaction);
         }
 
         await this.auditLogRepo.save({
@@ -64,7 +69,7 @@ export class ChangePasswordUseCase {
           ipAddress: input.ipAddress,
           userAgent: input.userAgent,
           correlationId: input.correlationId
-        });
+        }, transaction);
       });
 
       return Result.ok<void>();

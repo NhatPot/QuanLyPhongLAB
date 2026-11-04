@@ -4,7 +4,9 @@ import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import cryptoNode from 'crypto';
 
 export interface LogoutInput {
-  refreshToken: string;
+  refreshToken?: string;
+  userId?: string;
+  sessionId?: string;
 }
 
 export class LogoutUseCase {
@@ -15,19 +17,21 @@ export class LogoutUseCase {
 
   public async execute(input: LogoutInput): Promise<Result<void>> {
     try {
-      const hash = cryptoNode.createHash('sha256').update(input.refreshToken).digest('hex');
-      const session = await this.sessionRepo.findByHash(hash);
+      const session = input.sessionId && input.userId
+        ? await this.sessionRepo.findById(input.sessionId)
+        : input.refreshToken ? await this.sessionRepo.findByHash(cryptoNode.createHash('sha256').update(input.refreshToken).digest('hex')) : null;
+      if (session && input.userId && session.userId !== input.userId) return Result.fail<void>('Phiên không thuộc tài khoản.');
 
       if (session) {
         await this.uow.complete(async () => {
           session.revokedAt = new Date();
-          await this.sessionRepo.save(session);
+          await this.sessionRepo.save(session, this.uow.getTransaction());
         });
       }
 
       return Result.ok<void>();
     } catch (error) {
-      return Result.fail<void>((error as any).message || "Đã xảy ra lỗi khi đăng xuất.");
+      return Result.fail<void>('Không thể thu hồi phiên lúc này. Vui lòng thử lại sau.');
     }
 
   }

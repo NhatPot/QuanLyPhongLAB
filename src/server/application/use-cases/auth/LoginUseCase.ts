@@ -6,7 +6,7 @@ import { IPasswordHasher } from '../../ports/IPasswordHasher';
 import { ITokenService } from '../../ports/ITokenService';
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { IAuditLogRepository } from '../../../domain/repositories/IAuditLogRepository';
-import cryptoNode from 'crypto';
+import { IssueSession } from './IssueSession';
 
 export interface LoginInput {
   identifier: string;
@@ -14,12 +14,14 @@ export interface LoginInput {
   ipAddress?: string;
   userAgent?: string;
   correlationId?: string;
+  adminOnly?: boolean;
 }
 
 export interface LoginOutput {
   accessToken: string;
   refreshToken: string;
   mustChangePassword: boolean;
+  refreshExpiresAt: Date;
 }
 
 export class LoginUseCase {
@@ -40,14 +42,7 @@ export class LoginUseCase {
         return Result.fail<LoginOutput>("Tên đăng nhập hoặc mật khẩu không chính xác.");
       }
 
-      if (user.status === 'LOCKED') {
-        return Result.fail<LoginOutput>("Tài khoản của bạn đã bị khóa.");
-      }
-      if (user.status === 'INACTIVE') {
-        return Result.fail<LoginOutput>("Tài khoản chưa được kích hoạt.");
-      }
-
-      const isPasswordValid = await this.hasher.compare(input.password, user.passwordHash);
+      const isPasswordValid = user.passwordHash ? await this.hasher.compare(input.password, user.passwordHash) : false;
       if (!isPasswordValid) {
         await this.auditLogRepo.save({
           userId: user.id.toString(),
@@ -62,52 +57,16 @@ export class LoginUseCase {
 
         return Result.fail<LoginOutput>("Tên đăng nhập hoặc mật khẩu không chính xác.");
       }
+      if(input.adminOnly){const {roles}=await this.rolePermQuery.getRolePermissionsByUserId(user.id.toString());if(!roles.includes('ADMIN'))return Result.fail<LoginOutput>('Vui lòng đăng nhập bằng FIT LHU SSO.');}
 
-      const { roles, permissions } = await this.rolePermQuery.getRolePermissionsByUserId(user.id.toString());
-
-      const accessToken = this.tokenService.generateAccessToken({
-        userId: user.id.toString(),
-        roles,
-        permissions
-      });
-
-      const refreshToken = this.tokenService.generateRefreshToken();
-      const refreshTokenHash = cryptoNode.createHash('sha256').update(refreshToken).digest('hex');
-
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      await this.uow.complete(async () => {
-        await this.sessionRepo.save({
-          userId: user.id.toString(),
-          refreshTokenHash,
-          expiresAt,
-          ipAddress: input.ipAddress,
-          userAgent: input.userAgent
-        });
-
-        user.updateLastLogin(new Date());
-        await this.userRepo.save(user);
-
-        await this.auditLogRepo.save({
-          userId: user.id.toString(),
-          action: 'LOGIN_SUCCESS',
-          entityName: 'Users',
-          entityId: user.id.toString(),
-          ipAddress: input.ipAddress,
-          userAgent: input.userAgent,
-          correlationId: input.correlationId
-        });
-      });
-
-      return Result.ok<LoginOutput>({
-        accessToken,
-        refreshToken,
-        mustChangePassword: user.mustChangePassword
-      });
+      if (user.status === 'LOCKED') return Result.fail<LoginOutput>('Tài khoản của bạn đã bị khóa.');
+      if (user.status === 'INACTIVE') return Result.fail<LoginOutput>('Tài khoản chưa được kích hoạt. Nếu vừa đăng ký giảng viên, vui lòng chờ quản trị viên phê duyệt.');
+      return Result.ok<LoginOutput>(await new IssueSession(this.userRepo, this.sessionRepo, this.rolePermQuery, this.tokenService, this.uow, this.auditLogRepo).execute(user, {
+        ipAddress: input.ipAddress, userAgent: input.userAgent, correlationId: input.correlationId,
+      }));
 
     } catch (error) {
-      return Result.fail<LoginOutput>((error as any).message || "Đã xảy ra lỗi trong quá trình đăng nhập.");
+      return Result.fail<LoginOutput>('Không thể đăng nhập lúc này. Vui lòng thử lại sau.');
     }
 
   }

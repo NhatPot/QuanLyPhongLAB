@@ -7,6 +7,7 @@ export interface AuthSessionProps {
   createdAt?: Date;
   ipAddress?: string;
   userAgent?: string;
+  authenticationMethod?: 'LOCAL' | 'SSO';
 }
 
 export interface IAuthSessionRepository {
@@ -15,4 +16,5 @@ export interface IAuthSessionRepository {
   save(session: AuthSessionProps, transaction?: any): Promise<void>;
   revokeByUserId(userId: string, transaction?: any): Promise<void>;
   revokeAllExcept(userId: string, activeSessionId: string, transaction?: any): Promise<void>;
+  rotateRefreshToken(session: AuthSessionProps, expectedHash: string, transaction?: any): Promise<boolean>;
 }

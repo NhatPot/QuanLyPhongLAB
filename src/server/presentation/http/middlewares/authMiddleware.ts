@@ -1,17 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { container } from '../../../container/dependency-container';
 import { UnauthorizedError, ForbiddenError } from '../../../shared/errors/AppError';
+import { assertCsrf, expressSecurityRequest } from '../security/web-session';
+import { assertAccountSetupAccess } from '../security/account-setup';
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new UnauthorizedError("Vui lòng đăng nhập để tiếp tục.");
-  }
-
-  const token = authHeader.substring(7);
+export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const payload = container.tokenService.verifyAccessToken(token);
-    (req as any).user = payload;
+    assertCsrf(expressSecurityRequest(req));
+    const header = req.headers.authorization;
+    const token = header?.startsWith('Bearer ') ? header.substring(7) : req.cookies?.accessToken;
+    if (!token) throw new UnauthorizedError('Vui lòng đăng nhập để tiếp tục.');
+    (req as any).user = await container.validateAccessSessionUseCase.execute(token);
+    assertAccountSetupAccess((req as any).user, req.method, req.originalUrl || req.url || '');
+    res.setHeader('Cache-Control', 'no-store');
     next();
   } catch (error) {
     next(error);

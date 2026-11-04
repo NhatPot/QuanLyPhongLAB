@@ -1,0 +1,366 @@
+.page {
+  min-height: 100svh;
+  display: grid;
+  background: #f4f8fd;
+  color: #0f172a;
+}
+.content {
+  min-width: 0;
+  padding: 100px 40px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.mobileBrand {
+  position: absolute;
+  top: 28px;
+  left: 32px;
+}
+.card {
+  width: 100%;
+  max-width: 410px;
+  padding: 34px 30px 30px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(15 43 74 / 12%);
+}
+.title {
+  margin: 0 0 28px;
+  text-align: center;
+  font-size: 26px;
+  line-height: 1.35;
+  font-weight: 750;
+  letter-spacing: -0.5px;
+  color: #0f172a;
+}
+.description {
+  margin: -12px 0 24px;
+  color: #64748b;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.field {
+  position: relative;
+}
+.label {
+  display: block;
+  margin-bottom: 8px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+.control {
+  position: relative;
+}
+.field input {
+  width: 100%;
+  height: 46px;
+  padding: 0 43px 0 42px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  outline: none;
+  color: #0f172a;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+  font: inherit;
+  font-size: 13px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.field input::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+.field input:focus {
+  border-color: #297ef5;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(41 126 245 / 16%);
+}
+.field input:disabled {
+  opacity: 0.65;
+}
+.field input[aria-invalid="true"] {
+  border-color: #dc5263;
+}
+.icon {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  width: 17px;
+  height: 17px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+.eye {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 7px;
+  color: #94a3b8;
+  background: transparent;
+  cursor: pointer;
+}
+.eye:hover {
+  color: #334155;
+  background: #f1f5f9;
+}
+.primary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 16px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: #fff;
+  background: #297ef5;
+  font: inherit;
+  font-weight: 650;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+.primary:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.link {
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 550;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+.link:hover {
+  color: #164ea4;
+  text-decoration: underline;
+}
+.forgot {
+  text-align: right;
+  margin-top: -3px;
+  margin-bottom: 3px;
+}
+.separator {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #94a3b8;
+  font-size: 12px;
+  margin: 24px 0 18px;
+}
+.separator::before,
+.separator::after {
+  content: "";
+  height: 1px;
+  background: #e2e8f0;
+  flex: 1;
+}
+.google {
+  min-height: 44px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.googleFallback {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: #64748b;
+  font: inherit;
+  font-size: 13px;
+  cursor: not-allowed;
+}
+.googleHint {
+  color: #64748b;
+  font-size: 11px;
+  text-align: center;
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+.footer {
+  text-align: center;
+  margin-top: 23px;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.75;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+}
+.hint {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.75;
+  margin: 0;
+}
+.notice,
+.error {
+  border: 1px solid #bed5f4;
+  padding: 11px 13px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.65;
+  margin: 0 0 18px;
+  color: #234e7d;
+  background: #eff6ff;
+  overflow-wrap: anywhere;
+}
+.error {
+  border-color: #f2bec6;
+  color: #9f2438;
+  background: #fff1f3;
+}
+.steps {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  margin: -8px 0 24px;
+  color: #64748b;
+  font-size: 11px;
+}
+.steps span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.steps b {
+  border: 1px solid #cbd5e1;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 500;
+}
+.steps [aria-current="step"] {
+  color: #2563eb;
+}
+.steps [aria-current="step"] b {
+  background: #297ef5;
+  border-color: #297ef5;
+  color: #fff;
+}
+.otp input {
+  font-family: "Courier New", monospace;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 10px;
+  text-align: center;
+  padding: 0 12px 0 22px;
+  height: 58px;
+}
+.resend {
+  border: 0;
+  padding: 4px 0;
+  background: transparent;
+  cursor: pointer;
+}
+.resend:disabled {
+  color: #64748b;
+  cursor: default;
+  text-decoration: none;
+}
+.resendRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  margin-top: 4px;
+}
+.statusIcon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #eff6ff;
+  color: #2563eb;
+  border-radius: 50%;
+  margin: 0 auto 22px;
+}
+.card :is(button, a):focus-visible {
+  outline: 2px solid #1d6de0;
+  outline-offset: 4px;
+}
+.card ::selection {
+  color: #06294c;
+  background: #a4d4ff;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (min-width: 1024px) {
+  .page {
+    grid-template-columns: 1.05fr 0.95fr;
+  }
+  .content {
+    padding: 48px 40px;
+  }
+  .mobileBrand {
+    display: none;
+  }
+}
+@media (max-width: 540px) {
+  .content {
+    padding: 100px 18px 36px;
+  }
+  .mobileBrand {
+    top: 23px;
+    left: 22px;
+  }
+  .card {
+    padding: 30px 22px 26px;
+    border-radius: 19px;
+  }
+  .title {
+    font-size: 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card * {
+    transition: none;
+  }
+}

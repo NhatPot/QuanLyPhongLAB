@@ -7,7 +7,9 @@ export interface UserProps {
   fullName: string;
   email: string;
   username: string;
-  passwordHash: string;
+  passwordHash: string | null;
+  emailVerifiedAt?: Date;
+  ssoLinked?: boolean;
   phone?: string;
   department?: string;
   avatarUrl?: string;
@@ -31,7 +33,9 @@ export class User extends Entity<UserProps> {
   public get fullName(): string { return this.props.fullName; }
   public get email(): string { return this.props.email; }
   public get username(): string { return this.props.username; }
-  public get passwordHash(): string { return this.props.passwordHash; }
+  public get passwordHash(): string | null { return this.props.passwordHash; }
+  public get emailVerifiedAt(): Date | undefined { return this.props.emailVerifiedAt; }
+  public get ssoLinked(): boolean { return !!this.props.ssoLinked; }
   public get phone(): string | undefined { return this.props.phone; }
   public get department(): string | undefined { return this.props.department; }
   public get avatarUrl(): string | undefined { return this.props.avatarUrl; }

@@ -4,6 +4,7 @@ import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { IUserRepository } from '../../../domain/repositories/IUserRepository';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors/AppError';
 import type { GetCurrentUserOutput } from './GetCurrentUserUseCase';
+import {requiresAccountSetup} from './account-setup-state';
 
 const MAX_AVATAR_DATA_URL_LENGTH = 700_000;
 const AVATAR_DATA_URL_PATTERN = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
@@ -18,6 +19,7 @@ export interface UpdateCurrentUserProfileInput {
   ipAddress?: string;
   userAgent?: string;
   correlationId?: string;
+  usesSso?: boolean;
 }
 
 export class UpdateCurrentUserProfileUseCase {
@@ -34,8 +36,12 @@ export class UpdateCurrentUserProfileUseCase {
 
     const fullName = input.fullName.trim();
     const email = input.email.trim();
+    if (user.emailVerifiedAt && email.toLowerCase() !== user.email.toLowerCase()) {
+      throw new ValidationError('Email đã xác minh không thể đổi trực tiếp trong hồ sơ. Vui lòng liên hệ quản trị viên.');
+    }
     const phone = cleanOptional(input.phone);
     const department = cleanOptional(input.department);
+    if(user.ssoLinked&&(!phone||!department))throw new ValidationError('Vui lòng nhập ngành / phòng ban và số điện thoại.');
     const avatarUrl = input.avatarUrl === undefined
       ? user.avatarUrl
       : validateAvatar(input.avatarUrl);
@@ -76,7 +82,11 @@ export class UpdateCurrentUserProfileUseCase {
       avatarUrl: user.avatarUrl || null,
       roles,
       permissions,
-      mustChangePassword: user.mustChangePassword,
+      mustChangePassword: input.usesSso?false:user.mustChangePassword,
+      requiresAccountSetup: requiresAccountSetup(user,{usesSso:input.usesSso,roles}),
+      ssoLinked: user.ssoLinked,
+      usesSso: !!input.usesSso,
+      emailVerified: Boolean(user.emailVerifiedAt),
     };
   }
 }

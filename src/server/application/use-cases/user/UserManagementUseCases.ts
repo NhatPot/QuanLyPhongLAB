@@ -10,6 +10,7 @@ import {
 } from '../../../domain/repositories/IUserRepository';
 import { IUnitOfWork } from '../../../domain/repositories/IUnitOfWork';
 import { User, UserStatus } from '../../../domain/entities/User';
+import { isSchoolEmail } from '../../../../lib/school-email';
 import {
   BusinessRuleError,
   ConflictError,
@@ -98,7 +99,13 @@ export class CreateUserUseCase {
     const roleCodes = normalizeRoleCodes(input.roleCodes);
     await assertRolesExist(this.userRepo, roleCodes);
 
-    const duplicated = await this.userRepo.isEmailOrUsernameTaken(input.email, input.username);
+    const email = input.email.trim().toLowerCase();
+    const username = roleCodes.includes('ADMIN') ? input.username.trim() : email;
+    if (!roleCodes.includes('ADMIN') && (!isSchoolEmail(email) || email.length > 100)) {
+      throw new ValidationError('Tài khoản mới phải dùng email trường @lachong.edu.vn hoặc @lhu.edu.vn (tối đa 100 ký tự).');
+    }
+
+    const duplicated = await this.userRepo.isEmailOrUsernameTaken(email, username);
     if (duplicated) {
       throw new ConflictError('Email hoặc tên đăng nhập đã tồn tại.', 'USER_IDENTITY_EXISTS');
     }
@@ -107,8 +114,8 @@ export class CreateUserUseCase {
     const createdAt = new Date();
     const user = User.create({
       fullName: input.fullName.trim(),
-      email: input.email.trim(),
-      username: input.username.trim(),
+      email,
+      username,
       phone: cleanOptional(input.phone),
       department: cleanOptional(input.department),
       passwordHash,
@@ -155,6 +162,9 @@ export class UpdateUserUseCase {
     }
 
     const oldValue = { ...snapshotUser(detail.user), roles: detail.roles };
+    if (detail.user.emailVerifiedAt && input.email.trim().toLowerCase() !== detail.user.email.toLowerCase()) {
+      throw new ValidationError('Không đổi trực tiếp email đã xác minh. Cần xác minh lại danh tính và email mới.');
+    }
     detail.user.updateProfile({
       fullName: input.fullName.trim(),
       email: input.email.trim(),
@@ -188,6 +198,7 @@ export class UpdateUserStatusUseCase {
     private readonly userRepo: IUserRepository,
     private readonly uow: IUnitOfWork,
     private readonly auditLogRepo: IAuditLogRepository,
+    private readonly sessionRepo: IAuthSessionRepository,
   ) {}
 
   public async execute(input: UpdateUserStatusInput): Promise<UserWithRoles> {
@@ -213,6 +224,7 @@ export class UpdateUserStatusUseCase {
         throw new BusinessRuleError('Hệ thống phải luôn có ít nhất một quản trị viên đang hoạt động.', 'LAST_ACTIVE_ADMIN');
       }
       await this.userRepo.save(detail.user, transaction);
+      if (input.status !== 'ACTIVE') await this.sessionRepo.revokeByUserId(input.id, transaction);
       await this.auditLogRepo.save({
         userId: input.actorUserId,
         action: 'USER_STATUS_UPDATED',

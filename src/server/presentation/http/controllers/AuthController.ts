@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { container } from '../../../container/dependency-container';
 import { ApiResponse } from '../presenters/ApiResponse';
 import { ValidationError, UnauthorizedError } from '../../../shared/errors/AppError';
+import { assertCsrf, assertRequestOrigin, clearSessionCookies, expressSecurityRequest, isNativeAuthRequest, protectAuthRequest, setCsrfCookie, setSessionCookies } from '../security/web-session';
+import { loginRateLimiter } from '../security/login-rate-limiter';
 
 export const loginSchema = z.object({
   body: z.object({
@@ -39,16 +41,20 @@ export const updateCurrentUserProfileSchema = z.object({
 export class AuthController {
   public login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const identifier = (req.body?.identifier || req.body?.username || '').trim();
+      const native = protectAuthRequest(req);
+      const rawIdentifier = req.body?.identifier || req.body?.username;
+      const identifier = typeof rawIdentifier === 'string' ? rawIdentifier.trim() : '';
       const password = req.body?.password;
 
-      if (!identifier || !password) {
+      if (!identifier || typeof password !== 'string' || !password) {
         throw new UnauthorizedError('Tên đăng nhập hoặc mật khẩu không được để trống.');
       }
+      loginRateLimiter.consume(identifier, req.ip || 'unknown');
 
       const result = await container.loginUseCase.execute({
         identifier,
         password,
+        adminOnly: process.env.FIT_SSO_ENABLED==='true',
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
         correlationId: req.correlationId
@@ -58,24 +64,13 @@ export class AuthController {
         throw new UnauthorizedError(result.getError() || 'Tên đăng nhập hoặc mật khẩu không chính xác.');
       }
 
-      const { accessToken, refreshToken, mustChangePassword } = result.getValue();
+      const { accessToken, refreshToken, mustChangePassword, refreshExpiresAt } = result.getValue();
       const payload = container.tokenService.verifyAccessToken(accessToken) as { userId: string };
       const userResult = await container.getCurrentUserUseCase.execute(payload.userId);
       const userProfile = userResult.isSuccess ? userResult.getValue() : null;
 
-      res.cookie('accessToken', accessToken, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 15 * 60 * 1000
-      });
-
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000
-      });
+      res.setHeader('Cache-Control', 'no-store');
+      const csrfToken = native ? undefined : setSessionCookies(res, accessToken, refreshToken, refreshExpiresAt);
 
       // Auto-bind device if device_id is passed in login request from Agent
       const deviceId = req.body?.device_id || req.body?.deviceId;
@@ -95,8 +90,7 @@ export class AuthController {
       res.status(200).json({
         status: 'success',
         message: 'Đăng nhập người dùng thành công',
-        token: accessToken,
-        accessToken,
+        ...(native ? { token: accessToken, accessToken, refreshToken } : {}),
         mustChangePassword,
         user: userProfile ? {
           user_id: userProfile.id,
@@ -106,20 +100,22 @@ export class AuthController {
           role: userProfile.roles[0] || 'user'
         } : null,
         data: {
-          accessToken,
+          ...(native ? { accessToken, refreshToken } : { csrfToken }),
           mustChangePassword,
           user: userProfile
         }
       });
     } catch (error) {
+      if ((error as { statusCode?: number }).statusCode === 429) res.setHeader('Retry-After', '900');
       next(error);
     }
   };
 
   public refresh = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const refreshToken = req.cookies.refreshToken;
-      if (!refreshToken) {
+      const native = protectAuthRequest(req);
+      const refreshToken = native ? req.body?.refreshToken : req.cookies?.refreshToken;
+      if (typeof refreshToken !== 'string' || !refreshToken) {
         throw new UnauthorizedError('Không tìm thấy token phiên mới.');
       }
 
@@ -133,24 +129,12 @@ export class AuthController {
         throw new UnauthorizedError(result.getError() || 'Phiên làm việc không hợp lệ.');
       }
 
-      const { accessToken, refreshToken: newRefreshToken } = result.getValue();
-
-      res.cookie('accessToken', accessToken, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 15 * 60 * 1000
-      });
-
-      res.cookie('refreshToken', newRefreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000
-      });
+      const { accessToken, refreshToken: newRefreshToken, refreshExpiresAt } = result.getValue();
+      res.setHeader('Cache-Control', 'no-store');
+      const csrfToken = native ? undefined : setSessionCookies(res, accessToken, newRefreshToken, refreshExpiresAt);
 
       res.status(200).json(
-        ApiResponse.success({ accessToken }, 'Tạo phiên mới thành công.')
+        ApiResponse.success(native ? { accessToken, refreshToken: newRefreshToken } : { csrfToken }, 'Tạo phiên mới thành công.')
       );
     } catch (error) {
       next(error);
@@ -159,17 +143,34 @@ export class AuthController {
 
   public logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const refreshToken = req.cookies.refreshToken;
-      if (refreshToken) {
-        await container.logoutUseCase.execute({ refreshToken });
-      }
-
-      res.clearCookie('accessToken');
-      res.clearCookie('refreshToken');
+      const security = expressSecurityRequest(req);
+      assertCsrf(security);
+      const native = isNativeAuthRequest(security) && !security.refreshToken && !security.accessToken;
+      const refreshToken = native ? req.body?.refreshToken : req.cookies?.refreshToken;
+      const result = await container.logoutUseCase.execute({ refreshToken, userId: req.user?.userId, sessionId: (req.user as any)?.sessionId });
+      if (result.isFailure) throw new UnauthorizedError(result.getError());
+      clearSessionCookies(res);
       res.status(200).json(ApiResponse.success(null, 'Đăng xuất thành công.'));
     } catch (error) {
       next(error);
     }
+  };
+
+  public csrf = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      assertRequestOrigin(expressSecurityRequest(req));
+      res.status(200).json(ApiResponse.success({ csrfToken: setCsrfCookie(res, req.cookies?.refreshToken) }));
+    } catch (error) { next(error); }
+  };
+
+  public logoutAll = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      assertCsrf(expressSecurityRequest(req));
+      if (!req.user?.userId) throw new UnauthorizedError();
+      await container.logoutAllSessionsUseCase.execute(req.user.userId);
+      clearSessionCookies(res);
+      res.status(200).json(ApiResponse.success(null, 'Đã đăng xuất tất cả thiết bị.'));
+    } catch (error) { next(error); }
   };
 
   public me = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -179,7 +180,7 @@ export class AuthController {
         throw new UnauthorizedError('Người dùng chưa được xác thực.');
       }
 
-      const result = await container.getCurrentUserUseCase.execute(userId);
+      const result = await container.getCurrentUserUseCase.execute(userId,!!(req.user as any)?.usesSso);
       if (result.isFailure) {
         throw new UnauthorizedError(result.getError() || 'Người dùng không tồn tại.');
       }
@@ -196,8 +197,9 @@ export class AuthController {
       if (!userId) throw new UnauthorizedError('Người dùng chưa được xác thực.');
 
       const profile = await container.updateCurrentUserProfileUseCase.execute({
-        userId,
         ...req.body,
+        userId,
+        usesSso: !!(req.user as any)?.usesSso,
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
         correlationId: req.correlationId,
@@ -219,6 +221,7 @@ export class AuthController {
       }
 
       const { currentPassword, newPassword } = req.body;
+      if((req.user as any)?.usesSso)throw new ValidationError('Vui lòng đổi mật khẩu tại FIT LHU SSO.');
       const result = await container.changePasswordUseCase.execute({
         userId,
         currentPasswordHashOrText: currentPassword,

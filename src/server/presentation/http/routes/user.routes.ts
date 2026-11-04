@@ -19,7 +19,7 @@ const profileBodySchema = z.object({
     .trim()
     .min(3, 'Tên đăng nhập phải có ít nhất 3 ký tự.')
     .max(100)
-    .regex(/^[a-zA-Z0-9._-]+$/, 'Tên đăng nhập chỉ gồm chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.'),
+    .regex(/^[a-zA-Z0-9._@+\-]+$/, 'Tài khoản đăng nhập không được chứa khoảng trắng hoặc ký tự đặc biệt.'),
   phone: z.string().trim().max(50).optional(),
   department: z.string().trim().max(255).optional(),
 });

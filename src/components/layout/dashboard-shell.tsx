@@ -7,6 +7,7 @@ import { AppHeader } from '@/components/layout/app-header';
 import { useAuth } from '@/features/auth/AuthContext';
 import { Brand } from '@/components/layout/brand';
 import { isMockDataMode } from '@/services/data-mode';
+import { toast } from 'sonner';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -18,17 +19,24 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login?from=' + encodeURIComponent(pathname || '/'));
+    } else if (!isLoading && user?.requiresAccountSetup) {
+      router.replace('/complete-account');
     } else if (!isLoading && user?.mustChangePassword && pathname !== '/change-password') {
       router.replace('/change-password');
     }
   }, [isLoading, isAuthenticated, user, pathname, router]);
 
   const handleLogout = async () => {
-    await logout();
-    router.replace('/login');
+    try {
+      const redirectTo=await logout();
+      if(redirectTo){window.location.assign(redirectTo);return;}
+      router.replace('/login');
+    } catch {
+      toast.error('Chưa đăng xuất được. Vui lòng kiểm tra kết nối và thử lại.');
+    }
   };
 
-  if (isLoading || !isAuthenticated) {
+  if (isLoading || !isAuthenticated || user?.requiresAccountSetup) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#06294d]">
         <div className="flex flex-col items-center gap-4">

@@ -32,6 +32,7 @@ import {
   type UserRecord,
 } from './access-control-data';
 import { cn } from '@/lib/utils';
+import { isSchoolEmail } from '@/lib/school-email';
 
 const userSchema = z.object({
   fullName: z.string().trim().min(2, 'Vui lòng nhập họ và tên.'),
@@ -39,7 +40,8 @@ const userSchema = z.object({
     .string()
     .trim()
     .min(3, 'Tên đăng nhập cần ít nhất 3 ký tự.')
-    .regex(/^[a-zA-Z0-9._-]+$/, 'Tên đăng nhập không được chứa khoảng trắng.'),
+    .max(100)
+    .regex(/^[a-zA-Z0-9._@+\-]+$/, 'Tài khoản đăng nhập không được chứa khoảng trắng.'),
   email: z.string().trim().email('Địa chỉ email chưa đúng định dạng.'),
   phone: z.string().trim().optional(),
   department: z.string().trim().min(2, 'Vui lòng nhập đơn vị công tác.'),
@@ -95,6 +97,7 @@ export function UserEditorDialog({ open, user, canAssignRole, onClose, onSave }:
     reset,
     watch,
     setValue,
+    setError,
     formState: { errors },
   } = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -102,6 +105,11 @@ export function UserEditorDialog({ open, user, canAssignRole, onClose, onSave }:
   });
 
   const selectedRoles = watch('roles') || [];
+  const email = watch('email');
+  const isAdministrator = selectedRoles.includes('ADMIN');
+  useEffect(() => {
+    if (!user && !isAdministrator) setValue('username', email.trim().toLowerCase());
+  }, [email, isAdministrator, user, setValue]);
 
   useEffect(() => {
     if (!open) return;
@@ -256,18 +264,24 @@ export function UserEditorDialog({ open, user, canAssignRole, onClose, onSave }:
         </div>
 
         {/* Modal Form Body */}
-        <form onSubmit={handleSubmit(onSave)} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <form onSubmit={handleSubmit(values => {
+          if (!user && !values.roles.includes('ADMIN') && !isSchoolEmail(values.email)) {
+            setError('email', {message:'Tài khoản mới cần email @lachong.edu.vn hoặc @lhu.edu.vn.'});
+            return;
+          }
+          onSave(values);
+        })} className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-5 scrollbar-thin space-y-5">
             {/* User Profile Fields */}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Họ và tên" error={errors.fullName?.message}>
                 <input {...register('fullName')} className={inputClass} placeholder="Nguyễn Văn A" autoFocus />
               </Field>
-              <Field label="Tên đăng nhập" error={errors.username?.message}>
-                <input {...register('username')} className={inputClass} placeholder="nguyenvana" disabled={Boolean(user)} />
-              </Field>
-              <Field label="Email" error={errors.email?.message}>
-                <input {...register('email')} type="email" className={inputClass} placeholder="user@lhu.edu.vn" />
+              {(user || isAdministrator) && <Field label={user ? 'Tài khoản đăng nhập hiện tại' : 'Tên đăng nhập admin'} error={errors.username?.message}>
+                <input {...register('username')} className={inputClass} placeholder="admin" readOnly={Boolean(user)} />
+              </Field>}
+              <Field label={!user && !isAdministrator ? 'Email trường / Tài khoản đăng nhập' : 'Email'} error={errors.email?.message}>
+                <input {...register('email')} type="email" maxLength={!user && !isAdministrator ? 100 : 255} className={inputClass} placeholder="user@lhu.edu.vn" />
               </Field>
               <Field label="Số điện thoại" error={errors.phone?.message}>
                 <input {...register('phone')} className={inputClass} placeholder="0901 234 567" />

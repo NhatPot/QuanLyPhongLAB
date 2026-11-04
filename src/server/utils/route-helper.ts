@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { container } from '../container/dependency-container';
 import { AppError, UnauthorizedError, ForbiddenError } from '../shared/errors/AppError';
 import { hashDeviceApiKey, normalizeMacAddress } from '../shared/utils/deviceIdentity';
+import { assertCsrf } from '../presentation/http/security/web-session';
+import { assertAccountSetupAccess } from '../presentation/http/security/account-setup';
 
 export interface AuthenticatedUser {
   userId: string;
+  sessionId: string;
   username: string;
   email: string;
   roles: string[];
   permissions: string[];
+  requiresAccountSetup?: boolean;
+  usesSso?: boolean;
 }
 
 export function handleApiError(error: unknown) {
@@ -49,29 +54,38 @@ export function successResponse(data: any, message = 'Thành công', status = 20
       data,
       meta,
     },
-    { status }
+    { status, headers: { 'Cache-Control': 'no-store' } }
   );
 }
 
-export function getAuthUser(req: NextRequest): AuthenticatedUser {
+export async function getAuthUser(req: NextRequest): Promise<AuthenticatedUser> {
   const authHeader = req.headers.get('authorization');
   let token: string | null = null;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7);
   } else {
-    token = req.cookies.get('accessToken')?.value || req.cookies.get('token')?.value || req.cookies.get('auth_token')?.value || null;
+    token = req.cookies.get('accessToken')?.value || null;
   }
 
   if (!token) {
     throw new UnauthorizedError('Vui lòng đăng nhập để tiếp tục.');
   }
 
-  try {
-    const payload = container.tokenService.verifyAccessToken(token);
-    return payload as AuthenticatedUser;
-  } catch {
-    throw new UnauthorizedError('Phiên làm việc đã hết hạn hoặc không hợp lệ.');
-  }
+  assertCsrfForRequest(req);
+  const user = await container.validateAccessSessionUseCase.execute(token);
+  assertAccountSetupAccess(user, req.method, req.nextUrl.pathname);
+  return user;
+}
+
+export function assertCsrfForRequest(req: NextRequest, allowBearer = true) {
+  assertCsrf({
+    method: req.method, requestOrigin: req.nextUrl.origin,
+    origin: req.headers.get('origin'), fetchSite: req.headers.get('sec-fetch-site'),
+    csrfCookie: req.cookies.get('csrfToken')?.value, csrfHeader: req.headers.get('x-csrf-token'),
+    accessToken: req.cookies.get('accessToken')?.value, refreshToken: req.cookies.get('refreshToken')?.value,
+    authorization: allowBearer ? req.headers.get('authorization') : null,
+    authMode: req.headers.get('x-auth-mode'),
+  });
 }
 
 export function checkPermissions(user: AuthenticatedUser, ...requiredPermissions: string[]) {
@@ -135,16 +149,21 @@ export async function handleExpressRoute(
 ) {
   try {
     const requireAuth = options?.requireAuth ?? true;
+    const machineClient = !requireAuth && req.nextUrl.pathname.startsWith('/api/devices/') &&
+      !req.headers.get('origin') && !req.headers.get('sec-fetch-site') &&
+      !req.cookies.get('accessToken') && !req.cookies.get('refreshToken');
+    // Device enrollment/telemetry use their own protocol, never the browser session.
+    if (!machineClient) assertCsrfForRequest(req, requireAuth);
     let authUser: AuthenticatedUser | undefined;
 
     if (requireAuth) {
-      authUser = getAuthUser(req);
+      authUser = await getAuthUser(req);
       if (options?.permissions && options.permissions.length > 0) {
         checkAnyPermissions(authUser, ...options.permissions);
       }
     } else {
       try {
-        authUser = getAuthUser(req);
+        authUser = await getAuthUser(req);
       } catch {
         // guest request
       }
@@ -170,7 +189,7 @@ export async function handleExpressRoute(
     let responseBody: any = null;
     const cookiesToSet: Array<{ name: string; value: string; options?: any }> = [];
     const cookiesToClear: string[] = [];
-    const responseHeaders: Record<string, string> = {};
+    const responseHeaders: Record<string, string> = { 'Cache-Control': 'no-store' };
 
     const mockRes: any = {
       status(code: number) {
@@ -206,8 +225,11 @@ export async function handleExpressRoute(
       user: authUser,
       cookies,
       headers: Object.fromEntries(req.headers.entries()),
-      ip: req.headers.get('x-forwarded-for') || '127.0.0.1',
-      get: (headerName: string) => req.headers.get(headerName) || undefined,
+      method: req.method,
+      protocol: req.nextUrl.protocol.replace(':', ''),
+      originalUrl: req.nextUrl.pathname+req.nextUrl.search,
+      ip: process.env.TRUST_PROXY === 'true' ? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown' : 'untrusted-client',
+      get: (headerName: string) => headerName.toLowerCase() === 'host' ? req.nextUrl.host : req.headers.get(headerName) || undefined,
     };
 
     let nextError: any = null;
@@ -218,7 +240,9 @@ export async function handleExpressRoute(
     await action(mockReq, mockRes, mockNext);
 
     if (nextError) {
-      return handleApiError(nextError);
+      const errorResponse = handleApiError(nextError);
+      for (const [name, value] of Object.entries(responseHeaders)) errorResponse.headers.set(name, value);
+      return errorResponse;
     }
 
     const nextResponse = NextResponse.json(responseBody, { status: responseStatus, headers: responseHeaders });

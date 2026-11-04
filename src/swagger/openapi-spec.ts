@@ -1,3 +1,4 @@
+import { selfServiceAuthPaths } from './self-service-auth-spec';
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
@@ -17,6 +18,10 @@ export const openApiSpec = {
   ],
   components: {
     securitySchemes: {
+      CookieAuth: {
+        type: "apiKey", in: "cookie", name: "accessToken",
+        description: "Web dùng cookie HttpOnly. Thao tác ghi cần X-CSRF-Token từ GET /auth/csrf. Swagger tự dùng phiên hiện tại.",
+      },
       BearerAuth: {
         type: "http",
         scheme: "bearer",
@@ -270,13 +275,28 @@ export const openApiSpec = {
       }
     }
   },
-  security: [{ BearerAuth: [] }],
+  security: [{ CookieAuth: [] }, { BearerAuth: [] }],
   paths: {
+    ...selfServiceAuthPaths,
+    "/auth/csrf": {
+      get: {
+        tags: ["Xác Thực (Auth)"], summary: "Lấy mã bảo vệ CSRF", security: [],
+        description: "Đặt csrfToken cookie và trả data.csrfToken. Web gửi giá trị này trong X-CSRF-Token khi ghi, gồm login/refresh/logout. Không cache.",
+        responses: { 200: { description: "CSRF token, không phải token đăng nhập" } },
+      },
+    },
+    "/auth/logout-all": {
+      post: {
+        tags: ["Xác Thực (Auth)"], summary: "Thu hồi tất cả phiên của tài khoản hiện tại",
+        description: "Yêu cầu phiên hợp lệ và CSRF với cookie. Thu hồi cả access token qua kiểm tra session DB; xóa cookie trình duyệt.",
+        responses: { 200: { description: "Đã đăng xuất tất cả thiết bị" }, 401: { description: "Phiên không hợp lệ" }, 403: { description: "CSRF không hợp lệ" } },
+      },
+    },
     "/auth/login": {
       post: {
         tags: ["Xác Thực (Auth)"],
         summary: "Đăng nhập hệ thống",
-        description: "Xác thực bằng Username/Email và Password. Trả về Access Token và lưu Refresh Token vào Cookie.",
+        description: "Web: access/refresh token chỉ nằm trong cookie HttpOnly; JSON trả user/mustChangePassword/csrfToken. Cần CSRF trước đăng nhập. Native không cookie/Origin/Fetch Metadata gửi X-Auth-Mode: bearer để nhận token JSON.",
         security: [],
         requestBody: {
           required: true,
@@ -284,7 +304,9 @@ export const openApiSpec = {
         },
         responses: {
           200: { description: "Đăng nhập thành công", content: { "application/json": { schema: { $ref: "#/components/schemas/ApiResponseSuccess" } } } },
-          401: { description: "Sai tên đăng nhập hoặc mật khẩu", content: { "application/json": { schema: { $ref: "#/components/schemas/ApiResponseError" } } } }
+          401: { description: "Sai tên đăng nhập hoặc mật khẩu", content: { "application/json": { schema: { $ref: "#/components/schemas/ApiResponseError" } } } },
+          403: { description: "Thiếu/sai CSRF hoặc Origin" },
+          429: { description: "Vượt giới hạn thử đăng nhập; Retry-After: 900" },
         }
       }
     },
@@ -292,7 +314,7 @@ export const openApiSpec = {
       post: {
         tags: ["Xác Thực (Auth)"],
         summary: "Làm mới Access Token",
-        description: "Đọc Refresh Token từ Cookie trình duyệt và cấp Access Token mới.",
+        description: "Web dùng refresh cookie + CSRF, đặt lại cookie HttpOnly và trả csrfToken mới, không trả access token JSON. Native gửi X-Auth-Mode: bearer và body refreshToken, không cookie/Origin/Fetch Metadata. Token cũ chỉ dùng được một lần, phiên tối đa 7 ngày.",
         security: [],
         responses: {
           200: { description: "Cấp lại token thành công" },

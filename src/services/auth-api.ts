@@ -6,12 +6,12 @@ export interface LoginPayload {
 }
 
 export interface LoginResponse {
-  accessToken: string;
+  csrfToken: string;
   mustChangePassword: boolean;
 }
 
 export interface RefreshResponse {
-  accessToken: string;
+  csrfToken: string;
 }
 
 export interface UserProfile {
@@ -25,6 +25,10 @@ export interface UserProfile {
   roles: string[];
   permissions: string[];
   mustChangePassword: boolean;
+  requiresAccountSetup?: boolean;
+  emailVerified?: boolean;
+  ssoLinked?: boolean;
+  usesSso?: boolean;
 }
 
 export interface UpdateProfilePayload {
@@ -48,6 +52,9 @@ export const authApi = {
   
   logout: async (): Promise<void> => {
     await apiClient.post('/auth/logout');
+  },
+  logoutAll: async (): Promise<void> => {
+    await apiClient.post('/auth/logout-all');
   },
   
   getMe: async (): Promise<UserProfile> => {

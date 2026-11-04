@@ -1,15 +1,209 @@
-'use client';
-import { Suspense, useEffect, useState } from 'react';
-import Image from 'next/image';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react';
-import { Brand } from '@/components/layout/brand';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useAuth } from '@/features/auth/AuthContext';
-const schema=z.object({identifier:z.string().min(1,'Vui lòng nhập tên đăng nhập hoặc email.'),password:z.string().min(1,'Mật khẩu không được để trống.')});type Fields=z.infer<typeof schema>;
-function LoginForm(){const {login,isAuthenticated,isLoading}=useAuth();const router=useRouter();const params=useSearchParams();const [showPassword,setShowPassword]=useState(false);const [serverError,setServerError]=useState('');const {register,handleSubmit,formState:{errors,isSubmitting}}=useForm<Fields>({resolver:zodResolver(schema),defaultValues:{identifier:'',password:''}});useEffect(()=>{if(!isLoading&&isAuthenticated)router.replace('/')},[isLoading,isAuthenticated,router]);const onSubmit=async(data:Fields)=>{setServerError('');try{const profile=await login(data);router.replace(profile.mustChangePassword?'/change-password':params?.get('from')||'/')}catch(error:any){setServerError(error.response?.data?.error?.message||error.response?.data?.error||'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.')}};return <main className="relative grid min-h-screen overflow-hidden bg-[#f4f8fd] lg:grid-cols-[1.05fr_.95fr]"><section className="relative hidden overflow-hidden bg-gradient-to-br from-[#06294c] via-[#073761] to-[#0a4a7d] p-12 text-white lg:flex lg:flex-col lg:justify-between"><div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_25%_25%,#60a5fa_0,transparent_35%),radial-gradient(circle_at_75%_80%,#38bdf8_0,transparent_28%)]"/><div className="absolute inset-0 opacity-10 [background-image:linear-gradient(rgba(255,255,255,.25)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.25)_1px,transparent_1px)] [background-size:34px_34px]"/><Brand className="relative z-10"/><div className="relative z-10 my-auto max-w-xl py-6"><div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-blue-100 backdrop-blur"><ShieldCheck className="h-4 w-4 text-emerald-300"/>Hệ thống quản lý tập trung và an toàn</div><h1 className="text-5xl font-extrabold leading-[1.1] tracking-tight">Vận hành phòng Lab<br/><span className="bg-gradient-to-r from-blue-300 to-cyan-200 bg-clip-text text-transparent">thông minh hơn.</span></h1><p className="mt-5 max-w-lg text-base leading-7 text-blue-100/80">Theo dõi máy tính, thiết bị, lịch sử dụng và sự cố trên một giao diện trực quan, thống nhất.</p><div className="mt-9 grid grid-cols-3 gap-3"><div className="rounded-2xl border border-white/10 bg-white/8 p-4 backdrop-blur"><p className="text-2xl font-extrabold">24/7</p><p className="mt-1 text-xs text-blue-200">Theo dõi trạng thái</p></div><div className="rounded-2xl border border-white/10 bg-white/8 p-4 backdrop-blur"><p className="text-2xl font-extrabold">01</p><p className="mt-1 text-xs text-blue-200">Phòng Lab tập trung</p></div><div className="rounded-2xl border border-white/10 bg-white/8 p-4 backdrop-blur"><p className="text-2xl font-extrabold">100%</p><p className="mt-1 text-xs text-blue-200">Lưu vết thao tác</p></div></div></div><div className="relative z-10 text-xs font-medium text-blue-200/60">Phát triển bởi Đại học Lạc Hồng</div></section><section className="relative flex items-center justify-center p-5 sm:p-10"><div className="absolute right-8 top-8 lg:hidden"><Brand className="[&_p]:text-slate-900 [&_p+p]:text-slate-500"/></div><div className="w-full max-w-md animate-float-in"><div className="mb-8"><p className="text-xs font-bold uppercase tracking-[.18em] text-blue-600">Chào mừng trở lại</p><h2 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">Đăng nhập hệ thống</h2><p className="mt-2 text-sm text-slate-500">Sử dụng tài khoản được cấp để tiếp tục.</p></div><form onSubmit={handleSubmit(onSubmit)} className="space-y-5 rounded-3xl border border-white bg-white p-6 shadow-[0_24px_70px_rgba(15,43,74,.12)] sm:p-8">{serverError&&<div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{serverError}</div>}<div><label className="mb-2 block text-sm font-semibold text-slate-700">Tên đăng nhập hoặc email</label><div className="relative"><UserRound className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><Input {...register('identifier')} autoComplete="username" className="h-12 pl-10" placeholder="Nhập tên đăng nhập"/></div>{errors.identifier&&<p className="mt-1.5 text-xs text-red-600">{errors.identifier.message}</p>}</div><div><div className="mb-2 flex items-center justify-between"><label className="text-sm font-semibold text-slate-700">Mật khẩu</label><span className="text-xs font-medium text-blue-600">Bảo mật tài khoản</span></div><div className="relative"><LockKeyhole className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><Input {...register('password')} type={showPassword?'text':'password'} autoComplete="current-password" className="h-12 pl-10 pr-11" placeholder="••••••••"/><button type="button" onClick={()=>setShowPassword(v=>!v)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">{showPassword?<EyeOff className="h-4 w-4"/>:<Eye className="h-4 w-4"/>}</button></div>{errors.password&&<p className="mt-1.5 text-xs text-red-600">{errors.password.message}</p>}</div><Button type="submit" size="lg" disabled={isSubmitting} className="h-12 w-full text-sm">{isSubmitting?'Đang xác thực...':<>Đăng nhập<ArrowRight className="h-4 w-4"/></>}</Button><p className="text-center text-[11px] leading-5 text-slate-400">Nếu bạn chưa có tài khoản hoặc quên mật khẩu, hãy liên hệ quản trị viên phòng Lab.</p></form></div></section></main>}
-export default function LoginPage(){return <Suspense fallback={<div className="min-h-screen bg-[#f4f8fd]"/>}><LoginForm/></Suspense>}
+"use client";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { UserRound } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/features/auth/AuthContext";
+import {
+  AuthCard,
+  AuthField,
+  AuthPassword,
+  authError,
+  safeAuthRedirect,
+} from "@/features/auth/AuthFields";
+import { GoogleSignInButton } from "@/features/auth/GoogleSignInButton";
+import { AuthFlow } from "@/features/auth/AuthFlow";
+import type { AuthOutcome } from "@/services/self-service-auth-api";
+import styles from "@/features/auth/auth-pages.module.css";
+import {
+  selfAuthApi,
+  type AuthFeatureConfig,
+} from "@/services/self-service-auth-api";
+import { FitSsoSignIn, ssoErrorText } from "@/features/auth/FitSsoSignIn";
+function LoginForm() {
+  const { login, user, isAuthenticated, isLoading, acceptSession } = useAuth();
+  const router = useRouter(),
+    params = useSearchParams();
+  const [identifier, setIdentifier] = useState(""),
+    [password, setPassword] = useState("");
+  const [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const [googleFlow, setGoogleFlow] = useState<AuthOutcome | null>(null);
+  const [config, setConfig] = useState<AuthFeatureConfig | null>(null);
+  const [configError, setConfigError] = useState("");
+  useEffect(() => {
+    selfAuthApi
+      .config()
+      .then(setConfig)
+      .catch((e) => setConfigError(authError(e)));
+  }, []);
+  const adminLogin = params.get("local") === "admin";
+  useEffect(() => {
+    if (!isLoading && isAuthenticated)
+      router.replace(
+        user?.requiresAccountSetup
+          ? "/complete-account"
+          : user?.mustChangePassword
+            ? "/change-password"
+            : safeAuthRedirect(params.get("from")),
+      );
+  }, [
+    isLoading,
+    isAuthenticated,
+    user?.mustChangePassword,
+    user?.requiresAccountSetup,
+    params,
+    router,
+  ]);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const profile = await login({ identifier: identifier.trim(), password });
+      router.replace(
+        profile.requiresAccountSetup
+          ? "/complete-account"
+          : profile.mustChangePassword
+            ? "/change-password"
+            : safeAuthRedirect(params.get("from")),
+      );
+    } catch (e) {
+      setError(authError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function google(result: AuthOutcome) {
+    setError("");
+    if (result.state === "active") {
+      await acceptSession();
+      router.replace(
+        result.requiresAccountSetup
+          ? "/complete-account"
+          : result.mustChangePassword
+            ? "/change-password"
+            : safeAuthRedirect(params.get("from")),
+      );
+    } else if (result.state === "pending_review")
+      router.push("/registration-status");
+    else setGoogleFlow(result);
+  }
+  if (googleFlow?.state === "verify_email")
+    return <AuthFlow mode="register" initialChallenge={googleFlow} />;
+  if (googleFlow?.state === "complete_profile")
+    return <AuthFlow mode="register" initialGrant={googleFlow} />;
+  if (!config && !adminLogin)
+    return (
+      <AuthCard title="Đăng nhập">
+        {configError ? (
+          <p className={styles.error} role="alert">
+            {configError}
+          </p>
+        ) : (
+          <p className={styles.hint}>Đang tải phương thức đăng nhập…</p>
+        )}
+        <div className={styles.footer}>
+          <Link className={styles.link} href="/login?local=admin">
+            Tài khoản quản trị Lab
+          </Link>
+        </div>
+      </AuthCard>
+    );
+  if (config?.ssoEnabled && !adminLogin)
+    return (
+      <AuthCard title="Đăng nhập">
+        {ssoErrorText(params.get("sso_error")) && (
+          <p className={styles.error} role="alert">
+            {ssoErrorText(params.get("sso_error"))}
+          </p>
+        )}
+        <FitSsoSignIn returnTo={safeAuthRedirect(params.get("from"))} />
+        <div className={`${styles.footer} flex flex-col gap-3`}>
+          <Link className={styles.link} href="/register">
+            Đăng ký tài khoản SSO
+          </Link>
+          <Link className={styles.link} href="/login?local=admin">
+            Tài khoản quản trị Lab
+          </Link>
+        </div>
+      </AuthCard>
+    );
+  return (
+    <AuthCard title="Đăng nhập">
+      {params.get("setup") === "complete" && (
+        <p role="status" className="mb-4 text-sm leading-6 text-emerald-700">
+          Đã hoàn thiện tài khoản. Hãy đăng nhập bằng email trường và mật khẩu
+          mới hoặc tiếp tục bằng Google.
+        </p>
+      )}
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
+      <form className={styles.form} onSubmit={submit}>
+        <AuthField
+          id="login-identifier"
+          label="Email trường / Tài khoản admin"
+          showLabel
+          icon={<UserRound size={17} />}
+          placeholder="Nhập email trường hoặc tài khoản admin"
+          autoComplete="username"
+          required
+          maxLength={255}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          disabled={busy}
+        />
+        <AuthPassword
+          id="login-password"
+          showLabel
+          placeholder="••••••••"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={busy}
+        />
+        {!config?.ssoEnabled && (
+          <div className={styles.forgot}>
+            <Link className={styles.link} href="/forgot-password">
+              Quên mật khẩu?
+            </Link>
+          </div>
+        )}
+        <button className={styles.primary} type="submit" disabled={busy}>
+          {busy ? "Đang đăng nhập…" : "Đăng nhập"}
+        </button>
+      </form>
+      {!config?.ssoEnabled && !adminLogin && (
+        <>
+          <div className={styles.separator}>hoặc</div>
+          <GoogleSignInButton onResult={google} onError={setError} />
+        </>
+      )}
+      <div className={styles.footer}>
+        <Link
+          className={styles.link}
+          href={config?.ssoEnabled ? "/login" : "/register"}
+        >
+          {config?.ssoEnabled ? "Đăng nhập FIT LHU SSO" : "Tạo tài khoản"}
+        </Link>
+      </div>
+    </AuthCard>
+  );
+}
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard title="Đăng nhập">
+          <p className={styles.hint}>Đang tải…</p>
+        </AuthCard>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  );
+}

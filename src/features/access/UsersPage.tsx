@@ -23,7 +23,6 @@ import {
   type UserApiRecord,
   type UserStatus,
 } from "@/services/user-api";
-import { dataModeLabel, isMockDataMode } from "@/services/data-mode";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Avatar,
@@ -39,6 +38,7 @@ import {
 } from "./access-control-data";
 import { ResetPasswordDialog } from "./ResetPasswordDialog";
 import { UserEditorDialog, type UserFormValues } from "./UserEditorDialog";
+import { RegistrationReviewPanel } from './RegistrationReviewPanel';
 
 const PAGE_SIZE = 15;
 
@@ -341,51 +341,35 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-68px-2rem)] sm:h-[calc(100vh-68px-3rem)] xl:h-[calc(100vh-68px-3.5rem)] overflow-hidden">
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-h-0 flex-col gap-3 md:h-[calc(100dvh-68px-3rem)] md:overflow-hidden xl:h-[calc(100dvh-68px-3.5rem)]">
+      <section className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="mb-1.5 flex items-center gap-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-[.16em] text-blue-600">
-              Quản trị hệ thống
-            </span>
-            <span
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-[9px] font-bold",
-                isMockDataMode
-                  ? "border-amber-200 bg-amber-50 text-amber-700"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-700",
-              )}
-            >
-              {dataModeLabel}
-            </span>
-          </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-950">
             Quản lý người dùng
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Quản lý hồ sơ, trạng thái tài khoản và vai trò truy cập hệ thống.
-          </p>
         </div>
-        {canCreate && (
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedUser(null);
-              setEditorOpen(true);
-            }}
-            className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700 sm:self-auto"
-          >
-            <Plus className="h-4 w-4" />
-            Thêm người dùng
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <RegistrationReviewPanel />
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedUser(null);
+                setEditorOpen(true);
+              }}
+              className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl bg-blue-600 px-3 text-xs font-bold text-white shadow-sm shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700 sm:self-auto sm:px-4 sm:text-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Thêm người dùng
+            </button>
+          )}
+        </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid shrink-0 grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-3">
         <SummaryCard
           label="Tổng người dùng"
           value={summary.total}
-          helper="Tất cả tài khoản"
           icon={Users}
           tone="blue"
           highlighted
@@ -393,38 +377,32 @@ export default function UsersPage() {
         <SummaryCard
           label="Đang hoạt động"
           value={summary.active}
-          helper={`${Math.round((summary.active / Math.max(1, summary.total)) * 100)}% tổng tài khoản`}
           icon={UserCheck}
           tone="emerald"
         />
         <SummaryCard
           label="Đã khóa"
           value={summary.locked}
-          helper="Cần quản trị viên mở khóa"
           icon={LockKeyhole}
           tone="red"
         />
         <SummaryCard
           label="Không hoạt động"
           value={summary.inactive}
-          helper="Tài khoản tạm ngừng"
           icon={CircleOff}
           tone="slate"
         />
       </section>
 
-      <section className="dashboard-card flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 xl:flex-row xl:items-center xl:justify-between">
+      <section className="dashboard-card flex min-h-[420px] flex-1 flex-col overflow-hidden md:min-h-0">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-slate-100 p-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-sm font-extrabold text-slate-900">
               Danh sách người dùng
             </h2>
-            <p className="mt-0.5 text-[11px] text-slate-400">
-              Dữ liệu được tải trực tiếp từ hệ thống.
-            </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <div className="relative min-w-60 flex-1 sm:w-72">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <div className="relative col-span-2 min-w-0 flex-1 sm:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={keyword}
@@ -437,7 +415,7 @@ export default function UsersPage() {
               value={roleFilter}
               onChange={(event) => setRoleFilter(event.target.value as RoleCode | "")}
               aria-label="Lọc theo vai trò"
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+              className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
             >
               <option value="">Tất cả vai trò</option>
               {ROLE_DEFINITIONS.map((role) => (
@@ -450,7 +428,7 @@ export default function UsersPage() {
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as UserStatus | "")}
               aria-label="Lọc theo trạng thái"
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+              className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
             >
               <option value="">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang hoạt động</option>
@@ -492,7 +470,7 @@ export default function UsersPage() {
             <>
               <table className="w-full min-w-[1080px] text-left">
                 <thead className="sticky top-0 z-10 bg-slate-50 shadow-sm">
-                  <tr className="text-[10px] font-extrabold uppercase tracking-[.1em] text-slate-400">
+                  <tr className="whitespace-nowrap text-[10px] font-extrabold uppercase tracking-[.1em] text-slate-400">
                     <th className="px-4 py-3">Người dùng</th>
                     <th className="px-4 py-3">Liên hệ</th>
                     <th className="px-4 py-3">Vai trò</th>
@@ -508,9 +486,9 @@ export default function UsersPage() {
                       key={item.id}
                       className="group transition hover:bg-blue-50/30"
                     >
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-2.5">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10 rounded-xl ring-1 ring-slate-200/80">
+                          <Avatar className="h-9 w-9 rounded-xl ring-1 ring-slate-200/80">
                             <AvatarImage
                               src={item.avatarUrl || undefined}
                               alt={`Ảnh đại diện của ${item.fullName}`}
@@ -530,12 +508,12 @@ export default function UsersPage() {
                               {item.fullName}
                             </p>
                             <p className="mt-0.5 text-[11px] font-medium text-slate-400">
-                              @{item.username}
+                              {item.username.includes('@') ? item.username : `@${item.username}`}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-2.5">
                         <p className="text-xs font-semibold text-slate-600">
                           {item.email}
                         </p>
@@ -543,14 +521,14 @@ export default function UsersPage() {
                           {item.phone || "Chưa cập nhật SĐT"}
                         </p>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-2.5">
                         <div className="flex max-w-48 flex-wrap gap-1">
                           {item.roles.map((code) => (
                             <RoleBadge key={code} code={code} />
                           ))}
                         </div>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-2.5">
                         <p
                           className="max-w-44 truncate text-xs text-slate-600"
                           title={item.department}
@@ -558,10 +536,10 @@ export default function UsersPage() {
                           {item.department || "Chưa cập nhật"}
                         </p>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-2.5">
                         <StatusBadge status={item.status} />
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-2.5">
                         <p className="text-xs font-semibold text-slate-600">
                           {formatDateTime(item.lastLoginAt)}
                         </p>
@@ -571,7 +549,7 @@ export default function UsersPage() {
                           </p>
                         )}
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-2.5">
                         <div className="flex items-center justify-end gap-1">
                           {canUpdate && (
                             <button
@@ -669,7 +647,7 @@ export default function UsersPage() {
         </div>
 
         {!listQuery.isLoading && !listQuery.isError && (
-          <div className="flex flex-col gap-2 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex shrink-0 flex-col gap-2 border-t border-slate-100 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[11px] font-medium text-slate-500">
               Đã hiển thị <span className="font-extrabold text-slate-800">{users.length}</span> trong <span className="font-extrabold text-slate-800">{totalItems}</span> người dùng
             </p>
@@ -777,14 +755,12 @@ export default function UsersPage() {
 function SummaryCard({
   label,
   value,
-  helper,
   icon: Icon,
   tone,
   highlighted = false,
 }: {
   label: string;
   value: number;
-  helper: string;
   icon: typeof Users;
   tone: "blue" | "emerald" | "red" | "slate";
   highlighted?: boolean;
@@ -798,7 +774,7 @@ function SummaryCard({
   return (
     <div
       className={cn(
-        "flex min-h-[96px] items-center gap-3 overflow-hidden p-4 transition hover:-translate-y-0.5",
+        "flex min-h-[72px] items-center gap-3 overflow-hidden p-3",
         highlighted
           ? "rounded-2xl border border-violet-500/30 bg-gradient-to-br from-[#5B43F4] via-[#6D3FF2] to-[#8B2CF5] shadow-[0_10px_24px_rgba(109,63,242,.24)]"
           : "dashboard-card",
@@ -806,7 +782,7 @@ function SummaryCard({
     >
       <span
         className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
           highlighted
             ? "bg-white/15 text-white ring-1 ring-white/25"
             : tones[tone],
@@ -831,14 +807,6 @@ function SummaryCard({
         >
           {value}
         </p>
-        <p
-          className={cn(
-            "mt-1.5 truncate text-[10px] font-medium",
-            highlighted ? "text-white/75" : "text-slate-400",
-          )}
-        >
-          {helper}
-        </p>
       </div>
     </div>
   );
@@ -849,7 +817,7 @@ function RoleBadge({ code }: { code: RoleCode }) {
   return role ? (
     <span
       className={cn(
-        "inline-flex rounded-full border px-2 py-1 text-[9px] font-extrabold",
+        "inline-flex whitespace-nowrap rounded-full border px-2 py-1 text-[9px] font-extrabold",
         ROLE_TONES[role.tone],
       )}
     >
@@ -863,7 +831,7 @@ function StatusBadge({ status }: { status: UserStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold",
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-bold",
         meta.className,
       )}
     >

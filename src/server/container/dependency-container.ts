@@ -50,6 +50,8 @@ import { SqlBookingPurposeGroupRepository } from '../infrastructure/database/sql
 
 import { GetHealthUseCase } from '../application/use-cases/GetHealthUseCase';
 import { LoginUseCase } from '../application/use-cases/auth/LoginUseCase';
+import { ValidateAccessSessionUseCase } from '../application/use-cases/auth/ValidateAccessSessionUseCase';
+import { LogoutAllSessionsUseCase } from '../application/use-cases/auth/LogoutAllSessionsUseCase';
 import { RefreshSessionUseCase } from '../application/use-cases/auth/RefreshSessionUseCase';
 import { LogoutUseCase } from '../application/use-cases/auth/LogoutUseCase';
 import { GetCurrentUserUseCase } from '../application/use-cases/auth/GetCurrentUserUseCase';
@@ -241,6 +243,8 @@ class DependencyContainer {
   // Use cases
   public readonly getHealthUseCase: GetHealthUseCase;
   public readonly loginUseCase: LoginUseCase;
+  public readonly validateAccessSessionUseCase: ValidateAccessSessionUseCase;
+  public readonly logoutAllSessionsUseCase: LogoutAllSessionsUseCase;
   public readonly refreshSessionUseCase: RefreshSessionUseCase;
   public readonly logoutUseCase: LogoutUseCase;
   public readonly getCurrentUserUseCase: GetCurrentUserUseCase;
@@ -484,6 +488,8 @@ class DependencyContainer {
       this.deletePurposeGroupUseCase,
     );
 
+    this.validateAccessSessionUseCase = new ValidateAccessSessionUseCase(this.tokenService, this.sessionRepo, this.userRepo, this.rolePermQuery);
+    this.logoutAllSessionsUseCase = new LogoutAllSessionsUseCase(this.sessionRepo, this.uow);
     this.loginUseCase = new LoginUseCase(
       this.userRepo,
       this.sessionRepo,
@@ -539,7 +545,8 @@ class DependencyContainer {
     this.updateUserStatusUseCase = new UpdateUserStatusUseCase(
       this.userRepo,
       this.uow,
-      this.auditLogRepo
+      this.auditLogRepo,
+      this.sessionRepo,
     );
     this.assignUserRolesUseCase = new AssignUserRolesUseCase(
       this.userRepo,
