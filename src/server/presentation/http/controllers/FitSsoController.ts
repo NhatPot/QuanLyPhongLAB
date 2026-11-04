@@ -8,7 +8,7 @@ import type { SsoOutcome } from "../../../application/use-cases/auth/FitSsoAuth"
 import type { AuthFlowContext } from "../../../application/use-cases/auth/SelfServiceAuth";
 import {
   readFitSsoConfig,
-  ssoOrigin,
+  ssoRequestOrigin,
 } from "../../../infrastructure/auth/fit-sso-config";
 import { readSelfServiceConfig } from "../../../infrastructure/auth/self-service-config";
 import {
@@ -25,7 +25,7 @@ import {
 const id = z.string().uuid();
 export class FitSsoController {
   private origin(req: Request) {
-    return ssoOrigin(
+    return ssoRequestOrigin(
       readFitSsoConfig(),
       `${req.protocol}://${req.get("host")}`,
     );

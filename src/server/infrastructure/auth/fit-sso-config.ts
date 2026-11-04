@@ -58,3 +58,13 @@ export function ssoOrigin(c: FitSsoConfig, candidate: string) {
     );
   return origin;
 }
+
+/**
+ * Reverse proxies commonly terminate HTTPS and forward requests to Next.js over
+ * HTTP. APP_ORIGIN is the configured public origin and must take precedence over
+ * the protocol seen by the application. The selected origin is still checked
+ * against the SSO allowlist before it is used in redirects.
+ */
+export function ssoRequestOrigin(c: FitSsoConfig, requestOrigin: string) {
+  return ssoOrigin(c, process.env.APP_ORIGIN || requestOrigin);
+}

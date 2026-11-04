@@ -583,3 +583,11 @@ Hai URI callback đã được provider chấp nhận là `http://localhost:3000
 5. Owner thử đăng nhập, liên kết tài khoản cũ, hồ sơ, quyền, giảng viên chờ duyệt và đăng xuất trên domain. Chỉ ghi production PASS sau bằng chứng này. Nếu cần rollback chế độ local, đặt `FIT_SSO_ENABLED=false` và khôi phục cờ đăng ký theo cấu hình đã chọn, restart web; không xóa identity/user hoặc đổi mật khẩu để rollback.
 
 **Production chưa triển khai:** chủ dự án cho biết dùng VPS hoặc Docker nhưng chưa có host/thư mục/service thực tế. SSH chỉ cần nếu giao agent thao tác trực tiếp; chủ dự án có thể tự triển khai theo các bước trên. Chưa commit/push hoặc thay đổi máy chủ production trong task này.
+
+## 28. Sửa origin SSO phía sau reverse proxy — 04/11/2026
+
+Sau khi triển khai thử, `/api/auth/sso/start` trên `https://lab.fitlhu.com` trả 400 `SSO_ORIGIN_INVALID`, dù request trình duyệt có HTTPS origin. Đã tái hiện trực tiếp qua API production bằng CSRF hợp lệ; Next adapter dựng scheme từ URL nội bộ trước proxy, trong khi controller dùng `req.protocol` + host và vì vậy có thể thấy HTTP.
+
+- Sửa `FitSsoController` để dùng `APP_ORIGIN` làm origin công khai có thẩm quyền; nếu không cấu hình thì mới fallback origin request. `ssoOrigin` vẫn bắt buộc kiểm origin đó nằm trong `FIT_SSO_ALLOWED_ORIGINS`, nên không dùng `X-Forwarded-Proto` tùy ý.
+- Cần env production `APP_ORIGIN=https://lab.fitlhu.com` và `FIT_SSO_ALLOWED_ORIGINS=https://lab.fitlhu.com`, sau đó build/restart ứng dụng. Giữ localhost trong allowlist trên máy phát triển.
+- Kiểm tra `npx vitest run src/server/infrastructure/auth/fit-sso-config.test.ts src/server/presentation/http/security/fit-sso-routes.test.ts`: **PASS — 11 tests**; `npm run typecheck`: **PASS**; `npm run build`: **PASS**. Bằng chứng API production còn đang ở bản cũ tại thời điểm sửa; chưa deploy code sửa hoặc xác nhận login SSO trên domain sau deploy.
