@@ -192,3 +192,13 @@ BOOKING_CANCELLED
 - Permission/scope đúng.
 - Không reserve thiết bị sớm.
 - Test nghiệp vụ đạt.
+
+## Cập nhật giao diện chọn thiết bị — 05/11/2026
+
+Theo yêu cầu chủ dự án, danh sách thiết bị dành cho người mượn và ô chọn trong form tạo yêu cầu chỉ hiển thị tên thiết bị và số lượng khả dụng; không hiển thị tiền tố danh mục dài hoặc mã như `CATEGORY-IOT-...`. Không ẩn bản thân thiết bị đang được phép mượn; dữ liệu danh mục/mã và ID vẫn giữ cho nghiệp vụ và quản trị.
+
+- Ô chọn cho phép gõ tên có dấu hoặc không dấu, hiển thị kết quả bên dưới, chọn bằng chuột hoặc phím mũi tên/Enter; Escape đóng kết quả mà không đóng form. Có thông báo khi không tìm thấy, đang tải, lỗi và thiết bị đã chọn không còn khả dụng theo thời gian.
+- Tiếp tục lấy đầy đủ các trang danh mục cho ô chọn, chỉ đưa thiết bị còn khả dụng vào danh sách lựa chọn. Giữ ID thiết bị đã chọn khi gửi, kiểm tra chọn trùng và kiểm tra khả dụng phía server hiện có. Chọn trước từ danh mục vẫn điền lại vào form.
+- Điều chỉnh layout để modal không bị tràn/cắt nội dung trên mobile. Không đổi API, quyền, schema hoặc quy tắc mượn.
+- `npm run typecheck` và `npm run build`: **PASS**. Hai file test nghiệp vụ booking: **PASS — 44 tests**. Browser với API giả: **PASS** tìm không dấu, chọn bằng chuột/bàn phím, Escape, không tìm thấy, chọn trùng, giữ ID khi gửi, giữ lựa chọn từ danh mục; không tràn ngang toàn trang hoặc trong modal ở 1440/1024/375/320px, 0 runtime exception. [Ảnh desktop](../designs/booking-equipment-picker/search-desktop.png), [ảnh mobile](../designs/booking-equipment-picker/search-320.png), [báo cáo](../designs/booking-equipment-picker/checks.json). Ảnh/script được Git ignore.
+- Kiểm browser dùng dữ liệu/API giả; không tạo booking trên DB thật và chưa deploy production.

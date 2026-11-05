@@ -1,19 +1,20 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, useFormState } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { equipmentApi, EquipmentData, EquipmentTxData, EquipmentCategoryData } from '@/services/equipment-api';
+import { equipmentApi, EquipmentData, EquipmentCategoryData } from '@/services/equipment-api';
 import { useAuth } from '@/features/auth/AuthContext';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EquipmentImportDialog } from './EquipmentImportDialog';
 import { EquipmentDialog } from './EquipmentDialog';
-import { EquipmentDetailDialog } from './EquipmentDetailDialog';
+import { EquipmentDetailDialog, type EquipmentDetailTab } from './EquipmentDetailDialog';
+import { EquipmentActionsMenu } from './EquipmentActionsMenu';
 import { equipmentCategorySchema } from '@/lib/equipment-category';
-import { Plus, Search, Edit2, History, AlertTriangle, Settings, RefreshCw, X, Save, ArrowUpDown, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Edit2, Settings, RefreshCw, X, Save, ArrowUpDown, Trash2 } from 'lucide-react';
 
 const equipmentSchema = z.object({
   isLendable: z.boolean().default(false),
@@ -70,10 +71,12 @@ const EquipmentsPage: React.FC = () => {
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<EquipmentCategoryData | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<EquipmentDetailTab>('info');
+  const [returnDetailId, setReturnDetailId] = useState<string | null>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
 
   const [adjustState, setAdjustState] = useState<{ id: string; isOpen: boolean; delta: number; note: string } | null>(null);
   const [brokenState, setBrokenState] = useState<{ id: string; isOpen: boolean; quantity: number; from: 'AVAILABLE' | 'BORROWED'; note: string } | null>(null);
-  const [txHistoryState, setTxHistoryState] = useState<{ id: string; code: string; isOpen: boolean } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<EquipmentData | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -96,15 +99,40 @@ const EquipmentsPage: React.FC = () => {
     queryFn: () => equipmentApi.list({ keyword, categoryId: categoryFilter || undefined, page, pageSize })
   });
 
-  const { data: transactions, isLoading: isTxLoading } = useQuery<EquipmentTxData[]>({
-    queryKey: ['equipment-txs', txHistoryState?.id],
-    queryFn: () => equipmentApi.listTransactions(txHistoryState!.id),
-    enabled: !!txHistoryState?.isOpen
-  });
+  const invalidateEquipment = (id: string) => {
+    void queryClient.invalidateQueries({ queryKey: ['equipments'] });
+    void queryClient.invalidateQueries({ queryKey: ['equipment-detail', id] });
+    void queryClient.invalidateQueries({ queryKey: ['equipment-txs', id] });
+  };
+  const finishAction = () => {
+    if (returnDetailId) { setDetailTab('info'); setDetailId(returnDetailId); setReturnDetailId(null); }
+    else requestAnimationFrame(() => { if (returnFocus.current?.isConnected) returnFocus.current.focus(); });
+  };
+  const cancelEdit = () => {
+    if (saveMutation.isPending || (eqIsDirty && !window.confirm('Bạn có muốn bỏ các thay đổi chưa lưu?'))) return;
+    setIsEqModalOpen(false);
+    finishAction();
+  };
+  const cancelAdjust = () => {
+    if (adjustMutation.isPending || (adjustState && (adjustState.delta !== 1 || adjustState.note.trim()) && !window.confirm('Bạn có muốn bỏ các thay đổi chưa lưu?'))) return;
+    setAdjustState(null);
+    finishAction();
+  };
+  const cancelDamage = () => {
+    if (brokenMutation.isPending || (brokenState && (brokenState.quantity !== 1 || brokenState.from !== 'AVAILABLE' || brokenState.note.trim()) && !window.confirm('Bạn có muốn bỏ các thay đổi chưa lưu?'))) return;
+    setBrokenState(null);
+    finishAction();
+  };
+  const actionName = (id: string) => listData?.data.find((item) => item.id === id)?.name || 'thiết bị';
+  const mutationMessage = (error: unknown) => {
+    const response = (error as { response?: { data?: { error?: { message?: string } } } })?.response;
+    return response?.data?.error?.message || 'Không thể lưu thay đổi. Vui lòng thử lại.';
+  };
 
   const eqForm = useForm<FormFields>({
     resolver: zodResolver(equipmentSchema)
   });
+  const { isDirty: eqIsDirty } = useFormState({ control: eqForm.control });
 
   const catForm = useForm<CategoryFields>({
     resolver: zodResolver(categorySchema)
@@ -121,11 +149,13 @@ const EquipmentsPage: React.FC = () => {
       }
       return equipmentApi.create(data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['equipments'] });
+    onSuccess: (result) => {
+      invalidateEquipment(result.id);
       setIsEqModalOpen(false);
       setSelectedEq(null);
       eqForm.reset();
+      setImportNotice('Đã lưu thông tin thiết bị.');
+      finishAction();
     }
   });
 
@@ -155,27 +185,35 @@ const EquipmentsPage: React.FC = () => {
 
   const adjustMutation = useMutation({
     mutationFn: (data: { id: string; delta: number; note?: string }) => equipmentApi.adjust(data.id, data.delta, data.note),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['equipments'] });
+    onSuccess: (_result, variables) => {
+      invalidateEquipment(variables.id);
       setAdjustState(null);
+      setImportNotice('Đã điều chỉnh số lượng thiết bị.');
+      finishAction();
     }
   });
 
   const brokenMutation = useMutation({
     mutationFn: (data: { id: string; quantity: number; from: 'AVAILABLE' | 'BORROWED'; note?: string }) => 
       equipmentApi.reportBroken(data.id, data.quantity, data.from, data.note),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['equipments'] });
+    onSuccess: (_result, variables) => {
+      invalidateEquipment(variables.id);
       setBrokenState(null);
+      setImportNotice('Đã ghi nhận thiết bị hỏng.');
+      finishAction();
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => equipmentApi.delete(id),
-    onSuccess: async () => {
+    onSuccess: async (_result, id) => {
+      invalidateEquipment(id);
+      if (page > 1 && listData?.data.length === 1) setPage(page - 1);
       await queryClient.invalidateQueries({ queryKey: ['equipments'] });
       setDeleteTarget(null);
       setDeleteError(null);
+      setReturnDetailId(null);
+      setImportNotice('Đã xóa thiết bị khỏi danh sách.');
     },
     onError: (error) => {
       const response = (error as { response?: { data?: { error?: { message?: string } } } }).response;
@@ -184,6 +222,8 @@ const EquipmentsPage: React.FC = () => {
   });
 
   const openAddEqModal = () => {
+    setReturnDetailId(null);
+    saveMutation.reset();
     setSelectedEq(null);
     eqForm.reset({
       isLendable: false,
@@ -200,6 +240,7 @@ const EquipmentsPage: React.FC = () => {
   };
 
   const openEditEqModal = (e: EquipmentData) => {
+    saveMutation.reset();
     setSelectedEq(e);
     eqForm.reset({
       quantity: e.totalQuantity,
@@ -213,6 +254,27 @@ const EquipmentsPage: React.FC = () => {
       note: e.note || ''
     });
     setIsEqModalOpen(true);
+  };
+
+  const rememberOpener = (item: EquipmentData) => {
+    const active = document.activeElement as HTMLElement | null;
+    returnFocus.current = active?.closest('[role="menuitem"]')
+      ? [...document.querySelectorAll<HTMLButtonElement>('button[aria-label]')].find((button) => button.getAttribute('aria-label') === `Thao tác cho ${item.name}`) || null
+      : active;
+  };
+  const openDetail = (item: EquipmentData, tab: EquipmentDetailTab = 'info') => {
+    rememberOpener(item);
+    setDetailTab(tab);
+    setDetailId(item.id);
+  };
+  const openAction = (item: EquipmentData, action: 'adjust' | 'damage' | 'edit' | 'delete', fromDetail = false) => {
+    if (!fromDetail) rememberOpener(item);
+    setReturnDetailId(fromDetail ? item.id : null);
+    if (fromDetail) setDetailId(null);
+    if (action === 'adjust') { adjustMutation.reset(); setAdjustState({ id: item.id, isOpen: true, delta: 1, note: '' }); }
+    if (action === 'damage') { brokenMutation.reset(); setBrokenState({ id: item.id, isOpen: true, quantity: 1, from: 'AVAILABLE', note: '' }); }
+    if (action === 'edit') openEditEqModal(item);
+    if (action === 'delete') { setDeleteError(null); setDeleteTarget(item); }
   };
 
   const onSubmitEq = (data: FormFields) => {
@@ -326,57 +388,34 @@ const EquipmentsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {listData.data.map((eq) => (
-                  <tr key={eq.id} className="hover:bg-slate-50/50 transition">
+                  <tr key={eq.id} onClick={(event) => { const target = event.target as HTMLElement; if (!canView || target.closest('button, a, input, select, textarea, [role="menuitem"]') || window.getSelection()?.toString()) return; event.currentTarget.querySelector<HTMLButtonElement>('[data-equipment-name]')?.focus(); openDetail(eq); }} className={`${canView ? 'cursor-pointer' : ''} hover:bg-slate-50/50 transition`}>
                     <td className="px-6 py-4 font-mono font-bold text-slate-900">{eq.code}</td>
-                    <td className="px-6 py-4 font-semibold text-slate-800">{eq.name}<span className={`mt-1 block text-xs font-normal ${eq.isLendable ? 'text-emerald-700' : 'text-slate-600'}`}>{eq.isLendable ? 'Cho phép mượn' : 'Nội bộ Lab · không cho mượn'}</span></td>
+                    <td className="px-6 py-4 font-semibold text-slate-800">{canView ? <button type="button" data-equipment-name onClick={() => openDetail(eq)} className="text-left font-semibold text-blue-700 hover:text-blue-800 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-blue-600">{eq.name}</button> : eq.name}<span className={`mt-1 block text-xs font-normal ${eq.isLendable ? 'text-emerald-700' : 'text-slate-600'}`}>{eq.isLendable ? 'Cho phép mượn' : 'Nội bộ Lab · không cho mượn'}</span></td>
                     <td className="px-6 py-4 font-bold text-slate-700">{eq.totalQuantity}</td>
                     <td className="px-6 py-4 font-bold text-emerald-600">{eq.availableQuantity}</td>
                     <td className="px-6 py-4 font-bold text-blue-600">{eq.borrowedQuantity}</td>
                     <td className="px-6 py-4 font-bold text-red-500">{eq.brokenQuantity}</td>
                     <td className="px-6 py-4">{eq.location || 'N/A'}</td>
-                    <td className="px-6 py-4 text-right space-x-1 whitespace-nowrap">
-                      {canView && <button type="button" onClick={() => setDetailId(eq.id)} className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-200"><Eye className="h-3.5 w-3.5" /> Chi tiết</button>}
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center justify-end gap-2">
                       {canAdjust && (
                         <button
-                          onClick={() => setAdjustState({ id: eq.id, isOpen: true, delta: 1, note: '' })}
-                          className="inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 text-xs font-bold"
+                          type="button" onClick={() => openAction(eq, 'adjust')}
+                          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 focus-visible:outline-2 focus-visible:outline-blue-600"
                         >
-                          <ArrowUpDown className="h-3.5 w-3.5" /> Kho
+                          <ArrowUpDown className="h-3.5 w-3.5" /> Điều chỉnh số lượng
                         </button>
                       )}
-                      {canDamageReport && (
-                        <button
-                          onClick={() => setBrokenState({ id: eq.id, isOpen: true, quantity: 1, from: 'AVAILABLE', note: '' })}
-                          className="inline-flex items-center gap-1 rounded bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 text-xs font-bold"
-                        >
-                          <AlertTriangle className="h-3.5 w-3.5" /> Hỏng
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setTxHistoryState({ id: eq.id, code: eq.code, isOpen: true })}
-                        className="inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 text-xs font-bold"
-                      >
-                        <History className="h-3.5 w-3.5" /> Lịch sử
-                      </button>
                       {canDelete && (
                         <button
-                          onClick={() => {
-                            setDeleteError(null);
-                            setDeleteTarget(eq);
-                          }}
-                          className="inline-flex items-center gap-1 rounded bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 text-xs font-bold"
+                          type="button" onClick={() => openAction(eq, 'delete')}
+                          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-red-700"
                         >
                           <Trash2 className="h-3.5 w-3.5" /> Xóa
                         </button>
                       )}
-                      {canUpdate && (
-                        <button
-                          onClick={() => openEditEqModal(eq)}
-                          className="inline-flex items-center gap-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-600 px-2 py-1 text-xs font-bold"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" /> Sửa
-                        </button>
-                      )}
+                      <EquipmentActionsMenu name={eq.name} onEdit={canUpdate ? () => openAction(eq, 'edit') : undefined} onDamage={canDamageReport ? () => openAction(eq, 'damage') : undefined} onHistory={canView ? () => openDetail(eq, 'history') : undefined} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -445,21 +484,12 @@ const EquipmentsPage: React.FC = () => {
       )}
 
       {isEqModalOpen && (
-        <EquipmentModalLayer>
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-slate-950">
-                {selectedEq ? `Cập nhật ${selectedEq.code}` : 'Thêm thiết bị mượn kèm mới'}
-              </h3>
-              <button onClick={() => setIsEqModalOpen(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+        <EquipmentDialog open onClose={cancelEdit} busy={saveMutation.isPending} title={selectedEq ? `Sửa ${selectedEq.name}` : 'Thêm thiết bị'} description={selectedEq?.code || 'Nhập thông tin thiết bị mới.'}>
             <form onSubmit={eqForm.handleSubmit(onSubmitEq)} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Danh mục thiết bị</label>
+                <label htmlFor="equipment-category" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Danh mục thiết bị</label>
                 <select
+                  id="equipment-category"
                   {...eqForm.register('categoryId')}
                   className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-slate-900 focus:border-blue-500 focus:outline-none text-sm"
                 >
@@ -471,8 +501,9 @@ const EquipmentsPage: React.FC = () => {
 
               <div className="grid gap-4 grid-cols-2">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Mã thiết bị (tùy chọn)</label>
+                  <label htmlFor="equipment-code" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Mã thiết bị (tùy chọn)</label>
                   <input
+                    id="equipment-code"
                     {...eqForm.register('code')}
                     type="text"
                     placeholder="Bỏ trống để tự sinh theo mã danh mục"
@@ -483,8 +514,9 @@ const EquipmentsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Tên thiết bị</label>
+                  <label htmlFor="equipment-name" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Tên thiết bị</label>
                   <input
+                    id="equipment-name"
                     {...eqForm.register('name')}
                     type="text"
                     className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-slate-900 focus:border-blue-500 focus:outline-none text-sm"
@@ -494,8 +526,9 @@ const EquipmentsPage: React.FC = () => {
 
                 {!selectedEq && (
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Số lượng</label>
+                    <label htmlFor="equipment-quantity" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Số lượng</label>
                     <input
+                      id="equipment-quantity"
                       {...eqForm.register('quantity', { valueAsNumber: true })}
                       type="number"
                       min={1}
@@ -509,13 +542,14 @@ const EquipmentsPage: React.FC = () => {
 
               <div className="grid gap-4 grid-cols-2">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Vị trí cất giữ</label>
-                  <input {...eqForm.register('location')} type="text" className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-sm" />
+                  <label htmlFor="equipment-location" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Vị trí cất giữ</label>
+                  <input id="equipment-location" {...eqForm.register('location')} type="text" className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-sm" />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Trạng thái hoạt động</label>
+                  <label htmlFor="equipment-status" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Trạng thái hoạt động</label>
                   <select
+                    id="equipment-status"
                     {...eqForm.register('status')}
                     className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-sm focus:outline-none"
                   >
@@ -528,14 +562,16 @@ const EquipmentsPage: React.FC = () => {
 
               <div>
                 <label className="mb-4 flex items-start gap-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-950"><input type="checkbox" {...eqForm.register('isLendable')} className="mt-1 h-4 w-4 accent-blue-600" /><span><strong>Cho phép mượn thiết bị</strong><span className="mt-1 block text-blue-800">Bật: hiển thị cho người đăng ký mượn. Tắt: chỉ dùng nội bộ Lab, ẩn với sinh viên và giảng viên; không được đặt mượn.</span></span></label>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Ghi chú thêm</label>
-                <textarea {...eqForm.register('note')} rows={3} className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-sm" />
+                <label htmlFor="equipment-note" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Ghi chú thêm</label>
+                <textarea id="equipment-note" {...eqForm.register('note')} rows={3} className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-sm" />
               </div>
 
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 mt-6">
+                {saveMutation.isError && <p role="alert" className="mr-auto text-sm text-red-700">{mutationMessage(saveMutation.error)}</p>}
                 <button
                   type="button"
-                  onClick={() => setIsEqModalOpen(false)}
+                  onClick={cancelEdit}
+                  disabled={saveMutation.isPending}
                   className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-55"
                 >
                   Hủy
@@ -549,8 +585,7 @@ const EquipmentsPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </EquipmentModalLayer>
+        </EquipmentDialog>
       )}
 
       {isCatModalOpen && (
@@ -610,34 +645,28 @@ const EquipmentsPage: React.FC = () => {
         </EquipmentDialog>
       )}
 
-      <EquipmentDetailDialog id={detailId} categories={categories} onClose={() => setDetailId(null)} />
+      <EquipmentDetailDialog id={detailId} initialTab={detailTab} categories={categories} onClose={() => setDetailId(null)} onAdjust={canAdjust ? (item) => openAction(item, 'adjust', true) : undefined} onEdit={canUpdate ? (item) => openAction(item, 'edit', true) : undefined} onDamage={canDamageReport ? (item) => openAction(item, 'damage', true) : undefined} onDelete={canDelete ? (item) => openAction(item, 'delete', true) : undefined} />
 
       {adjustState?.isOpen && (
-        <EquipmentModalLayer>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-slate-955">Điều chỉnh số lượng kho</h3>
-              <button onClick={() => setAdjustState(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+        <EquipmentDialog open onClose={cancelAdjust} busy={adjustMutation.isPending} title="Điều chỉnh số lượng" description={actionName(adjustState.id)}>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Số lượng điều chỉnh (Delta)</label>
+                <label htmlFor="adjust-quantity" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Số lượng tăng hoặc giảm</label>
                 <input
+                  id="adjust-quantity"
                   type="number"
                   value={adjustState.delta}
                   onChange={(e) => setAdjustState({ ...adjustState, delta: parseInt(e.target.value, 10) || 0 })}
                   className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-sm focus:outline-none"
                   placeholder="Dùng số dương để nhập, số âm để xuất"
                 />
-                <span className="text-[10px] text-slate-450 mt-1 block">Sử dụng số dương để NHẬP KHO, số âm để GIẢM KHO.</span>
+                <span className="mt-1 block text-xs text-slate-600">Nhập số dương để tăng, số âm để giảm số lượng khả dụng.</span>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Lý do điều chỉnh</label>
+                <label htmlFor="adjust-note" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Lý do điều chỉnh</label>
                 <textarea
+                  id="adjust-note"
                   value={adjustState.note}
                   onChange={(e) => setAdjustState({ ...adjustState, note: e.target.value })}
                   rows={2}
@@ -647,9 +676,11 @@ const EquipmentsPage: React.FC = () => {
               </div>
 
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 mt-6">
+                {adjustMutation.isError && <p role="alert" className="mr-auto text-sm text-red-700">{mutationMessage(adjustMutation.error)}</p>}
                 <button
                   type="button"
-                  onClick={() => setAdjustState(null)}
+                  onClick={cancelAdjust}
+                  disabled={adjustMutation.isPending}
                   className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-55"
                 >
                   Hủy
@@ -664,24 +695,16 @@ const EquipmentsPage: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
-        </EquipmentModalLayer>
+        </EquipmentDialog>
       )}
 
       {brokenState?.isOpen && (
-        <EquipmentModalLayer>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-slate-950">Báo hỏng thiết bị</h3>
-              <button onClick={() => setBrokenState(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+        <EquipmentDialog open onClose={cancelDamage} busy={brokenMutation.isPending} title="Báo hỏng thiết bị" description={actionName(brokenState.id)}>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Số lượng báo hỏng</label>
+                <label htmlFor="damage-quantity" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Số lượng báo hỏng</label>
                 <input
+                  id="damage-quantity"
                   type="number"
                   value={brokenState.quantity}
                   onChange={(e) => setBrokenState({ ...brokenState, quantity: Math.max(1, parseInt(e.target.value, 10) || 1) })}
@@ -690,8 +713,9 @@ const EquipmentsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Nguồn báo hỏng</label>
+                <label htmlFor="damage-source" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Nguồn báo hỏng</label>
                 <select
+                  id="damage-source"
                   value={brokenState.from}
                   onChange={(e) => setBrokenState({ ...brokenState, from: e.target.value as 'AVAILABLE' | 'BORROWED' })}
                   className="mt-1 block w-full rounded-lg border border-slate-300 py-2 px-3 text-sm focus:outline-none"
@@ -702,8 +726,9 @@ const EquipmentsPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Mô tả sự cố / Lý do hỏng</label>
+                <label htmlFor="damage-note" className="block text-xs font-bold uppercase tracking-wider text-slate-500">Mô tả sự cố / Lý do hỏng</label>
                 <textarea
+                  id="damage-note"
                   value={brokenState.note}
                   onChange={(e) => setBrokenState({ ...brokenState, note: e.target.value })}
                   rows={2}
@@ -713,9 +738,11 @@ const EquipmentsPage: React.FC = () => {
               </div>
 
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 mt-6">
+                {brokenMutation.isError && <p role="alert" className="mr-auto text-sm text-red-700">{mutationMessage(brokenMutation.error)}</p>}
                 <button
                   type="button"
-                  onClick={() => setBrokenState(null)}
+                  onClick={cancelDamage}
+                  disabled={brokenMutation.isPending}
                   className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-55"
                 >
                   Hủy
@@ -724,71 +751,22 @@ const EquipmentsPage: React.FC = () => {
                   type="button"
                   disabled={brokenMutation.isPending}
                   onClick={() => brokenMutation.mutate({ id: brokenState.id, quantity: brokenState.quantity, from: brokenState.from, note: brokenState.note })}
-                  className="inline-flex items-center gap-2 rounded-lg bg-red-650 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition"
+                  className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition"
                 >
                   Báo hỏng
                 </button>
               </div>
             </div>
-          </div>
-        </EquipmentModalLayer>
+        </EquipmentDialog>
       )}
 
-      {txHistoryState?.isOpen && (
-        <EquipmentModalLayer>
-          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-slate-955">Lịch sử biến động kho: {txHistoryState.code}</h3>
-              <button onClick={() => setTxHistoryState(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {isTxLoading ? (
-              <div className="flex h-32 items-center justify-center">
-                <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
-              </div>
-            ) : !transactions || transactions.length === 0 ? (
-              <p className="text-sm text-slate-500 py-6 text-center">Chưa có giao dịch biến động nào được ghi nhận.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">Thời gian</th>
-                      <th className="px-4 py-3 font-semibold">Loại biến động</th>
-                      <th className="px-4 py-3 font-semibold">Thay đổi Tổng</th>
-                      <th className="px-4 py-3 font-semibold text-emerald-600">Thay đổi Có sẵn</th>
-                      <th className="px-4 py-3 font-semibold text-blue-600">Thay đổi Mượn</th>
-                      <th className="px-4 py-3 font-semibold text-red-500">Thay đổi Hỏng</th>
-                      <th className="px-4 py-3 font-semibold">Ghi chú</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {transactions.map((tx) => (
-                      <tr key={tx.id} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-3 font-mono text-slate-500">{new Date(tx.createdAt || '').toLocaleString('vi-VN')}</td>
-                        <td className="px-4 py-3 font-semibold text-slate-800">{tx.transactionType}</td>
-                        <td className="px-4 py-3 font-bold">{tx.deltaTotal > 0 ? `+${tx.deltaTotal}` : tx.deltaTotal}</td>
-                        <td className="px-4 py-3 font-bold text-emerald-600">{tx.deltaAvailable > 0 ? `+${tx.deltaAvailable}` : tx.deltaAvailable}</td>
-                        <td className="px-4 py-3 font-bold text-blue-600">{tx.deltaBorrowed > 0 ? `+${tx.deltaBorrowed}` : tx.deltaBorrowed}</td>
-                        <td className="px-4 py-3 font-bold text-red-500">{tx.deltaBroken > 0 ? `+${tx.deltaBroken}` : tx.deltaBroken}</td>
-                        <td className="px-4 py-3 text-slate-500 truncate max-w-[200px]">{tx.note || 'N/A'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </EquipmentModalLayer>
-      )}
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => {
           if (!open) {
             setDeleteTarget(null);
             setDeleteError(null);
+            finishAction();
           }
         }}
         title="Xóa thiết bị?"

@@ -121,7 +121,7 @@ function LoginForm() {
         <FitSsoSignIn returnTo={safeAuthRedirect(params.get("from"))} />
         <div className={`${styles.footer} flex flex-col gap-3`}>
           <Link className={styles.link} href="/register">
-            Đăng ký tài khoản SSO
+            Đăng ký tài khoản
           </Link>
           <Link className={styles.link} href="/login?local=admin">
             Tài khoản quản trị Lab

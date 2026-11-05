@@ -9,6 +9,7 @@ export function EquipmentDialog({
   title,
   description,
   busy = false,
+  wide = false,
   children,
 }: {
   open: boolean;
@@ -16,6 +17,7 @@ export function EquipmentDialog({
   title: string;
   description: string;
   busy?: boolean;
+  wide?: boolean;
   children: ReactNode;
 }) {
   const opener = useRef<HTMLElement | null>(null);
@@ -40,7 +42,7 @@ export function EquipmentDialog({
           onEscapeKeyDown={(event) => {
             if (busy) event.preventDefault();
           }}
-          className="fixed left-1/2 top-1/2 z-[101] m-0 flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl bg-white shadow-2xl focus:outline-none"
+          className={`fixed left-1/2 top-1/2 z-[101] m-0 flex max-h-[90dvh] w-[calc(100%-2rem)] ${wide ? "max-w-4xl" : "max-w-2xl"} -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl bg-white shadow-2xl focus:outline-none`}
         >
           <div className="border-b border-slate-200 px-6 py-5 pr-16">
             <Dialog.Title className="text-xl font-bold text-slate-950">

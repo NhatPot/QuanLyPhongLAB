@@ -448,7 +448,7 @@ export function BorrowingCatalog({
                       setEquipmentSearch(e.target.value);
                       setPage(1);
                     }}
-                    placeholder="Tìm tên hoặc mã thiết bị…"
+                    placeholder="Tìm tên thiết bị…"
                   />
                 </label>
                 <div className="mt-3 divide-y divide-slate-200">
@@ -460,9 +460,6 @@ export function BorrowingCatalog({
                       <div className="min-w-0 flex-1 basis-40 break-words">
                         <p className="font-semibold text-slate-950">
                           {item.name}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">
-                          {item.code} · {item.categoryName}
                         </p>
                         <p
                           className={`mt-1 text-sm ${item.availableQuantity ? "text-emerald-700" : "text-amber-800"}`}

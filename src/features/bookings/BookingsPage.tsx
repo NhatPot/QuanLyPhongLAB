@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -17,6 +17,7 @@ import {
 } from "@/services/booking-api";
 import { nearbyPeriod } from './LendingCatalog';
 import { BorrowingCatalog } from './BorrowingCatalog';
+import { EquipmentPicker } from './EquipmentPicker';
 import { useAuth } from "@/features/auth/AuthContext";
 import { DataTable, SortHeader } from "@/components/data-table/data-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -243,8 +244,6 @@ export default function BookingsPage() {
     },
     enabled: createOpen && canCreate && validPeriod,
   });
-  const availableEquipments = equipmentList?.data.filter(item => item.availableQuantity > 0) || [];
-  const equipmentCategoryName = new Map(equipmentList?.data.map(item => [item.categoryId, item.categoryName]) || []);
   const equipmentValues = watch("equipments");
   const selectedComputerIds = watch('computerIds') || [];
   const requestedEquipmentCount = equipmentValues.reduce(
@@ -603,7 +602,13 @@ export default function BookingsPage() {
       </Card>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent
+          className="grid-cols-1 max-h-[90vh] max-w-2xl overflow-y-auto"
+          onEscapeKeyDown={(event) => {
+            const active = document.activeElement;
+            if (active?.getAttribute("role") === "combobox" && active.getAttribute("aria-expanded") === "true") event.preventDefault();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Tạo yêu cầu sử dụng</DialogTitle>
             <DialogDescription>
@@ -612,7 +617,7 @@ export default function BookingsPage() {
           </DialogHeader>
           <form
             onSubmit={handleSubmit(submit)}
-            className="grid gap-4 sm:grid-cols-2"
+            className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2"
           >
             <div className="sm:col-span-2">
               <span className="mb-1.5 block text-xs font-bold text-slate-700">
@@ -716,10 +721,10 @@ export default function BookingsPage() {
               </div>
             </Field>
             <Field label="Bắt đầu" error={errors.startTime?.message}>
-              <Input type="datetime-local" {...register("startTime")} />
+              <Input type="datetime-local" className="min-w-0" {...register("startTime")} />
             </Field>
             <Field label="Kết thúc" error={errors.endTime?.message}>
-              <Input type="datetime-local" {...register("endTime")} />
+              <Input type="datetime-local" className="min-w-0" {...register("endTime")} />
             </Field>
             {bookingType !== "EQUIPMENT_ONLY" && (
               <Field label="Số người" error={errors.numberOfPeople?.message}>
@@ -740,7 +745,7 @@ export default function BookingsPage() {
               </Field>
             )}
             {(
-              <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-white p-4">
+              <div className="min-w-0 sm:col-span-2 rounded-xl border border-slate-200 bg-white p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-slate-900">{bookingType === "EQUIPMENT_ONLY" ? "Thiết bị đăng ký mượn" : "Thiết bị mượn kèm (tùy chọn)"}</p>
@@ -769,26 +774,24 @@ export default function BookingsPage() {
                   )}
                   {equipmentFields.fields.map((field, index) => (
                     <div key={field.id} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_130px_auto]">
-                      <label className="block">
-                        <span className="sr-only">Thiết bị dòng {index + 1}</span>
-                        <select
-                          {...register(`equipments.${index}.equipmentId`)}
-                          disabled={loadingEquipments}
-                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                        >
-                          <option value="">
-                            {loadingEquipments ? "Đang tải thiết bị..." : availableEquipments.length ? "Chọn thiết bị" : "Chưa có thiết bị khả dụng"}
-                          </option>
-                          {availableEquipments.map((equipment) => (
-                            <option key={equipment.id} value={equipment.id}>
-                              {equipmentCategoryName.get(equipment.categoryId) || "Khác"} · {equipment.code} · {equipment.name} (còn {equipment.availableQuantity})
-                            </option>
-                          ))}
-                        </select>
-                        {errors.equipments?.[index]?.equipmentId?.message && (
-                          <span className="mt-1 block text-[11px] text-red-600">{errors.equipments[index]?.equipmentId?.message}</span>
+                      <Controller
+                        control={control}
+                        name={`equipments.${index}.equipmentId`}
+                        render={({ field: picker }) => (
+                          <EquipmentPicker
+                            value={picker.value}
+                            onChange={picker.onChange}
+                            onBlur={picker.onBlur}
+                            inputRef={picker.ref}
+                            options={equipmentList?.data || []}
+                            validPeriod={validPeriod}
+                            loading={loadingEquipments}
+                            unavailable={!!equipmentError}
+                            label={`Thiết bị dòng ${index + 1}`}
+                            error={errors.equipments?.[index]?.equipmentId?.message}
+                          />
                         )}
-                      </label>
+                      />
                       <label className="block">
                         <span className="sr-only">Số lượng dòng {index + 1}</span>
                         <Input

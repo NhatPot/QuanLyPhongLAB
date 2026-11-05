@@ -5,7 +5,7 @@ import { authError } from "./AuthFields";
 import styles from "./auth-pages.module.css";
 export function FitSsoSignIn({
   returnTo = "/",
-  label = "Đăng nhập bằng FIT LHU SSO",
+  label = "Đăng nhập bằng FIT LHU",
 }: {
   returnTo?: string;
   label?: string;
